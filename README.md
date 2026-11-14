@@ -10,7 +10,7 @@ The knowledge skill produces an **Obsidian-compatible vault**, a JSON Canvas map
 
 | Category | Skill | What you get |
 | --- | --- | --- |
-| Knowledge | [project-knowledge](skills/project-knowledge/SKILL.md) | A linked map of capabilities, behavior, decisions, coverage and gaps; incremental review of Git changes. |
+| Knowledge | [project-knowledge](skills/project-knowledge/SKILL.md) | A linked map of capabilities, behavior, decisions, coverage and gaps; incremental Git review and reconciliation of concurrent vault updates. |
 | Quality | [spec-audit](skills/spec-audit/SKILL.md) | A scoped comparison of requirements and implementation, with evidence, priorities and next actions. |
 | Investigation | [spec-investigation](skills/spec-investigation/SKILL.md) | An answer to one question, competing explanations, checks actually performed and the smallest useful next check. |
 | Planning | [spec-plan](skills/spec-plan/SKILL.md) | A source-grounded implementation plan with dependencies, decision gates and observable acceptance criteria. |
@@ -115,6 +115,18 @@ Use $project-knowledge check to validate links and source freshness.
 The agent researches and writes the claims. The Python helpers validate structure, track source fingerprints and render views; running a helper alone does not understand your code. A scan identifies candidate changes. Accepting fingerprints and advancing a Git checkpoint happen only after review. See the [sync workflow](skills/project-knowledge/references/sync.md).
 
 This bundle installs no schedule or hooks and does not commit, push or synchronize other clones automatically. Share the Markdown, reviewed state and chosen skill version through your normal Git workflow. Personal Obsidian settings and local scan reports should stay ignored.
+
+### When two people update the vault
+
+```text
+Use $project-knowledge merge to reconcile our knowledge updates from main
+and teammate/knowledge. Preserve both contributors' useful notes and stable IDs,
+check overlapping claims against source, and report unresolved conflicts.
+```
+
+The agent compares the common base and both versions, combines supported changes, and retains unresolved claims with their provenance. A read-only inspector finds changed paths, overlaps and ID collisions. Reviewed fingerprints and Git checkpoints need explicit reconciliation; they are never made current by picking the newest JSON. Derived graphs are rebuilt from the resolved notes. See the [merge workflow](skills/project-knowledge/references/merge.md).
+
+Use separate branches/worktrees or one writer per note for concurrent work. The local finish lock protects bookkeeping, not simultaneous editing across computers. Merge is an agent workflow, not an automatic Git merge driver or a guarantee that contradictory prose can be resolved without a product decision.
 
 ## What the files mean
 

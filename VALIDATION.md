@@ -1,6 +1,6 @@
 # Release validation
 
-This file records observed checks for the initial release. The fictional worked reports under `examples/parcel-desk/reports/` illustrate output shapes; they are not transcripts of these independent evaluations.
+This file records observed checks for the toolkit and its concurrent-merge update. The fictional worked reports under `examples/parcel-desk/reports/` illustrate output shapes; they are not transcripts of these independent evaluations.
 
 ## Independent agent smoke tests
 
@@ -22,13 +22,21 @@ The first knowledge sync produced 12 pages and 52 links. After the final evidenc
 `python3 scripts/verify.py` passed locally on macOS with Python 3.14, including an invocation from outside the repository directory:
 
 - All four skill frontmatter entries and local Markdown links.
-- 33 knowledge helper tests, including changed-source freshness and incremental review safeguards. Regression cases reject local-only evidence, dirty excluded paths and changes hidden by Git index flags, without advancing fingerprints or the reviewed cursor; clean tracked evidence is accepted.
+- 43 knowledge helper tests, including changed-source freshness, incremental review safeguards and concurrent-merge inspection. Regression cases reject local-only evidence, dirty excluded paths and changes hidden by Git index flags, without advancing fingerprints or the reviewed cursor; clean tracked evidence is accepted.
 - 3 fictional application tests.
 - Strict example vault validation: 11 notes, 59 links, zero warnings.
 - Regenerated graph, HTML payload and Canvas match their shipped artifacts, ignoring only generation time.
 - Viewer JavaScript syntax, using the available Node executable, plus a focused DOM-stub check that bold text preserves nested wiki links, source links and code without interpreting raw HTML. The stub check does not independently test URL validation or replace browser observations.
 
 The skill-authoring validator also passed for all four skill folders. The portable verification command requires no installed skill-authoring tools. Node is optional and its syntax check reports `NOT RUN` when unavailable.
+
+## Concurrent merge validation
+
+A fresh Codex agent used the merge workflow on updates created in two separate local clones sharing a local bare remote. It resolved five textual conflicts, retained both contributors' useful handoffs, reconciled duplicate IDs through a canonical note and a superseded pointer, and preserved both email-policy proposals as an explicit conflict. Source, spec and tests were unchanged; both contributor tips remained in the integration history.
+
+The divergent reviewed-state proposals were replaced with the coherent common-base pair. After raw tracked-byte verification, only selected reviewed guard notes received accepted fingerprints. The shared cursor stayed at the common checkpoint. The final vault had 15 pages and 84 links with zero strict validation warnings; three existing fixture tests passed. The integration branch guard remained visible and shared `finish` was not run on that temporary branch. No remote push, browser or Obsidian GUI check was part of this merge evaluation. This verifies local two-clone reconciliation, not a hosted multi-user service or live simultaneous editing.
+
+Independent review also reproduced and verified fixes for bytecode writes during inspection and conflict-marker false negatives. Tests cover ordinary and configured marker widths, a conflict containing a standalone `<` line, and valid fenced operator text. The inspector denies Git transports and rejects partial/promisor configuration before object inspection; its tests use simulated configuration, not a live promisor remote. Snapshot checks compare the repository and a copied skill folder before and after inspection to verify no file changes. Marker detection covers complete labeled Git groups; custom unlabeled conflict formats still require manual/index inspection.
 
 ## Browser observations
 

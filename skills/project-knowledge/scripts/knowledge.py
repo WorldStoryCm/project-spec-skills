@@ -58,6 +58,23 @@ def prose(body):
     return '\n'.join(lines)
 
 
+def has_conflict_markers(content):
+    # Git emits labeled openers; keep candidates of different widths independent.
+    active = {}
+    for line in content.splitlines():
+        opener = re.fullmatch(r'(<+)[ \t]+\S.*', line)
+        if opener:
+            active.setdefault(len(opener.group(1)), set()).add(1)
+        for width, states in active.items():
+            if 1 in states and re.fullmatch(r'\|{' + str(width) + r'}(?:[ \t].*)?', line):
+                states.add(2)
+            if (1 in states or 2 in states) and line == '=' * width:
+                states.add(3)
+            if 3 in states and re.fullmatch(r'>{' + str(width) + r'}(?:[ \t].*)?', line):
+                return True
+    return False
+
+
 def load_vault(repo, vault, freshness=True):
     errors, warnings, notes = [], [], []
     baseline_file = vault / '.knowledge/sources.json'
@@ -79,6 +96,8 @@ def load_vault(repo, vault, freshness=True):
         try:
             safe_path(vault, rel)
             content = file.read_text(encoding='utf-8')
+            if has_conflict_markers(content):
+                raise ValueError('unresolved Git conflict markers')
             match = re.match(r'\A---\s*\n(.*?)\n---\s*(?:\n|$)', content, re.S)
             if not match:
                 raise ValueError('missing frontmatter')

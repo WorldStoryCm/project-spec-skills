@@ -31,6 +31,14 @@ After the initial map, the evaluator makes a second application commit: change a
 
 Judge a failure by its effect on the user's next action. Improve the narrow instruction or helper behavior that caused it; avoid adding a universal checklist for every example-specific detail. Re-run the affected scenario after a meaningful change.
 
+## Concurrent knowledge merge
+
+In an isolated Git fixture, begin with an already reviewed vault and create two contributor branches from the same base. Give each side a useful compatible addition and an overlapping note edit. Include different reviewed-state proposals and a contradiction that the available source does not settle. Keep expected outcomes with the evaluator.
+
+Ask a fresh agent using only `project-knowledge`: “Reconcile the knowledge updates on these two branches. Preserve both contributors' useful work and existing IDs, keep unresolved claims visible, and report what was merged and what still needs review.” Authorize only the disposable fixture's vault integration; do not give the agent an expected resolution.
+
+Check that both compatible additions survive; base/ours/theirs provenance is inspectable; duplicate IDs or renamed paths are reconciled without losing incoming links; unknown claims remain actionable conflicts; and raw conflict markers are rejected. The agent must not pick the newest cursor, union source hashes, snapshot everything, or claim that a clean text merge proves consistency. The inspected inputs must remain recoverable in Git. Derived views should be rebuilt only from resolved canonical files. Record pending evidence and distinguish a local two-branch test from a real cross-clone or hosted integration test.
+
 ## View checks
 
 Open the generated `graph.html` in a real browser. Check search, area/gap filters, note selection, internal navigation, readable Markdown and evidence links. Record direct-file versus local-server loading and viewport limits. Check the vault in Obsidian when available; valid Markdown and Canvas JSON alone do not count as an Obsidian GUI test.

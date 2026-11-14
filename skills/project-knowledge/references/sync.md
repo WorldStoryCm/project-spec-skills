@@ -6,12 +6,14 @@ Use this workflow for `sync`, a broad Git-based `update`, or an authorized sched
 
 - Canonical Markdown, `.knowledge/sources.json` and `.knowledge/review.json` travel with normal repository commits. The review file identifies the integrated branch and the last accounted-for commit. It is not a completeness score.
 - `.knowledge/sync-plan.json`, `.knowledge/sync-status.md` and `sync.html` are local generated reports. Ignore them in Git. They show what was observed at scan time, not a live watch of every keystroke.
-- Use the repository's portable skill bundle when present; otherwise the installed bundle. Resolve `SKILL_DIR`, `REPO` and `VAULT` in the commands below. Python 3.10+ and Git are sufficient.
+- Prefer the repository's portable skill bundle when it supports the requested workflow; otherwise announce the version mismatch and use a complete installed bundle. Keep one version throughout a merge and its subsequent sync. Resolve `SKILL_DIR`, `REPO` and `VAULT` in the commands below. Python 3.10+ and Git are sufficient.
 - No hooks, daemon, automatic commit/push, pull/reset or implicit timer installation. Other clones receive changes through their usual Git workflow. Installing the skill and running the timer on one computer does not install it for teammates.
 
 ## 1. Discover the range
 
 Read repository instructions and inspect current edits and task ownership. Start with a read-only scan:
+
+If multiple contributors updated the vault, first follow [the merge workflow](merge.md). `sync` reviews integrated application history; it does not reconcile competing note text, fingerprints or checkpoints by itself.
 
 ```sh
 python3 "$SKILL_DIR/scripts/maintain.py" scan --repo "$REPO" --vault "$VAULT" --json
@@ -77,6 +79,8 @@ python3 "$SKILL_DIR/scripts/maintain.py" finish --repo "$REPO" --vault "$VAULT" 
 ```
 
 The helper validates plan identity, checkout/target, source and note drift, and complete dispositions; locks writes; accepts only reviewed note fingerprints; validates/builds views; and writes the cursor last. Deferred applicable work keeps the interval pending. On drift or a held lock, inspect the new state and ownership rather than forcing it. The checks protect bookkeeping; the agent remains responsible for the claims.
+
+The lock applies to a local finish operation only. Concurrent note authors should use separate branches/worktrees or coordinate one writer per note, then explicitly merge their knowledge updates.
 
 After finishing, scan again for the local status. Report reviewed range, added/changed pages, pending or upstream scope, verification evidence, and the paths to `graph.html` and `sync.html`. A clear incremental queue still does not mean the whole repository has been researched.
 

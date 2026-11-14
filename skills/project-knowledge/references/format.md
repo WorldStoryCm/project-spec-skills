@@ -99,6 +99,8 @@ Data contract for the included HTML template:
 
 Extract prose wikilinks, excluding inline/fenced code examples. Resolve full vault paths and unique basenames; reject missing/ambiguous notes. Strip aliases and heading/block fragments when checking file existence; no claim to validate headings. Area membership also adds navigation edges. Label this as a knowledge/coverage map, not a runtime dependency graph.
 
+Canonical Markdown must not contain raw merge conflicts. Validation rejects complete Git groups with a labeled opening marker, matching marker widths (including configured widths), and an optional diff3 base section, even inside code fences. Unlabeled/custom conflict formats are outside this detector; also inspect unresolved Git index entries. A deliberate `status: "conflict"` note containing attributed claims and next actions is valid; that status does not itself resolve the claims or authorize accepting their fingerprints. See [concurrent merges](merge.md).
+
 `assets/viewer.html` has exactly one `__KNOWLEDGE_DATA__` placeholder for script-safe JSON. Treat contents as untrusted text: no raw Markdown HTML execution, unsafe URL schemes, external scripts/fonts/analytics/fetches. Render readable basic Markdown and wikilinks; leave unsupported syntax as text. Canvas uses valid JSON Canvas 1.0 file nodes (vault-relative paths) and edges. Generated filenames are reserved; preserve manual changes separately before rebuilding.
 
 ## Format references

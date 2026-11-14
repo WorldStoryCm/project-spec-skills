@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -128,6 +129,81 @@ class KnowledgeTests(unittest.TestCase):
             with self.subTest(args=args), self.assertRaises(SystemExit) as exc:
                 self.run_cli(*args)
             self.assertEqual(exc.exception.code, 2)
+
+    def test_conflict_groups_block_all_commands_but_prose_is_valid(self):
+        self.note('notes/n.md', 'n', sources=['source.txt'], body='> quoted\n=======\n> still quoted')
+        self.assertEqual(self.run_cli('check')[0], 0)
+        path = self.vault / 'notes/n.md'
+        path.write_text(path.read_text().replace('status: "current"', 'status: "conflict"'))
+        self.assertEqual(self.run_cli('check')[0], 0)
+        for group in ('<<<<<<< ours\nleft\n=======\nright\n>>>>>>> theirs',
+                      '```\n<<<<<<< ours\nleft\n||||||| base\nbase\n=======\nright\n>>>>>>> theirs\n```'):
+            self.note('notes/n.md', 'n', sources=['source.txt'], body=group)
+            for args in (('check',), ('snapshot', '--all'), ('build',)):
+                with self.subTest(group=group, args=args):
+                    status, _, err = self.run_cli(*args)
+                    self.assertEqual(status, 1)
+                    self.assertIn('unresolved Git conflict markers', err)
+            self.assertFalse((self.vault / '.knowledge/sources.json').exists())
+            self.assertFalse((self.vault / 'graph.html').exists())
+
+    def test_real_git_conflict_with_custom_width(self):
+        def git(*args, check=True):
+            return subprocess.run(['git', '-C', str(self.root), *args], capture_output=True, text=True, check=check)
+        # The vault is inside a disposable repository for a real Git merge.
+        git('init', '-b', 'main')
+        git('config', 'user.email', 'test@example.invalid')
+        git('config', 'user.name', 'Test')
+        (self.root / '.gitattributes').write_text('vault/notes/n.md conflict-marker-size=5\n')
+        git('add', '.')
+        git('commit', '-m', 'base')
+        git('checkout', '-b', 'other')
+        self.note('notes/n.md', 'n', sources=['source.txt'], body='other change')
+        git('commit', '-am', 'other')
+        git('checkout', 'main')
+        self.note('notes/n.md', 'n', sources=['source.txt'], body='main change')
+        git('commit', '-am', 'main')
+        self.assertNotEqual(git('merge', 'other', check=False).returncode, 0)
+        content = (self.vault / 'notes/n.md').read_text()
+        self.assertIn('<<<<< HEAD', content)
+        self.assertIn('=====\n', content)
+        self.assertIn('>>>>> other', content)
+        for args in (('check',), ('snapshot', '--all'), ('build',)):
+            with self.subTest(args=args):
+                status, _, err = self.run_cli(*args)
+                self.assertEqual(status, 1)
+                self.assertIn('unresolved Git conflict markers', err)
+        self.assertFalse((self.vault / '.knowledge/sources.json').exists())
+        self.assertFalse((self.vault / 'graph.html').exists())
+        self.assertFalse(k.has_conflict_markers('> quoted\n=====\n> another quote'))
+        self.assertFalse(k.has_conflict_markers('<<<<< ours\n=====\n>>>>>> theirs'))
+
+    def test_real_default_conflict_with_operator_content(self):
+        def git(*args, check=True):
+            return subprocess.run(['git', '-C', str(self.root), *args], capture_output=True, text=True, check=check)
+        git('init', '-b', 'main')
+        git('config', 'user.email', 'test@example.invalid')
+        git('config', 'user.name', 'Test')
+        self.note('notes/n.md', 'n', sources=['source.txt'], body='base side')
+        git('add', '.')
+        git('commit', '-m', 'base')
+        git('checkout', '-b', 'other')
+        self.note('notes/n.md', 'n', sources=['source.txt'], body='<\nright side')
+        git('commit', '-am', 'other')
+        git('checkout', 'main')
+        self.note('notes/n.md', 'n', sources=['source.txt'], body='left side')
+        git('commit', '-am', 'main')
+        git('checkout', 'other')
+        self.assertNotEqual(git('merge', 'main', check=False).returncode, 0)
+        content = (self.vault / 'notes/n.md').read_text()
+        self.assertIn('<<<<<<< HEAD\n<\nright side', content)
+        self.assertTrue(k.has_conflict_markers(content))
+        for args in (('check',), ('snapshot', '--all'), ('build',)):
+            status, _, err = self.run_cli(*args)
+            self.assertEqual(status, 1, args)
+            self.assertIn('unresolved Git conflict markers', err)
+        self.assertFalse(k.has_conflict_markers('```\n<\n=\n>\n```'))
+        self.assertTrue(k.has_conflict_markers('<<<<<<< HEAD\n< nested\n=======\nx\n>>>>>>> main'))
 
     def test_snapshot_freshness_and_build(self):
         self.assertEqual(self.run_cli('snapshot', '--all')[0], 0)
