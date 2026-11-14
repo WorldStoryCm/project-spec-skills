@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Knowledge Graph"
+  short_description: "Research a project and maintain its Obsidian knowledge graph"
+  default_prompt: "Use $project-knowledge to research the current project and create an English linked knowledge base with a map of remaining gaps. Run manually; do not set up a schedule."

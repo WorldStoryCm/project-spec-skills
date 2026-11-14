@@ -1,0 +1,4 @@
+interface:
+  display_name: "Spec Plan"
+  short_description: "Plan a change with observable acceptance checks"
+  default_prompt: "Use $spec-plan to plan this change with source anchors, decision gates, and acceptance criteria."

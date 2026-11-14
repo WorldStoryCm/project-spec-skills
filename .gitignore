@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.DS_Store
+.obsidian/
+.trash/
+**/.knowledge/sync-plan.json
+**/.knowledge/sync-status.md
+**/.knowledge/sync.lock
+**/.knowledge/*-review.json
+sync.html
+.env
+.env.*

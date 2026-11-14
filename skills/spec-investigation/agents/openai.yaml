@@ -1,0 +1,4 @@
+interface:
+  display_name: "Spec Investigation"
+  short_description: "Trace one behavior or discrepancy to evidence"
+  default_prompt: "Use $spec-investigation to answer this behavior question, citing what you checked and what remains unresolved."

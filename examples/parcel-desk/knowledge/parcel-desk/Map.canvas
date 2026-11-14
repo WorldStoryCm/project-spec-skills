@@ -1,0 +1,400 @@
+{
+  "nodes": [
+    {
+      "id": "index",
+      "type": "file",
+      "file": "00-index.md",
+      "x": 0,
+      "y": 0,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "coverage",
+      "type": "file",
+      "file": "01-coverage.md",
+      "x": 340,
+      "y": 0,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "example-survey",
+      "type": "file",
+      "file": "runs/example-survey.md",
+      "x": 680,
+      "y": 0,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "access",
+      "type": "file",
+      "file": "areas/access.md",
+      "x": 0,
+      "y": 320,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "deployment-evidence",
+      "type": "file",
+      "file": "gaps/deployment-evidence.md",
+      "x": 340,
+      "y": 320,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "partner-decision",
+      "type": "file",
+      "file": "gaps/partner-decision.md",
+      "x": 680,
+      "y": 320,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "ownership-check",
+      "type": "file",
+      "file": "notes/ownership-check.md",
+      "x": 1020,
+      "y": 320,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "pickups",
+      "type": "file",
+      "file": "areas/pickups.md",
+      "x": 0,
+      "y": 640,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "packed-cancellation",
+      "type": "file",
+      "file": "gaps/packed-cancellation.md",
+      "x": 340,
+      "y": 640,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "cancellation-boundary",
+      "type": "file",
+      "file": "notes/cancellation-boundary.md",
+      "x": 680,
+      "y": 640,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "route-responses",
+      "type": "file",
+      "file": "notes/route-responses.md",
+      "x": 1020,
+      "y": 640,
+      "width": 300,
+      "height": 200
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0",
+      "fromNode": "access",
+      "toNode": "deployment-evidence"
+    },
+    {
+      "id": "e1",
+      "fromNode": "access",
+      "toNode": "ownership-check"
+    },
+    {
+      "id": "e2",
+      "fromNode": "access",
+      "toNode": "partner-decision"
+    },
+    {
+      "id": "e3",
+      "fromNode": "access",
+      "toNode": "pickups"
+    },
+    {
+      "id": "e4",
+      "fromNode": "access",
+      "toNode": "route-responses"
+    },
+    {
+      "id": "e5",
+      "fromNode": "cancellation-boundary",
+      "toNode": "coverage"
+    },
+    {
+      "id": "e6",
+      "fromNode": "cancellation-boundary",
+      "toNode": "ownership-check"
+    },
+    {
+      "id": "e7",
+      "fromNode": "cancellation-boundary",
+      "toNode": "packed-cancellation"
+    },
+    {
+      "id": "e8",
+      "fromNode": "cancellation-boundary",
+      "toNode": "pickups"
+    },
+    {
+      "id": "e9",
+      "fromNode": "cancellation-boundary",
+      "toNode": "route-responses"
+    },
+    {
+      "id": "e10",
+      "fromNode": "coverage",
+      "toNode": "access"
+    },
+    {
+      "id": "e11",
+      "fromNode": "coverage",
+      "toNode": "deployment-evidence"
+    },
+    {
+      "id": "e12",
+      "fromNode": "coverage",
+      "toNode": "index"
+    },
+    {
+      "id": "e13",
+      "fromNode": "coverage",
+      "toNode": "packed-cancellation"
+    },
+    {
+      "id": "e14",
+      "fromNode": "coverage",
+      "toNode": "pickups"
+    },
+    {
+      "id": "e15",
+      "fromNode": "deployment-evidence",
+      "toNode": "access"
+    },
+    {
+      "id": "e16",
+      "fromNode": "deployment-evidence",
+      "toNode": "coverage"
+    },
+    {
+      "id": "e17",
+      "fromNode": "deployment-evidence",
+      "toNode": "ownership-check"
+    },
+    {
+      "id": "e18",
+      "fromNode": "deployment-evidence",
+      "toNode": "pickups"
+    },
+    {
+      "id": "e19",
+      "fromNode": "deployment-evidence",
+      "toNode": "route-responses"
+    },
+    {
+      "id": "e20",
+      "fromNode": "example-survey",
+      "toNode": "access"
+    },
+    {
+      "id": "e21",
+      "fromNode": "example-survey",
+      "toNode": "coverage"
+    },
+    {
+      "id": "e22",
+      "fromNode": "example-survey",
+      "toNode": "index"
+    },
+    {
+      "id": "e23",
+      "fromNode": "example-survey",
+      "toNode": "pickups"
+    },
+    {
+      "id": "e24",
+      "fromNode": "index",
+      "toNode": "access"
+    },
+    {
+      "id": "e25",
+      "fromNode": "index",
+      "toNode": "cancellation-boundary"
+    },
+    {
+      "id": "e26",
+      "fromNode": "index",
+      "toNode": "coverage"
+    },
+    {
+      "id": "e27",
+      "fromNode": "index",
+      "toNode": "deployment-evidence"
+    },
+    {
+      "id": "e28",
+      "fromNode": "index",
+      "toNode": "example-survey"
+    },
+    {
+      "id": "e29",
+      "fromNode": "index",
+      "toNode": "ownership-check"
+    },
+    {
+      "id": "e30",
+      "fromNode": "index",
+      "toNode": "packed-cancellation"
+    },
+    {
+      "id": "e31",
+      "fromNode": "index",
+      "toNode": "partner-decision"
+    },
+    {
+      "id": "e32",
+      "fromNode": "index",
+      "toNode": "pickups"
+    },
+    {
+      "id": "e33",
+      "fromNode": "index",
+      "toNode": "route-responses"
+    },
+    {
+      "id": "e34",
+      "fromNode": "ownership-check",
+      "toNode": "access"
+    },
+    {
+      "id": "e35",
+      "fromNode": "ownership-check",
+      "toNode": "cancellation-boundary"
+    },
+    {
+      "id": "e36",
+      "fromNode": "ownership-check",
+      "toNode": "deployment-evidence"
+    },
+    {
+      "id": "e37",
+      "fromNode": "ownership-check",
+      "toNode": "partner-decision"
+    },
+    {
+      "id": "e38",
+      "fromNode": "ownership-check",
+      "toNode": "pickups"
+    },
+    {
+      "id": "e39",
+      "fromNode": "packed-cancellation",
+      "toNode": "cancellation-boundary"
+    },
+    {
+      "id": "e40",
+      "fromNode": "packed-cancellation",
+      "toNode": "partner-decision"
+    },
+    {
+      "id": "e41",
+      "fromNode": "packed-cancellation",
+      "toNode": "pickups"
+    },
+    {
+      "id": "e42",
+      "fromNode": "packed-cancellation",
+      "toNode": "route-responses"
+    },
+    {
+      "id": "e43",
+      "fromNode": "partner-decision",
+      "toNode": "access"
+    },
+    {
+      "id": "e44",
+      "fromNode": "partner-decision",
+      "toNode": "ownership-check"
+    },
+    {
+      "id": "e45",
+      "fromNode": "partner-decision",
+      "toNode": "packed-cancellation"
+    },
+    {
+      "id": "e46",
+      "fromNode": "partner-decision",
+      "toNode": "pickups"
+    },
+    {
+      "id": "e47",
+      "fromNode": "pickups",
+      "toNode": "access"
+    },
+    {
+      "id": "e48",
+      "fromNode": "pickups",
+      "toNode": "cancellation-boundary"
+    },
+    {
+      "id": "e49",
+      "fromNode": "pickups",
+      "toNode": "deployment-evidence"
+    },
+    {
+      "id": "e50",
+      "fromNode": "pickups",
+      "toNode": "ownership-check"
+    },
+    {
+      "id": "e51",
+      "fromNode": "pickups",
+      "toNode": "packed-cancellation"
+    },
+    {
+      "id": "e52",
+      "fromNode": "pickups",
+      "toNode": "partner-decision"
+    },
+    {
+      "id": "e53",
+      "fromNode": "pickups",
+      "toNode": "route-responses"
+    },
+    {
+      "id": "e54",
+      "fromNode": "route-responses",
+      "toNode": "cancellation-boundary"
+    },
+    {
+      "id": "e55",
+      "fromNode": "route-responses",
+      "toNode": "deployment-evidence"
+    },
+    {
+      "id": "e56",
+      "fromNode": "route-responses",
+      "toNode": "ownership-check"
+    },
+    {
+      "id": "e57",
+      "fromNode": "route-responses",
+      "toNode": "packed-cancellation"
+    },
+    {
+      "id": "e58",
+      "fromNode": "route-responses",
+      "toNode": "pickups"
+    }
+  ]
+}
