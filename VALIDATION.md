@@ -1,5 +1,16 @@
 # Release validation
 
+## 2026-11-15: first real use, and fixes since
+
+Observed facts, with their limits:
+
+- The spec/gap format was used for a real migration, and then for a first sync, of a 99-page vault in another project. The structural check of the migrated vault finished with no errors.
+- `maintain.py finish` could not advance the checkpoint, because another contributor had uncommitted edits to files the range touched. The documented `deferred` disposition was not accepted by the helper at that time.
+- That use exposed eight problems: `deferred` could not be used; strict `check` could not pass while someone else's work was uncommitted; a vault commit made during a pending range moved the scan target; `receipt` cleared dispositions without saying so; the recheck values read as "the defect was reproduced", which left proposal and research gaps without an honest route to `needs-decision`; one frontmatter error produced many misleading "missing wikilink" errors; `snapshot --notes` was blocked by unrelated errors; and nothing said how `done` and a recheck relate.
+- The fixes in this change (partial finish, `check --strict --ignore-dirty`, clearer target and receipt messages, one meaning of recheck for every gap kind, link registration for pages with errors, `snapshot --notes` on selected pages, the rule for closing a gap as done, a migration guide) have automated tests. No fresh agent has yet been run with the changed instructions, and the migrated vault has not been re-synced with them.
+
+This is one project, one vault and one contributor setup. It shows that the format could be applied and which things went wrong; it is not a measure of how reliably an agent will follow the changed instructions.
+
 ## 2026-11-15: spec/gap split, not yet revalidated
 
 The vault format, validator, viewer and skill instructions changed to separate the as-built spec from a per-item gap layer (new `gap` properties, `plan` pages, generated `AS-BUILT.md` and `GAPS.md`, new `maintain.py receipt`, merge rules for gap pages). Every observation recorded below was made on the **previous** version. The agent smoke tests, the concurrent merge evaluation and the browser observations have **NOT been rerun** against the new format, and nothing below should be read as a result for it. The example vault's Markdown was migrated by hand and its generated artifacts are regenerated separately. Rerun `python3 scripts/verify.py` and the scenarios in [the evaluation guide](docs/evaluation.md) before relying on this release.

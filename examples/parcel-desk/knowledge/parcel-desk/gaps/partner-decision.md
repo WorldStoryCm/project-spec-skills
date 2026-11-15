@@ -32,7 +32,7 @@ DEC-1 in [the requirements](../../../SPEC.md) leaves partner cancellation undeci
 
 ## Recheck
 
-2026-11-15, agent: re-read [SPEC.md](../../../SPEC.md) and [routes.py](../../../src/routes.py) (static only). DEC-1 is still undecided in the requirements and the adapter still has no partner path, so the description above holds. No command was run.
+2026-11-15, agent: re-read [SPEC.md](../../../SPEC.md) and [routes.py](../../../src/routes.py) (static only). DEC-1 is still undecided in the requirements and the adapter still has no partner path, so the description above still holds (confirmed). The proposal itself is not judged here; that is for the person deciding. No command was run.
 
 ## Discussion
 

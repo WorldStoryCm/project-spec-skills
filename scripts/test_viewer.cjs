@@ -165,7 +165,7 @@ const sample = {
   assert.ok(cls(facts).includes('st-accepted'));
   assert.ok(facts.textContent.includes('Accepted'), 'state badge text, not color only');
   assert.ok(facts.textContent.includes('Decision') && facts.textContent.includes('by Ann on 2026-11-10'));
-  assert.ok(facts.textContent.includes('Recheck') && facts.textContent.includes('Confirmed by Bob on 2026-11-08'));
+  assert.ok(facts.textContent.includes('Recheck') && facts.textContent.includes('Confirmed (still holds) by Bob on 2026-11-08'));
   const links = findAll(v.q('#detail'), e => cls(e).includes('link-block')).map(e => e.textContent);
   assert.ok(links.some(t => t.startsWith('Refers to') && t.includes('Note A')), links.join('|'));
   assert.ok(links.some(t => t.startsWith('Plan') && t.includes('Plan A')), links.join('|'));
@@ -221,9 +221,27 @@ const sample = {
   assert.ok(badgeText(fb));
   v.open('Gap flagged');
   fb = findAll(v.q('#detail'), e => cls(e).includes('gap-facts'))[0].textContent;
-  assert.ok(fb.includes('Confirmed by Eve on 2026-10-02') && badgeText(fb), fb);
+  assert.ok(fb.includes('Confirmed (still holds) by Eve on 2026-10-02') && badgeText(fb), fb);
   v.open('Gap recheck');
   assert.ok(!badgeText(findAll(v.q('#detail'), e => cls(e).includes('gap-facts'))[0].textContent));
+
+  // recheck wording is the same for every kind, incl. a product-plan gap
+  v.open('Gap deferred');
+  assert.ok(findAll(v.q('#detail'), e => cls(e).includes('gap-facts'))[0].textContent.includes('Product plan'));
+  v.open('Gap derived');
+  assert.ok(findAll(v.q('#detail'), e => cls(e).includes('gap-facts'))[0].textContent.includes('Not reproduced (no longer holds) by Cy on 2026-11-09'));
+  // explanation for the waiting states: chip titles + hint line for the selected chip
+  assert.ok(v.stateButton('Needs recheck').attrs.title === undefined && v.stateButton('Needs recheck').title.includes('confirm'));
+  assert.ok(v.stateButton('Needs decision').title.includes('accept, reject or defer'));
+  assert.equal(v.stateButton('Accepted').title, undefined);
+  assert.equal(v.q('#state-hint').hidden, true);
+  v.stateButton('Needs decision').click();
+  assert.equal(v.q('#state-hint').hidden, false);
+  assert.ok(v.q('#state-hint').textContent.includes('waiting for a person'));
+  v.stateButton('Needs recheck').click();
+  assert.ok(v.q('#state-hint').textContent.includes('current code'));
+  v.stateButton('All').click();
+  assert.equal(v.q('#state-hint').hidden, true);
 
   // state filter + pressed state
   v.stateButton('Needs decision').click();
@@ -259,6 +277,20 @@ const sample = {
   assert.equal(v.mode(), 'spec');
   assert.ok(!v.graphLabels().some(l => l.startsWith('Gap ') || l.startsWith('Plan')));
   assert.equal(v.q('#nav-block').hidden, true);
+}
+
+// --- recheck wording on a product-plan gap --------------------------------
+{
+  const v = load({ nodes: [
+    gap('pp', 'Proposal', { kind: 'product-plan', recheck: 'confirmed', recheckedBy: 'Ann', recheckedOn: '2026-11-14' }),
+    gap('kg', 'Research', { kind: 'knowledge-gap', recheck: 'not-reproduced', recheckedBy: 'agent', recheckedOn: '2026-11-14' }),
+    gap('nc', 'Unchecked', { kind: 'product-plan' }),
+  ], edges: [] });
+  v.q('#mode-gaps').click();
+  const facts = t => { v.open(t); return findAll(v.q('#detail'), e => cls(e).includes('gap-facts'))[0].textContent; };
+  assert.ok(facts('Proposal').includes('Confirmed (still holds) by Ann on 2026-11-14'));
+  assert.ok(facts('Research').includes('Not reproduced (no longer holds) by agent on 2026-11-14'));
+  assert.ok(facts('Unchecked').includes('Not checked'));
 }
 
 // --- jumping to a gap clears hiding filters --------------------------------

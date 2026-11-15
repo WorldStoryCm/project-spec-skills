@@ -821,6 +821,7 @@
         <div id="panel-gaps" hidden>
           <div class="section-label">State</div>
           <div class="filters state-filters" id="state-filters" role="group" aria-label="Filter gaps by state"></div>
+          <p class="subtle hintline" id="state-hint" hidden></p>
           <div class="section-label">Kind</div>
           <select id="kind" aria-label="Kind">
             <option value="">All kinds</option>
@@ -938,10 +939,16 @@
           done: "Done",
           duplicate: "Duplicate",
         };
+        const stateHints = {
+          "needs-recheck":
+            "Someone has to confirm that the page's description of the current code is still right.",
+          "needs-decision":
+            "Rechecked; waiting for a person to accept, reject or defer.",
+        };
         const recheckLabels = {
           "not-checked": "Not checked",
-          confirmed: "Confirmed",
-          "not-reproduced": "Not reproduced",
+          confirmed: "Confirmed (still holds)",
+          "not-reproduced": "Not reproduced (no longer holds)",
           outdated: "Outdated",
         };
         // model:start
@@ -1060,6 +1067,7 @@
           );
           const n = el("span", "0", "n");
           b.append(n);
+          if (stateHints[s]) b.title = stateHints[s];
           b.addEventListener("click", () => setGapState(s));
           $("#state-filters").append(b);
           return [s, b, n];
@@ -1522,6 +1530,9 @@
           specFilters.forEach(([f, b]) =>
             b.setAttribute("aria-pressed", String(filter === f)),
           );
+          const hint = $("#state-hint");
+          hint.textContent = stateHints[gapState] || "";
+          hint.hidden = !stateHints[gapState];
           const pool = gapPool();
           stateButtons.forEach(([s, b, n]) => {
             b.setAttribute("aria-pressed", String(gapState === s));

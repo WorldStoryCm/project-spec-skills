@@ -20,7 +20,7 @@ A gap must not have `status`; its progress is carried by `recheck` and `decision
 | --- | --- | --- |
 | `type` | always | `"gap"` |
 | `kind` | always | one of `product-gap` (accepted requirement missing or unmet), `verification-gap` (behavior exists but evidence is missing), `product-plan` (a proposal or open product choice), `conflict` (credible sources disagree), `knowledge-gap` (something is unexplained or undocumented) |
-| `recheck` | always | `not-checked`, `confirmed`, `not-reproduced`, `outdated` (the cited sources changed after the last recorded recheck) |
+| `recheck` | always | `not-checked`, `confirmed` (still holds), `not-reproduced` (no longer holds), `outdated` (the cited sources changed after the last recorded recheck); see [What a recheck means](#what-a-recheck-means) |
 | `rechecked_by` | when `recheck` is not `not-checked` | a person's name, or `agent`; an agent always writes `agent`, and a person's name appears only when that person ran the check and said so |
 | `rechecked_on` | when `recheck` is not `not-checked` | `YYYY-MM-DD` |
 | `decision` | always | `open`, `accepted`, `rejected`, `deferred`, `done`, `duplicate` |
@@ -48,6 +48,25 @@ Every gap has exactly these `##` headings, once each (order does not matter). A 
 
 When `recheck` is not `not-checked`, the Recheck section must have text; when `decision` is not `open`, so must Decision.
 
+## What a recheck means
+
+A recheck asks one question of every gap, whatever its kind: **does the page's `Current behavior` section still describe the code?** It is not a verdict on the gap's worth. The reason to ask is that a person decides on the gap only after someone has confirmed the page still describes reality, and that needs to be possible for proposals and research questions too, not only for defects.
+
+- `confirmed` ("confirmed (still holds)"): yes. What `Current behavior` says, including what it says is absent, is what the code does now.
+- `not-reproduced` ("not reproduced (no longer holds)"): no. The code no longer matches the description: the capability exists, the defect is gone, the sources stopped disagreeing. The usual next step is `decision: "done"`, or rewriting the gap around what is true now.
+
+What that means for each kind:
+
+| Kind | `confirmed` (still holds) | `not-reproduced` (no longer holds) |
+| --- | --- | --- |
+| `product-gap` | The requirement is still unmet: the code does not do what it asks for. | The code now meets the requirement, or the defect cannot be reproduced. |
+| `verification-gap` | The behavior is as described and the evidence is still missing. | Evidence now exists (a test, a run, a log), or the behavior differs from the description. |
+| `product-plan` | The proposed capability is still absent and nothing already implements it. | Something in the code now does what was proposed. |
+| `conflict` | Both sources still say what the page says, and they still disagree. | One source changed or the claims no longer clash. |
+| `knowledge-gap` | The thing is still unexplained or undocumented: no code, comment or document answers it. | The code or a source now answers the question. |
+
+A recheck never judges whether a proposal is worth doing, whether a requirement is right or which side of a conflict should win. That is the person's decision, made afterwards. For a proposal or a research question the recheck is usually quick, for example reading the code to confirm the capability is absent, and it is still required: without it the gap stays in `needs-recheck` and cannot reach `needs-decision`. Write what you read in `Recheck` so the person can see the page was checked, not assumed.
+
 ## Discussion entries
 
 One bullet per entry, oldest first, never edited or removed afterwards:
@@ -65,11 +84,15 @@ Use `agent` as the name for entries you write yourself. Layout of options, objec
 | New gap: `kind`, `recheck: "not-checked"`, `decision: "open"`, optional `priority`/`confidence` | The agent that found it |
 | `recheck`, `rechecked_by`, `rechecked_on`, `Recheck` text | Whoever actually performed the check; an agent writes `agent` only for a check it ran itself, with its commands and results. An agent may also set `recheck: "outdated"` when a cited source changed since the recorded recheck, keeping the other two fields |
 | `decision: accepted`, `rejected`, `deferred` with `decided_by`, `decided_on` | A person only. An agent writes it only when a person said so in the conversation, and records that person's name |
-| `decision: done` | An agent may set it after reading current code that closes the question; it cites where in `Decision` |
+| `decision: done` | An agent may set it after reading current code that closes the question; it cites where in `Decision` and records that reading as a recheck (see below). A person closing a gap as done puts their name in `rechecked_by` |
 | `decision: duplicate`, `duplicate_of` | Agent or person (bookkeeping) |
 | `Discussion` | Anyone, by appending |
 
 Never guess a decision from silence, from a plan existing, or from a task being created. If it is unclear whether a person decided, leave `open` and ask in `Discussion`.
+
+## Closing a gap as done
+
+When an agent sets `decision: "done"` because it read (or ran) the current code and the gap no longer holds, that reading is itself a recheck, and the page should say so. In the same edit record `recheck: "not-reproduced"`, `rechecked_by: "agent"`, today's `rechecked_on`, and add a dated entry to `Recheck` saying what was read or run. In `Decision`, say where in the code the question is now closed. The two sections answer different questions: `Recheck` is how you know it no longer holds, `Decision` is where the code does it. Without the recheck fields a closed gap looks as if nobody ever looked at the code. When a person closes a gap as done, their name goes in `rechecked_by`, not `agent`. If you are not sure the question is closed, leave it open.
 
 ## Derived state
 
@@ -80,6 +103,8 @@ Computed by the helper, never written into Markdown:
 | `open` | `not-checked` or `outdated` | `needs-recheck` |
 | `open` | `confirmed` or `not-reproduced` | `needs-decision` |
 | anything else | any | the `decision` value |
+
+Every open gap passes through a recheck before `needs-decision`, including proposals (`product-plan`) and research questions (`knowledge-gap`). Rechecking a proposal means confirming the capability is still absent, not judging the proposal.
 
 ## Example gap page (illustrative)
 
@@ -117,7 +142,7 @@ Customers with a temporary mail outage never receive the invoice. Should the mai
 
 ## Recheck
 
-2026-11-15, Dana Ruiz: reproduced with a stubbed transport that raises on the first call; the invoice stays unsent and one error is logged. Confirmed.
+2026-11-15, Dana Ruiz: re-read `send_invoice` and ran it against a stubbed transport that raises on the first call; the invoice stays unsent, one error is logged and nothing schedules a second attempt. No queue or retry code exists elsewhere in `src/billing/`. Confirmed (still holds): the capability is absent. Whether to add it is the open question below.
 
 ## Discussion
 

@@ -14,10 +14,10 @@ Derived state: needs-recheck (open and not rechecked, or recheck outdated), need
 
 | Gap | Kind | Areas | Recheck | Decision | Priority | Plan |
 | --- | --- | --- | --- | --- | --- | --- |
-| [[gaps/partner-decision\|Should a delivery partner be able to cancel on a customer's behalf?]] | product-plan | Customer access, Pickup cancellation | confirmed (agent, 2026-11-15) | open | low | - |
+| [[gaps/partner-decision\|Should a delivery partner be able to cancel on a customer's behalf?]] | product-plan | Customer access, Pickup cancellation | confirmed (still holds) (agent, 2026-11-15) | open | low | - |
 
 ## accepted
 
 | Gap | Kind | Areas | Recheck | Decision | Priority | Plan |
 | --- | --- | --- | --- | --- | --- | --- |
-| [[gaps/packed-cancellation\|Should a customer be able to cancel their own packed pickup?]] | product-gap | Pickup cancellation | confirmed (Tomas Brandt, 2026-11-15) | accepted (Priya Nair, 2026-11-15) | high | [[plans/packed-cancellation\|Plan: allow the owner to cancel a packed pickup]] |
+| [[gaps/packed-cancellation\|Should a customer be able to cancel their own packed pickup?]] | product-gap | Pickup cancellation | confirmed (still holds) (Tomas Brandt, 2026-11-15) | accepted (Priya Nair, 2026-11-15) | high | [[plans/packed-cancellation\|Plan: allow the owner to cancel a packed pickup]] |

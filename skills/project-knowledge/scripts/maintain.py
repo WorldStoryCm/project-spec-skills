@@ -58,6 +58,31 @@ def relevant(path, vault_rel):
     return bool(parts) and not bundle_metadata and not knowledge.credential_path(path) and not (path == vault_rel or path.startswith(vault_rel + '/')) and not (path == 'knowledge/tooling/project-knowledge' or path.startswith('knowledge/tooling/project-knowledge/')) and not any(knowledge.fold(x) in {'.git', 'node_modules', '.next', 'dist', 'build', 'coverage', '__pycache__'} for x in parts)
 
 
+def housekeeping(path, vault_rel):
+    """Paths a sync never queues because they are the vault, the portable skill copy or their wrapper files."""
+    if vault_rel.startswith('knowledge/') and path in {'knowledge/README.md', 'knowledge/.gitignore'}:
+        return True
+    return any(path == base or path.startswith(base + '/') for base in (vault_rel, 'knowledge/tooling/project-knowledge'))
+
+
+def retarget_hint(repo, vault, target):
+    """If HEAD moved past target only through excluded paths, say how to retarget; otherwise None."""
+    head = git(repo, 'rev-parse', 'HEAD^{commit}')
+    if head == target or subprocess.run(['git', '-C', str(repo), 'merge-base', '--is-ancestor', target, head]).returncode:
+        return None
+    try:
+        vault_rel = vault.relative_to(repo).as_posix()
+    except ValueError:
+        return None
+    for line in git(repo, 'rev-list', '--reverse', '--parents', target + '..' + head).splitlines():
+        commit, *parents = line.split()
+        if parents and any(not housekeeping(p, vault_rel) for row in changes(repo, parents[0], commit) for p in row['paths']):
+            return None
+    return (f'plan target {target} is not HEAD {head}, but every commit in between touches only excluded paths (the vault, the portable skill copy, '
+            f'their wrapper files). Re-run "scan --write-status", set review_base/review_target in the run page to the new range (review_target: {head}), '
+            'then regenerate the receipt with "receipt" and run finish again.')
+
+
 def changes(repo, left, right):
     raw = git(repo, 'diff', '--name-status', '-z', '-M', left, right, '--', binary=True).split(b'\0')
     rows = []
@@ -272,12 +297,17 @@ def status(vault, plan):
 
 
 def finish(repo, vault, plan_path, review_path):
+    """Return (message, exit code): 0 when the checkpoint advanced or nothing was pending, 2 for a partial finish."""
     plan_bytes = plan_path.read_bytes()
     plan, review = json.loads(plan_bytes), json.loads(review_path.read_bytes())
     if review.get('plan_sha256') != hashlib.sha256(plan_bytes).hexdigest():
         raise ValueError('review does not match exact plan bytes')
     with lock(vault):
         now = scan(repo, vault, plan['target'])
+        if now['head'] != plan['head']:
+            hint = retarget_hint(repo, vault, plan['target'])
+            if hint:
+                raise ValueError(hint)
         for key in ('repo', 'vault', 'git_dir', 'branch', 'head', 'target', 'base', 'cursor_sha256', 'baseline_sha256', 'commits', 'changes', 'paths', 'dirty', 'source_hashes', 'affected_notes', 'affected_areas', 'dirty_affected_notes', 'unmapped', 'skipped_sources'):
             if now[key] != plan[key]:
                 raise ValueError('plan changed: ' + key)
@@ -287,21 +317,31 @@ def finish(repo, vault, plan_path, review_path):
         if not isinstance(paths, dict) or set(paths) != set(plan['paths']) or not isinstance(notes, dict) or set(notes) != set(plan['affected_notes']):
             raise ValueError('receipt must cover exactly all integrated paths and affected notes')
         for path, decision in paths.items():
-            if not isinstance(decision, dict) or decision.get('status') not in ('reviewed', 'excluded') or not isinstance(decision.get('reason'), str) or not decision['reason'].strip():
-                raise ValueError('path needs reviewed/excluded decision and reason: ' + path)
-            if path in plan['dirty']:
-                raise ValueError('dirty integrated path requires a clean review: ' + path)
+            if not isinstance(decision, dict) or decision.get('status') not in ('reviewed', 'excluded', 'deferred') or not isinstance(decision.get('reason'), str) or not decision['reason'].strip():
+                raise ValueError('path needs reviewed/excluded/deferred decision and reason: ' + path)
+            if path in plan['dirty'] and decision['status'] != 'deferred':
+                raise ValueError('dirty integrated path must be deferred (or cleaned and rescanned): ' + path)
         ev = Evidence(repo)
-        excluded = ev.group([path for path, decision in paths.items() if decision.get('status') == 'excluded'])
+        excluded = ev.group([path for path, decision in paths.items() if decision['status'] == 'excluded'])
+        deferred_paths = {path: decision['reason'].strip() for path, decision in paths.items() if decision['status'] == 'deferred'}
+        deferred_group = ev.group(deferred_paths)
         dirty_now = ev.group(now['dirty'])
+        baseline_file = vault / '.knowledge/sources.json'
+        baseline = json.loads(baseline_file.read_text()) if baseline_file.is_file() else {}
+        accepted, deferred_notes = [], {}
         for ident, old in plan['notes'].items():
             current = now['notes'].get(ident)
             if current is None or current['path'] != old['path']:
                 raise ValueError('note set or path changed: ' + ident)
             if ident in notes:
                 decision = notes[ident]
-                if not isinstance(decision, dict) or decision.get('status') not in ('updated', 'unchanged') or decision.get('expected_sha256') != current['sha256']:
-                    raise ValueError('note requires updated/unchanged decision with expected hash: ' + ident)
+                if not isinstance(decision, dict) or decision.get('status') not in ('updated', 'unchanged', 'deferred') or decision.get('expected_sha256') != current['sha256']:
+                    raise ValueError('note requires updated/unchanged/deferred decision with expected hash: ' + ident)
+                if decision['status'] == 'deferred':
+                    if not isinstance(decision.get('reason'), str) or not decision['reason'].strip():
+                        raise ValueError('deferred note needs a reason: ' + ident)
+                    deferred_notes[ident] = decision['reason'].strip()
+                    continue
                 if decision['status'] == 'unchanged' and current != old:
                     raise ValueError('unchanged note was modified: ' + ident)
                 if any(ev.matches(excluded, source) for source in current['sources']):
@@ -311,16 +351,20 @@ def finish(repo, vault, plan_path, review_path):
                     if evidence.resolve() != repo / normalized(source):
                         raise ValueError('affected note cites aliased evidence; use its canonical path: ' + ident)
                     if ev.matches(dirty_now, source):
-                        raise ValueError('affected note cites dirty evidence: ' + ident)
+                        raise ValueError('affected note cites dirty evidence (mark the note deferred): ' + ident)
+                for source in list(current['sources']) + list(baseline.get(ident, {})):
+                    if ev.matches(deferred_group, source):
+                        raise ValueError('affected note cites a deferred path (mark the note deferred): ' + ident + ': ' + source)
                 if any(s not in plan['source_hashes'] or plan['source_hashes'][s] != now['source_hashes'].get(s) for s in current['sources']):
                     raise ValueError('new or changed source requires rescan: ' + ident)
+                accepted.append(ident)
             elif current != old:
                 raise ValueError('unreviewed note changed: ' + ident)
         if set(now['notes']) != set(plan['notes']):
             raise ValueError('note set changed; rescan required')
-        validate_selected_evidence(repo, vault, notes, plan['target'])
+        validate_selected_evidence(repo, vault, accepted, plan['target'])
         if not plan['paths']:
-            return 'no substantive integrated paths; cursor unchanged'
+            return 'no substantive integrated paths; cursor unchanged', 0
         run_path = review.get('run_path')
         if not isinstance(run_path, str) or not run_path.startswith('runs/') or not run_path.endswith('.md'):
             raise ValueError('receipt requires a runs/*.md run_path')
@@ -333,10 +377,11 @@ def finish(repo, vault, plan_path, review_path):
         run_note = next((n for n in run_notes if n['path'] == run_path), None)
         if not run_note or run_note['meta']['type'] != 'run' or run_note['meta'].get('review_base') != plan['base'] or run_note['meta'].get('review_target') != plan['target']:
             raise ValueError('run note must identify the exact reviewed base and target')
+        partial = bool(deferred_paths or deferred_notes)
         with tempfile.TemporaryDirectory(prefix='knowledge-sync-') as temp:
             staged = Path(temp) / 'vault'
             shutil.copytree(vault, staged, symlinks=True)
-            if notes and knowledge.main(['snapshot', '--repo', str(repo), '--vault', str(staged), '--notes', *sorted(notes)]) != 0:
+            if accepted and knowledge.main(['snapshot', '--repo', str(repo), '--vault', str(staged), '--notes', *sorted(accepted)]) != 0:
                 raise ValueError('snapshot validation failed')
             if knowledge.main(['check', '--repo', str(repo), '--vault', str(staged)]) != 0 or knowledge.main(['build', '--repo', str(repo), '--vault', str(staged)]) != 0:
                 raise ValueError('structural check or build failed')
@@ -344,14 +389,15 @@ def finish(repo, vault, plan_path, review_path):
             outputs = ['.knowledge/sources.json', '.knowledge/graph.json', 'Map.canvas', 'graph.html', 'AS-BUILT.md', 'GAPS.md', '.knowledge/review.json']
             destinations = [knowledge.output_path(vault, p) for p in outputs]
             cursor = json.loads((vault / '.knowledge/review.json').read_text())
+            checkpoint = cursor['reviewed_through']
             cursor['reviewed_through'] = plan['target']; cursor['run_path'] = run_path
             latest = scan(repo, vault, plan['target'])
             for key in ('head', 'branch', 'cursor_sha256', 'baseline_sha256', 'source_hashes', 'dirty', 'notes'):
                 if latest[key] != now[key]:
                     raise ValueError('review changed before publication: ' + key)
-            validate_selected_evidence(repo, vault, notes, plan['target'])
+            validate_selected_evidence(repo, vault, accepted, plan['target'])
             staged_baseline = json.loads((staged / '.knowledge/sources.json').read_text())
-            for ident in notes:
+            for ident in accepted:
                 expected = {source: now['source_hashes'][source] for source in now['notes'][ident]['sources'] if now['source_hashes'].get(source) is not None}
                 if staged_baseline.get(ident) != expected:
                     raise ValueError('staged evidence changed during snapshot: ' + ident)
@@ -360,7 +406,8 @@ def finish(repo, vault, plan_path, review_path):
             try:
                 for name, dest in zip(outputs[:-1], destinations[:-1]):
                     atomic(dest, (staged / name).read_bytes()); written.append(dest)
-                atomic(destinations[-1], jsonbytes(cursor)); written.append(destinations[-1])
+                if not partial:  # the checkpoint moves only when nothing applicable is deferred
+                    atomic(destinations[-1], jsonbytes(cursor)); written.append(destinations[-1])
             except OSError:
                 for dest in reversed(written):
                     if backups[dest] is None:
@@ -368,7 +415,12 @@ def finish(repo, vault, plan_path, review_path):
                     else:
                         atomic(dest, backups[dest])
                 raise
-        return 'review checkpoint advanced to ' + plan['target']
+        if partial:
+            lines = [f'partial: accepted {len(accepted)} notes; deferred {len(deferred_paths)} paths, {len(deferred_notes)} notes; checkpoint stays at {checkpoint}']
+            lines += [f'deferred path {p}: {r}' for p, r in sorted(deferred_paths.items())]
+            lines += [f'deferred note {n}: {r}' for n, r in sorted(deferred_notes.items())]
+            return '\n'.join(lines), 2
+        return 'review checkpoint advanced to ' + plan['target'], 0
 
 
 def receipt(repo, vault, plan_path, out, run=None):
@@ -380,6 +432,9 @@ def receipt(repo, vault, plan_path, out, run=None):
     plan = json.loads(plan_bytes)
     if plan.get('vault') != str(vault):
         raise ValueError('plan was written for a different vault')
+    hint = retarget_hint(repo, vault, plan['target'])
+    if hint:
+        raise ValueError(hint)
     previous = {}
     if out.exists():
         previous = json.loads(out.read_bytes())
@@ -395,6 +450,15 @@ def receipt(repo, vault, plan_path, out, run=None):
 
     plan_hash = hashlib.sha256(plan_bytes).hexdigest()
     same_plan = previous.get('plan_sha256') == plan_hash  # path dispositions belong to the plan they reviewed
+    def entered(table, key):
+        return bool(kept(table, key, 'status'))
+
+    count = {'kept_paths': 0, 'reset_paths': 0, 'kept_notes': 0, 'reset_notes': [], 'dropped_paths': 0, 'dropped_notes': 0}
+    for p in plan['paths']:
+        if entered(old_paths, p):
+            count['kept_paths' if same_plan else 'reset_paths'] += 1
+    count['dropped_paths'] = sum(1 for p in old_paths if p not in plan['paths'] and entered(old_paths, p))
+    count['dropped_notes'] = sum(1 for n in old_notes if n not in plan['affected_notes'] and entered(old_notes, n))
     result = {'plan_sha256': plan_hash,
               'paths': {p: {'status': kept(old_paths, p, 'status') if same_plan else '', 'reason': kept(old_paths, p, 'reason') if same_plan else ''} for p in plan['paths']},
               'notes': {}}
@@ -404,6 +468,13 @@ def receipt(repo, vault, plan_path, out, run=None):
         # A note disposition belongs to the exact bytes that were reviewed.
         keep = kept(old_notes, ident, 'expected_sha256') == current
         result['notes'][ident] = {'status': kept(old_notes, ident, 'status') if keep else '', 'expected_sha256': current}
+        if keep and kept(old_notes, ident, 'reason'):
+            result['notes'][ident]['reason'] = kept(old_notes, ident, 'reason')
+        if entered(old_notes, ident):
+            if keep:
+                count['kept_notes'] += 1
+            else:
+                count['reset_notes'].append(ident)
     if run is not None:
         run_path = run.resolve().relative_to(vault).as_posix() if run.is_absolute() else run.as_posix()
     elif plan['paths']:
@@ -424,7 +495,14 @@ def receipt(repo, vault, plan_path, out, run=None):
         result['run_path'] = run_path
         result['run_sha256'] = digest(file)
     atomic(out, jsonbytes(result))
-    return f"receipt written: fill status and reason for {len(result['paths'])} paths and status for {len(result['notes'])} notes"
+    message = f"receipt written: fill status and reason for {len(result['paths'])} paths and status for {len(result['notes'])} notes"
+    if any(count[k] for k in ('kept_paths', 'reset_paths', 'kept_notes', 'reset_notes', 'dropped_paths', 'dropped_notes')):
+        reset_paths = f" ({'plan changed since the receipt was written'})" if count['reset_paths'] else ''
+        reset_notes = f" (note file changed: {', '.join(count['reset_notes'])})" if count['reset_notes'] else ''
+        message += (f"\ndispositions kept: {count['kept_paths']} paths, {count['kept_notes']} notes; "
+                    f"reset: {count['reset_paths']} paths{reset_paths}, {len(count['reset_notes'])} notes{reset_notes}; "
+                    f"dropped (no longer in the plan): {count['dropped_paths']} paths, {count['dropped_notes']} notes")
+    return message
 
 
 def main():
@@ -451,7 +529,9 @@ def main():
                 print('plan_sha256:', digest(vault / '.knowledge/sync-plan.json'))
         print(json.dumps(report, ensure_ascii=True, indent=2) if args.json else f"{report['state']}: {len(report['paths'])} integrated paths, {len(report['affected_notes'])} affected notes, {len(report['blockers']) + len(report['errors'])} blockers/errors")
     else:
-        print(finish(repo, vault, args.plan, args.review))
+        message, code = finish(repo, vault, args.plan, args.review)
+        print(message)
+        return code
     return 0
 
 

@@ -46,9 +46,9 @@ class MaintainTests(unittest.TestCase):
     def git(self, *args):
         return subprocess.run(['git', '-C', str(self.repo), *args], check=True, capture_output=True, text=True).stdout
 
-    def cli(self, *args, ok=True):
+    def cli(self, *args, ok=True, code=None):
         p = subprocess.run(['python3', str(SCRIPT), *args, '--repo', str(self.repo), '--vault', str(self.vault)], capture_output=True, text=True)
-        self.assertEqual(p.returncode, 0 if ok else 1, p.stderr + p.stdout)
+        self.assertEqual(p.returncode, code if code is not None else (0 if ok else 1), p.stderr + p.stdout)
         return p
 
     @staticmethod
@@ -653,6 +653,187 @@ class MaintainTests(unittest.TestCase):
                 self.assertFalse(maintain.relevant(path, 'vault'))
         self.assertTrue(maintain.relevant('src/app.py', 'vault'))
 
+
+    # partial finish, retargeting and receipt reporting
+    def two_note_range(self):
+        """note cites source.txt, other cites other.txt; both change in the range and other.txt is then left dirty."""
+        (self.repo / 'other.txt').write_text('other')
+        self.note('other.md', 'other', 'note', ['area'], ['other.txt'])
+        baseline_file = self.vault / '.knowledge/sources.json'
+        baseline = json.loads(baseline_file.read_text()); baseline['other'] = {'other.txt': self.sha(self.repo / 'other.txt')}
+        baseline_file.write_text(json.dumps(baseline))
+        self.git('add', '.')
+        self.git('commit', '-m', 'other note')
+        cursor = self.vault / '.knowledge/review.json'
+        data = json.loads(cursor.read_text()); data['reviewed_through'] = self.git('rev-parse', 'HEAD').strip()
+        cursor.write_text(json.dumps(data))
+        self.git('add', '.')
+        self.git('commit', '-m', 'cursor')
+        (self.repo / 'source.txt').write_text('two')
+        (self.repo / 'other.txt').write_text('other two')
+        self.git('add', '.')
+        self.git('commit', '-m', 'change both')
+        (self.repo / 'other.txt').write_text('someone elses uncommitted edit')
+
+    def write_receipt(self, planpath, plan, paths=None, notes=None):
+        data = {'plan_sha256': self.sha(planpath),
+                'paths': {p: {'status': 'reviewed', 'reason': 'read'} for p in plan['paths']},
+                'notes': {n: {'status': 'unchanged', 'expected_sha256': plan['notes'][n]['sha256']} for n in plan['affected_notes']},
+                'run_path': 'runs/review.md', 'run_sha256': self.sha(self.vault / 'runs/review.md')}
+        for path, entry in (paths or {}).items():
+            data['paths'][path] = entry
+        for ident, entry in (notes or {}).items():
+            data['notes'][ident] = {'expected_sha256': plan['notes'][ident]['sha256'], **entry}
+        out = self.repo.parent / (self.repo.name + '-partial.json')
+        self.addCleanup(lambda: out.unlink(missing_ok=True))
+        out.write_text(json.dumps(data))
+        return out
+
+    def state(self):
+        return {name: (self.vault / name).read_bytes() if (self.vault / name).exists() else None
+                for name in ('.knowledge/review.json', '.knowledge/sources.json', 'graph.html', 'GAPS.md', 'AS-BUILT.md')}
+
+    def test_partial_finish_accepts_clean_notes_and_leaves_checkpoint(self):
+        self.two_note_range()
+        planpath, plan = self.plan()
+        self.assertEqual(plan['dirty_affected_notes'], ['other'])
+        receipt = self.write_receipt(planpath, plan,
+                                     paths={'other.txt': {'status': 'deferred', 'reason': 'owner has uncommitted edits'}},
+                                     notes={'other': {'status': 'deferred', 'reason': 'waits for other.txt'}})
+        before = self.state()
+        checkpoint = json.loads(before['.knowledge/review.json'])['reviewed_through']
+        result = self.cli('finish', '--plan', str(planpath), '--review', str(receipt), code=2)
+        self.assertIn(f'partial: accepted 1 notes; deferred 1 paths, 1 notes; checkpoint stays at {checkpoint}', result.stdout)
+        self.assertIn('deferred path other.txt: owner has uncommitted edits', result.stdout)
+        self.assertIn('deferred note other: waits for other.txt', result.stdout)
+        after = self.state()
+        self.assertEqual(after['.knowledge/review.json'], before['.knowledge/review.json'])
+        self.assertIsNotNone(after['graph.html'])
+        self.assertIsNotNone(after['GAPS.md'])
+        baseline = json.loads(after['.knowledge/sources.json'])
+        self.assertEqual(baseline['note'], {'source.txt': self.sha(self.repo / 'source.txt')})
+        self.assertEqual(baseline['other'], json.loads(before['.knowledge/sources.json'])['other'])  # deferred note keeps its fingerprint
+        # The interval is still pending: the deferred path is listed, the accepted note has no freshness warning.
+        again = json.loads(self.cli('scan', '--json').stdout)
+        self.assertEqual(again['paths'], ['other.txt', 'source.txt'])
+        self.assertTrue(any('other.md' in w for w in again['warnings']))
+        self.assertFalse(any('note.md' in w for w in again['warnings']))
+        self.assertEqual(again['state'], 'pending')
+        # Once the other contributor's edit is committed, a full finish over the same range advances the checkpoint.
+        self.git('add', '.')
+        self.git('commit', '-m', 'their edit')
+        (self.vault / 'runs/review.md').write_text((self.vault / 'runs/review.md').read_text().replace(plan['target'], self.git('rev-parse', 'HEAD').strip()))
+        planpath, plan = self.plan()
+        self.assertEqual(plan['base'], checkpoint)
+        self.assertEqual(plan['dirty'], [])
+        receipt = self.write_receipt(planpath, plan)
+        result = self.cli('finish', '--plan', str(planpath), '--review', str(receipt))
+        self.assertIn('review checkpoint advanced to', result.stdout)
+        self.assertEqual(json.loads((self.vault / '.knowledge/review.json').read_text())['reviewed_through'], plan['target'])
+
+    def test_partial_finish_rejects_accepting_what_is_dirty_or_deferred(self):
+        self.two_note_range()
+        planpath, plan = self.plan()
+        deferred = {'other.txt': {'status': 'deferred', 'reason': 'later'}}
+        before = self.state()
+        cases = {
+            'updated note cites dirty source': (deferred, {'other': {'status': 'updated'}}, 'cites dirty evidence'),
+            'unchanged note cites deferred path': (deferred, {'other': {'status': 'unchanged'}}, 'cites dirty evidence'),
+            'dirty path marked reviewed': ({}, {'other': {'status': 'deferred', 'reason': 'x'}}, 'dirty integrated path must be deferred'),
+            'deferred path without reason': ({'other.txt': {'status': 'deferred', 'reason': ' '}}, {'other': {'status': 'deferred', 'reason': 'x'}}, 'reviewed/excluded/deferred'),
+            'deferred note without reason': (deferred, {'other': {'status': 'deferred'}}, 'deferred note needs a reason'),
+            'unknown path status': ({'other.txt': {'status': 'later', 'reason': 'x'}}, {}, 'reviewed/excluded/deferred'),
+            'empty note status': (deferred, {'other': {'status': ''}}, 'updated/unchanged/deferred'),
+        }
+        for name, (paths, notes, message) in cases.items():
+            with self.subTest(name):
+                result = self.cli('finish', '--plan', str(planpath), '--review', str(self.write_receipt(planpath, plan, paths, notes)), ok=False)
+                self.assertIn(message, result.stderr)
+                self.assertEqual(self.state(), before)
+        # A clean path that is deferred makes every note citing it deferred too.
+        self.git('checkout', '--', 'other.txt')
+        planpath, plan = self.plan()
+        receipt = self.write_receipt(planpath, plan, paths={'source.txt': {'status': 'deferred', 'reason': 'unsure'}})
+        result = self.cli('finish', '--plan', str(planpath), '--review', str(receipt), ok=False)
+        self.assertIn('cites a deferred path (mark the note deferred): note', result.stderr)
+        self.assertEqual(self.state(), before)
+
+    def test_partial_finish_keeps_lock_drift_and_rollback(self):
+        self.two_note_range()
+        planpath, plan = self.plan()
+        receipt = self.write_receipt(planpath, plan, paths={'other.txt': {'status': 'deferred', 'reason': 'later'}},
+                                     notes={'other': {'status': 'deferred', 'reason': 'later'}})
+        before = self.state()
+        lock = self.vault / '.knowledge/sync.lock'
+        lock.write_text('')
+        self.assertIn('lock already exists', self.cli('finish', '--plan', str(planpath), '--review', str(receipt), ok=False).stderr)
+        lock.unlink()
+        (self.repo / 'source.txt').write_text('raced')  # drift after the scan
+        self.assertIn('plan changed', self.cli('finish', '--plan', str(planpath), '--review', str(receipt), ok=False).stderr)
+        (self.repo / 'source.txt').write_text('two')
+        self.assertEqual(self.state(), before)
+        real, calls = maintain.atomic, []
+
+        def failing(path, data):
+            calls.append(path.name)
+            if path.name == 'GAPS.md' and calls.count('GAPS.md') == 1:
+                raise OSError('disk full')
+            return real(path, data)
+        with mock.patch.object(maintain, 'atomic', failing), self.assertRaises(OSError):
+            maintain.finish(self.repo.resolve(), self.vault.resolve(), planpath, receipt)
+        self.assertEqual(self.state(), before)  # published files restored, checkpoint never touched
+        self.assertFalse(lock.exists())
+
+    def test_finish_names_the_vault_commit_that_moved_head(self):
+        self.change()
+        planpath, plan = self.plan()
+        out, _ = self.receipt_cli(planpath)
+        (self.vault / 'note.md').write_text((self.vault / 'note.md').read_text() + 'prose\n')
+        self.git('add', '.')
+        self.git('commit', '-m', 'vault only')
+        head = self.git('rev-parse', 'HEAD').strip()
+        for result in (self.cli('finish', '--plan', str(planpath), '--review', str(out), ok=False),
+                       self.cli('receipt', '--plan', str(planpath), '--out', str(out), ok=False)):
+            self.assertIn('every commit in between touches only excluded paths', result.stderr)
+            self.assertIn('scan --write-status', result.stderr)
+            self.assertIn('review_target: ' + head, result.stderr)
+            self.assertIn('regenerate the receipt', result.stderr)
+        # An application commit on top is the ordinary drift error instead.
+        (self.repo / 'source.txt').write_text('three')
+        self.git('commit', '-am', 'application')
+        for result in (self.cli('finish', '--plan', str(planpath), '--review', str(out), ok=False),):
+            self.assertIn('plan changed: head', result.stderr)
+            self.assertNotIn('excluded paths', result.stderr)
+        # The documented recovery works: rescan, retarget the run page, regenerate the receipt, finish.
+        self.git('reset', '--hard', head)
+        planpath, plan = self.plan()
+        self.assertEqual(plan['target'], head)
+
+    def test_receipt_reports_what_it_kept_and_reset(self):
+        self.two_note_range()
+        self.git('checkout', '--', 'other.txt')
+        planpath, plan = self.plan()
+        out, first = self.receipt_cli(planpath)
+        self.assertNotIn('dispositions', first.stdout)  # nothing entered yet
+        data = json.loads(out.read_text())
+        for entry in data['paths'].values():
+            entry.update(status='reviewed', reason='read')
+        for entry in data['notes'].values():
+            entry['status'] = 'unchanged'
+        data['notes']['other'].update(status='deferred', reason='later')
+        out.write_text(json.dumps(data))
+        same = self.cli('receipt', '--plan', str(planpath), '--out', str(out)).stdout
+        self.assertIn('dispositions kept: 2 paths, 2 notes; reset: 0 paths, 0 notes; dropped (no longer in the plan): 0 paths, 0 notes', same)
+        self.assertEqual(json.loads(out.read_text())['notes']['other']['reason'], 'later')
+        # Change one note file and the plan: its disposition and every path disposition are reset, with reasons.
+        (self.vault / 'other.md').write_text((self.vault / 'other.md').read_text() + 'edited\n')
+        (self.repo / 'third.txt').write_text('x')
+        self.git('add', '.')
+        self.git('commit', '-m', 'third')
+        planpath, plan = self.plan()
+        result = self.cli('receipt', '--plan', str(planpath), '--out', str(out)).stdout
+        self.assertIn('kept: 0 paths, 1 notes', result)
+        self.assertIn('reset: 2 paths (plan changed since the receipt was written), 1 notes (note file changed: other)', result)
 
 if __name__ == '__main__':
     unittest.main()

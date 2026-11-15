@@ -8,6 +8,7 @@ import os
 import posixpath
 import re
 import sys
+import subprocess
 import tempfile
 import unicodedata
 from urllib.parse import unquote
@@ -18,6 +19,7 @@ SPEC_STATUSES = {'current', 'partial', 'stale', 'superseded'}
 NAV_STATUSES = SPEC_STATUSES | {'planned'}
 KINDS = ('product-gap', 'verification-gap', 'product-plan', 'conflict', 'knowledge-gap')
 RECHECKS = ('not-checked', 'confirmed', 'not-reproduced', 'outdated')
+RECHECK_WORDS = {'confirmed': 'confirmed (still holds)', 'not-reproduced': 'not reproduced (no longer holds)'}  # shown in GAPS.md only
 DECISIONS = ('open', 'accepted', 'rejected', 'deferred', 'done', 'duplicate')
 DECIDED = ('accepted', 'rejected', 'deferred')
 STATE_ORDER = ('needs-recheck', 'needs-decision', 'accepted', 'deferred', 'rejected', 'done', 'duplicate')
@@ -25,6 +27,7 @@ GAP_ONLY = ('kind', 'recheck', 'rechecked_by', 'rechecked_on', 'decision', 'deci
 GAP_SECTIONS = ('Current behavior', 'Gap', 'Evidence', 'Recheck', 'Discussion', 'Decision')
 LAYERS = {'area': 'spec', 'note': 'spec', 'gap': 'gap', 'plan': 'gap', 'index': 'nav', 'run': 'nav'}
 RESERVED = {'AS-BUILT.md', 'GAPS.md'}  # generated at the vault root; never notes
+UNCOUNTED = ' (uncommitted change, not counted)'  # suffix of a freshness warning that --ignore-dirty does not count
 GENERATED_NAMES = ('AS-BUILT.md', 'GAPS.md', 'graph.html', 'Map.canvas')  # matched case-insensitively
 CONTROL = re.compile('[\x00-\x1f\x7f\x85\u2028\u2029]')
 SCHEME = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:')
@@ -317,8 +320,40 @@ def line_ending_variant(data, old):
     return old in {hashlib.sha256(lf).hexdigest(), hashlib.sha256(lf.replace(b'\n', b'\r\n')).hexdigest()}
 
 
-def load_vault(repo, vault, freshness=True):
-    errors, warnings, notes = [], [], []
+def uncommitted_paths(repo):
+    """Repo-relative paths Git reports as modified, staged or untracked (one status call), or None outside a work tree."""
+    probe = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--is-inside-work-tree', '--show-prefix'], capture_output=True)
+    lines = probe.stdout.decode(errors='replace').split('\n')
+    if probe.returncode or lines[0] != 'true':
+        return None
+    prefix = lines[1] if len(lines) > 1 else ''
+    status = subprocess.run(['git', '-C', str(repo), 'status', '--porcelain=v1', '-z', '--untracked-files=all'], capture_output=True)
+    if status.returncode:
+        return None
+    raw, found, i = status.stdout.split(b'\0'), set(), 0
+    while i < len(raw) and raw[i]:
+        item = os.fsdecode(raw[i])
+        i += 1
+        names = [item[3:]]
+        if 'R' in item[:2] or 'C' in item[:2]:
+            names.append(os.fsdecode(raw[i]))
+            i += 1
+        found.update(name[len(prefix):] for name in names if name.startswith(prefix))
+    return found
+
+
+def error_page(message):
+    """The vault-relative page an error message is about, or None for vault-wide errors."""
+    head = message.split(': ', 1)[0]
+    return head if head.endswith('.md') else None
+
+
+def load_vault(repo, vault, freshness=True, dirty=None, report=None):
+    """dirty: repo-relative paths with uncommitted changes whose freshness warnings are marked, not counted.
+
+    report, when given, receives 'failed': {page path: parsed id or None} for pages that failed validation.
+    """
+    errors, warnings, notes, failed = [], [], [], {}
     baseline_file = vault / '.knowledge/sources.json'
     baseline = {}
     if baseline_file.exists():
@@ -340,6 +375,7 @@ def load_vault(repo, vault, freshness=True):
         if len(relative.parts) == 1 and rel.casefold() in {n.casefold() for n in GENERATED_NAMES}:
             errors.append(f'{rel}: this name is reserved for a generated file (AS-BUILT.md, GAPS.md); build would overwrite it, so rename the page')
             continue
+        meta = None
         try:
             safe_path(vault, rel)
             content = file.read_text(encoding='utf-8').removeprefix('\ufeff')
@@ -360,6 +396,16 @@ def load_vault(repo, vault, freshness=True):
             notes.append({'meta': meta, 'path': rel, 'body': content[match.end():]})
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             errors.append(f'{rel}: {exc}')
+            # The page still exists as a link target; only its own errors are real.
+            ident = meta.get('id') if isinstance(meta, dict) else None
+            failed[rel] = ident if isinstance(ident, str) and re.fullmatch(r'[a-z0-9-]+', ident) else None
+    if report is not None:
+        report['failed'] = failed
+    failed_ids = {i for i in failed.values() if i}
+    failed_stems = {rel[:-3] for rel in failed}
+    failed_names = {}
+    for stem in failed_stems:
+        failed_names[PurePosixPath(stem).name] = failed_names.get(PurePosixPath(stem).name, 0) + 1
     ids, paths, basenames = {}, {}, {}
     for note in notes:
         meta, rel = note['meta'], note['path']
@@ -378,13 +424,17 @@ def load_vault(repo, vault, freshness=True):
             note['state'] = gap_state(meta)
         if meta['type'] == 'gap' and meta.get('duplicate_of'):
             other = ids.get(meta['duplicate_of'])
-            if other is None or other['meta']['type'] != 'gap':
+            if other is None and meta['duplicate_of'] in failed_ids:
+                pass
+            elif other is None or other['meta']['type'] != 'gap':
                 errors.append(f"{rel}: duplicate_of {meta['duplicate_of']} is not the id of an existing gap")
             elif other is note:
                 errors.append(f'{rel}: duplicate_of must name a different gap')
         if meta['type'] == 'plan':
             other = ids.get(meta['gap'])
-            if other is None or other['meta']['type'] != 'gap':
+            if other is None and meta['gap'] in failed_ids:
+                pass
+            elif other is None or other['meta']['type'] != 'gap':
                 errors.append(f"{rel}: gap {meta['gap']} is not the id of an existing gap")
             else:
                 edges.add((meta['id'], other['meta']['id']))
@@ -401,6 +451,8 @@ def load_vault(repo, vault, freshness=True):
             if meta['recheck'] != 'not-checked' and found.count('Recheck') == 1 and not texts['Recheck'].strip():
                 errors.append(f"{rel}: the Recheck section must say what was checked once recheck is '{meta['recheck']}'")
         for area in meta['areas']:
+            if area in failed_ids and area not in area_ids:
+                continue
             if area not in area_ids:
                 errors.append(f'{rel}: unknown area {area}')
             elif area != meta['id']:
@@ -414,12 +466,15 @@ def load_vault(repo, vault, freshness=True):
             if target.endswith('.md'):
                 target = target[:-3]
             choices = basenames.get(target, []) if '/' not in target else ([paths[target]] if target in paths else [])
+            broken = failed_names.get(target, 0) if '/' not in target else int(target in failed_stems)
+            if broken and not choices:
+                continue  # the page exists but failed validation; its own errors are the root cause
             if embed and not choices and PurePosixPath(target).suffix:
                 # Not a note: Obsidian embeds images and PDFs by file name.
                 if not attachment_exists(vault, target, attachments):
                     errors.append(f'{rel}: missing embed {target}')
                 continue
-            if len(choices) != 1:
+            if len(choices) + broken != 1:
                 errors.append(f"{rel}: {'ambiguous' if choices else 'missing'} {'embed' if embed else 'wikilink'} {target}")
             elif meta['type'] in {'area', 'note'} and choices[0]['meta']['type'] in {'gap', 'plan'}:
                 errors.append(f"{rel}: spec pages must not link to the gap layer ({'embed ' if embed else ''}{target}); link from the gap to this page instead")
@@ -450,11 +505,12 @@ def load_vault(repo, vault, freshness=True):
                     old = baseline.get(meta['id'], {}).get(source)
                     data = path.read_bytes()
                     if old != hashlib.sha256(data).hexdigest():
+                        mark = UNCOUNTED if old and dirty is not None and posixpath.normpath(source) in dirty else ''
                         if old and line_ending_variant(data, old):
-                            warnings.append(f'{rel}: line endings differ in source {source}')
+                            warnings.append(f'{rel}: line endings differ in source {source}{mark}')
                         else:
                             note['changed'] = note['changed'] or bool(old)
-                            warnings.append(f"{rel}: {'changed' if old else 'unbaselined'} source {source}")
+                            warnings.append(f"{rel}: {'changed' if old else 'unbaselined'} source {source}{mark}")
                         note['stale'] = True
             except (OSError, ValueError) as exc:
                 errors.append(f'{rel}: {source}: {exc}')
@@ -646,7 +702,7 @@ def render_gaps(notes, title):
         out += ['', f'## {state}', '', '| Gap | Kind | Areas | Recheck | Decision | Priority | Plan |', '| --- | --- | --- | --- | --- | --- | --- |']
         for g in rows:
             m = g['meta']
-            recheck = m['recheck'] if m['recheck'] == 'not-checked' else f"{m['recheck']} ({m['rechecked_by']}, {m['rechecked_on']})"
+            recheck = m['recheck'] if m['recheck'] == 'not-checked' else f"{RECHECK_WORDS.get(m['recheck'], m['recheck'])} ({m['rechecked_by']}, {m['rechecked_on']})"
             recheck = tc(recheck)
             if recheck_marker(g):
                 recheck += ' · sources changed since'
@@ -685,12 +741,16 @@ def main(argv=None):
     parser.add_argument('--repo', required=True, type=Path)
     parser.add_argument('--vault', required=True, type=Path)
     parser.add_argument('--strict', action='store_true', help='fail check when freshness warnings exist')
+    parser.add_argument('--ignore-dirty', action='store_true',
+                        help='check: do not count freshness warnings for sources with uncommitted changes (needs a Git work tree)')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--all', action='store_true')
     group.add_argument('--notes', nargs='+')
     args = parser.parse_args(argv)
     if args.strict and args.command != 'check':
         parser.error('--strict is only for check')
+    if args.ignore_dirty and args.command != 'check':
+        parser.error('--ignore-dirty is only for check')
     if args.command == 'snapshot' and not (args.all or args.notes):
         parser.error('snapshot requires --all or --notes')
     if args.command != 'snapshot' and (args.all or args.notes):
@@ -698,17 +758,43 @@ def main(argv=None):
     repo, vault = args.repo.resolve(), args.vault.resolve()
     if not repo.is_dir() or not vault.is_dir():
         parser.error('repo and vault must be existing directories')
-    notes, edges, errors, warnings, baseline = load_vault(repo, vault, args.command != 'snapshot')
+    dirty = None
+    if args.ignore_dirty:
+        dirty = uncommitted_paths(repo)
+        if dirty is None:
+            parser.error('--ignore-dirty needs --repo to be a Git work tree')
+    report = {}
+    notes, edges, errors, warnings, baseline = load_vault(repo, vault, args.command != 'snapshot', dirty, report)
+    ignored = []
     if args.command == 'snapshot' and args.notes:
-        missing = set(args.notes) - {n['meta']['id'] for n in notes}
+        # Only the selected pages must be valid; errors elsewhere are counted, not blocking.
+        wanted = set(args.notes)
+        by_id = {n['meta']['id']: n['path'] for n in notes}
+        by_id.update({ident: page for page, ident in report['failed'].items() if ident})
+        selected = {by_id[i] for i in wanted if i in by_id}
+        blocking = []
+        for message in errors:
+            page = error_page(message)
+            if page is None or page in selected or any(f'duplicate id {i}' in message for i in wanted):
+                blocking.append(message)
+            else:
+                ignored.append(message)
+        errors = blocking
+        missing = wanted - by_id.keys()
         if missing:
             errors.append('Unknown note IDs: ' + ', '.join(sorted(missing)))
     for message in errors:
         print('ERROR:', message, file=sys.stderr)
     for message in warnings:
         print('WARNING:', message, file=sys.stderr)
-    if errors or (args.strict and warnings):
+    counted = [w for w in warnings if not w.endswith(UNCOUNTED)]
+    if errors:
+        pages = len({error_page(m) for m in errors if error_page(m)})
+        print(f'{args.command}: failed, {len(errors)} errors on {pages} pages', file=sys.stderr)
+    if errors or (args.strict and counted):
         return 1
+    if ignored:
+        print(f'{args.command}: {len(ignored)} errors on {len({error_page(m) for m in ignored if error_page(m)})} other pages do not block this snapshot (run check to see them)', file=sys.stderr)
     if args.command == 'snapshot':
         for note in notes:
             meta = note['meta']
@@ -758,7 +844,8 @@ def main(argv=None):
         atomic_write(vault / 'graph.html', template.replace('__KNOWLEDGE_DATA__', serialized))
         atomic_write(vault / 'AS-BUILT.md', render_as_built(notes, title))
         atomic_write(vault / 'GAPS.md', render_gaps(notes, title))
-    print(f'{args.command}: {len(notes)} notes, {len(edges)} links, {len(warnings)} warnings')
+    uncounted = len(warnings) - len(counted)
+    print(f'{args.command}: {len(notes)} notes, {len(edges)} links, {len(warnings)} warnings' + (f' ({uncounted} uncommitted, not counted)' if uncounted else ''))
     return 0
 
 

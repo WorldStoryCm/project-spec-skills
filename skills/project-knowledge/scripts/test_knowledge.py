@@ -465,7 +465,7 @@ class GapLayerTests(Fixture):
         heads = [line for line in text.splitlines() if line.startswith('## ')]
         self.assertEqual(heads, ['## needs-recheck', '## needs-decision', '## accepted', '## done', '## duplicate'])
         self.assertIn('| [[gaps/acc\\|Тест acc]] | product-gap | Тест a | not-checked | accepted (Ann, 2026-11-16) | high | [[plans/p\\|Тест p]] |', text)
-        self.assertIn('confirmed (Bob, 2026-11-15)', text)
+        self.assertIn('confirmed (still holds) (Bob, 2026-11-15)', text)
         self.assertIn('duplicate of [[gaps/b-open\\|Тест b-open]]', text)
         again = text
         self.build()
@@ -657,7 +657,7 @@ class GapLayerTests(Fixture):
         self.build()
         first = (self.vault / 'GAPS.md').read_text()
         row = lambda ident: next(l for l in first.splitlines() if l.startswith(f'| [[gaps/{ident}\\|'))
-        self.assertIn('confirmed (Bob, 2026-11-15) · sources changed since', row('c'))
+        self.assertIn('confirmed (still holds) (Bob, 2026-11-15) · sources changed since', row('c'))
         self.assertNotIn('changed since', row('nc'))  # never rechecked: nothing to flag
         self.build()
         self.assertEqual(first, (self.vault / 'GAPS.md').read_text())
@@ -925,6 +925,114 @@ class GapLayerTests(Fixture):
         self.assertEqual(k.LINK.findall('[[' * 20000), [])
         self.assertEqual(k.LINK.findall('![[x]] [[y|z]] [[a]]'), [('!', 'x'), ('', 'y|z'), ('', 'a')])
         self.assertLess(time.perf_counter() - started, 1.0)
+
+    # first real sync: recheck wording, cascading errors, dirty sources, partial snapshots
+    def test_gaps_md_prints_recheck_meaning_but_stores_the_value(self):
+        self.gap('c', recheck='confirmed', rechecked_by='agent', rechecked_on='2026-11-15')
+        self.gap('r', recheck='not-reproduced', rechecked_by='Ann', rechecked_on='2026-11-16', decision='done',
+                 body=section_body(Decision='in code'))
+        self.gap('o', recheck='outdated', rechecked_by='Bob', rechecked_on='2026-11-14')
+        self.build()
+        text = (self.vault / 'GAPS.md').read_text()
+        self.assertIn('| confirmed (still holds) (agent, 2026-11-15) |', text)
+        self.assertIn('| not reproduced (no longer holds) (Ann, 2026-11-16) |', text)
+        self.assertIn('| outdated (Bob, 2026-11-14) |', text)
+        nodes = {n['id']: n for n in json.loads((self.vault / '.knowledge/graph.json').read_text())['nodes']}
+        self.assertEqual((nodes['c']['recheck'], nodes['r']['recheck']), ('confirmed', 'not-reproduced'))
+
+    def test_failed_page_is_a_link_target_and_causes_no_follow_on_errors(self):
+        # One broken page of each kind: a note, an area (by id), a gap (by id).
+        self.note('notes/broken.md', 'broken', status=None)
+        self.note('areas/ba.md', 'ba', 'area', areas=[], updated='2026-13-45')
+        self.gap('fg', recheck='bogus')
+        self.gap('dup', decision='duplicate', duplicate_of='fg')
+        self.note('plans/p.md', 'p', 'plan', status='planned', gap='fg')
+        self.note('notes/m.md', 'm', areas=['a', 'ba'], sources=['source.txt'],
+                  body='[[broken]] [[notes/broken]] ![[broken]] [[nowhere]]')
+        status, err = self.errors()
+        self.assertEqual(status, 1, err)
+        errors = [line for line in err.splitlines() if line.startswith('ERROR:')]
+        self.assertEqual(len(errors), 4, err)  # three broken pages plus the one genuinely missing link
+        self.assertIn('notes/m.md: missing wikilink nowhere', err)
+        for noise in ('missing wikilink broken', 'missing embed broken', 'unknown area', 'is not the id of an existing gap', 'has decision'):
+            self.assertNotIn(noise, err)
+        self.assertIn('check: failed, 4 errors on 4 pages', err)
+
+    def test_snapshot_notes_needs_only_the_selected_pages_valid(self):
+        self.note('notes/broken.md', 'broken', status=None)
+        self.note('notes/m.md', 'm', sources=['source.txt'], body='[[broken]]')
+        self.assertEqual(self.run_cli('check')[0], 1)
+        status, out, err = self.run_cli('snapshot', '--notes', 'n', 'm')
+        self.assertEqual(status, 0, err)
+        self.assertIn('1 errors on 1 other pages do not block this snapshot', err)
+        baseline = json.loads((self.vault / '.knowledge/sources.json').read_text())
+        self.assertEqual(sorted(baseline), ['m', 'n'])
+        # The selected page itself must be valid, including one whose own frontmatter fails.
+        before = (self.vault / '.knowledge/sources.json').read_bytes()
+        self.note('notes/m.md', 'm', sources=['source.txt'], body='[[nowhere]]')
+        self.assertEqual(self.run_cli('snapshot', '--notes', 'm')[0], 1)
+        self.assertEqual(self.run_cli('snapshot', '--notes', 'broken')[0], 1)
+        self.assertEqual(self.run_cli('snapshot', '--notes', 'absent')[0], 1)
+        self.assertEqual(before, (self.vault / '.knowledge/sources.json').read_bytes())
+        # Whole-vault commands still demand a fully valid vault.
+        self.note('notes/m.md', 'm', sources=['source.txt'])
+        for args in (('snapshot', '--all'), ('build',)):
+            self.assertEqual(self.run_cli(*args)[0], 1, args)
+        # A damaged baseline is vault-wide, so it blocks even a partial snapshot.
+        (self.vault / 'notes/broken.md').unlink()
+        (self.vault / '.knowledge/sources.json').write_text('[]')
+        self.assertEqual(self.run_cli('snapshot', '--notes', 'n')[0], 1)
+
+    def git_in(self, top, *args):
+        return subprocess.run(['git', '-C', str(top), *args], capture_output=True, text=True, check=True).stdout
+
+    def init_git(self, top):
+        self.git_in(top, 'init', '-b', 'main')
+        self.git_in(top, 'config', 'user.email', 'test@example.invalid')
+        self.git_in(top, 'config', 'user.name', 'Test')
+        self.git_in(top, 'add', '.')
+        self.git_in(top, 'commit', '-m', 'base')
+
+    def test_ignore_dirty_forgives_only_uncommitted_changes(self):
+        self.init_git(self.repo)
+        self.assertEqual(self.run_cli('snapshot', '--all')[0], 0)
+        (self.repo / 'source.txt').write_text('edited', encoding='utf-8')
+        status, _, err = self.run_cli('check', '--strict')
+        self.assertEqual(status, 1)
+        self.assertNotIn('not counted', err)
+        status, out, err = self.run_cli('check', '--strict', '--ignore-dirty')
+        self.assertEqual(status, 0, err)
+        self.assertIn('WARNING: notes/n.md: changed source source.txt (uncommitted change, not counted)', err)
+        self.assertIn('(1 uncommitted, not counted)', out)
+        self.git_in(self.repo, 'add', 'source.txt')  # staged still counts as uncommitted
+        self.assertEqual(self.run_cli('check', '--strict', '--ignore-dirty')[0], 0)
+        self.git_in(self.repo, 'commit', '-m', 'edit')  # committed changes are real
+        status, _, err = self.run_cli('check', '--strict', '--ignore-dirty')
+        self.assertEqual(status, 1)
+        self.assertIn('changed source source.txt\n', err + '\n')
+        self.assertNotIn('not counted', err)
+        # Untracked sources and a repo that is a subdirectory of the work tree.
+        (self.repo / 'new.txt').write_text('one', encoding='utf-8')
+        self.note('notes/u.md', 'u', sources=['new.txt'])
+        self.assertEqual(self.run_cli('snapshot', '--notes', 'u')[0], 0)
+        (self.repo / 'new.txt').write_text('two', encoding='utf-8')
+        self.assertEqual(self.run_cli('check', '--strict', '--ignore-dirty')[0], 1)  # n is still committed-changed
+        self.assertIn('changed source new.txt (uncommitted change, not counted)', self.run_cli('check', '--ignore-dirty')[2])
+
+    def test_ignore_dirty_in_a_subdirectory_of_the_work_tree_and_outside_git(self):
+        with self.assertRaises(SystemExit) as exc, redirect_stderr(StringIO()):
+            self.run_cli('check', '--ignore-dirty')
+        self.assertEqual(exc.exception.code, 2)
+        self.assertEqual(self.run_cli('snapshot', '--all')[0], 0)
+        self.init_git(self.root)
+        (self.repo / 'source.txt').write_text('edited', encoding='utf-8')
+        status, _, err = self.run_cli('check', '--strict', '--ignore-dirty')
+        self.assertEqual(status, 0, err)
+        self.assertIn('(uncommitted change, not counted)', err)
+        for args in (('build', '--ignore-dirty'), ('snapshot', '--all', '--ignore-dirty')):
+            with self.subTest(args=args), self.assertRaises(SystemExit) as exc, redirect_stderr(StringIO()):
+                self.run_cli(*args)
+            self.assertEqual(exc.exception.code, 2)
 
     @staticmethod
     def umask():
