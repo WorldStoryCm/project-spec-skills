@@ -18,6 +18,7 @@ It also writes an **offline browser map** that groups pages by area. Obsidian is
 | Knowledge | [project-knowledge](skills/project-knowledge/SKILL.md) | An as-built spec of capabilities and behavior, a separate queue of individually tracked gaps, coverage notes; incremental Git review and reconciliation of concurrent vault updates. |
 | Quality | [spec-audit](skills/spec-audit/SKILL.md) | A scoped comparison of requirements and implementation, with evidence, priorities and next actions; in a vault, one gap page per finding. |
 | Investigation | [spec-investigation](skills/spec-investigation/SKILL.md) | An answer to one question, competing explanations, checks actually performed and the smallest useful next check; the way to re-check a single gap. |
+| Development (experimental) | [spec-change](skills/spec-change/SKILL.md) | Development driven by the spec: you edit the spec on a branch, the agent reviews the diff and asks its questions before any code, then implements it and checks each changed statement against the code. |
 | Planning | [spec-plan](skills/spec-plan/SKILL.md) | A source-grounded implementation plan with dependencies, decision gates and observable acceptance criteria; in a vault, only for a gap a person accepted. |
 
 Each skill is independently usable. A useful sequence is:
@@ -31,7 +32,7 @@ flowchart LR
   E --> A
 ```
 
-Implementation is a separate task. Reading a test establishes what it expects; only running it produces a test result.
+Implementation is a separate task, except in `spec-change`, which starts from your edits to the spec instead of from a gap. Reading a test establishes what it expects; only running it produces a test result.
 
 ## Why use this?
 
@@ -54,6 +55,7 @@ Ask the built-in skill installer:
 Install these skills from WorldStoryCm/project-spec-skills:
 skills/project-knowledge
 skills/spec-audit
+skills/spec-change
 skills/spec-investigation
 skills/spec-plan
 ```
@@ -71,7 +73,7 @@ Copy the whole skill folder (it contains the references and helper scripts) to o
 git clone https://github.com/WorldStoryCm/project-spec-skills.git
 mkdir -p ~/.claude/skills
 cp -R project-spec-skills/skills/project-knowledge ~/.claude/skills/
-# repeat for spec-audit, spec-investigation and spec-plan
+# repeat for spec-audit, spec-change, spec-investigation and spec-plan
 ```
 
 Then ask in plain language, or invoke a skill by name with `/<name>`, for example `/spec-audit`. Claude Code finds a skill from its description, so an ordinary request often picks the right one.
@@ -100,6 +102,12 @@ section, and leave the decision to me.
 ```text
 Use the spec-plan skill to plan the accepted gap "reservation-release".
 Include affected modules, concurrency checks and acceptance criteria. Plan only.
+```
+
+```text
+Use the spec-change skill. I edited the spec on this branch; the diff against main
+is the change request. Ask your questions first, then implement it and show me
+which statement is covered by which check.
 ```
 
 ### Any agent with repository access
@@ -139,7 +147,7 @@ and list which are waiting for my decision.
 Ask project-knowledge to check links and source freshness.
 ```
 
-The agent researches and writes the claims. The Python helpers validate structure, track source fingerprints and render views; running a helper alone does not understand your code. A scan identifies candidate changes, and fingerprints are accepted and the Git checkpoint advanced only after review. See the [sync workflow](skills/project-knowledge/references/sync.md). If part of the range cannot be accepted yet, for example because another contributor has uncommitted edits to a file, mark it `deferred`: the rest is accepted, the checkpoint stays where it is and the helper exits with status 2.
+The agent researches and writes the claims. The Python helpers validate structure, track source fingerprints and render views; running a helper alone does not understand your code. A scan identifies candidate changes, and fingerprints are accepted and the Git checkpoint advanced only after review. See the [sync workflow](skills/project-knowledge/references/sync.md). If part of the range cannot be accepted yet, for example because another contributor has uncommitted edits to a file, mark it `deferred`: the rest is accepted, the checkpoint stays where it is and the helper exits with status 3 (not 0, and not 2, which is a usage error).
 
 If `check` fails on a vault written before the spec/gap split, follow the [migration guide](skills/project-knowledge/references/migrate.md).
 

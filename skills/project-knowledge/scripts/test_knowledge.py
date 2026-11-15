@@ -992,11 +992,16 @@ class GapLayerTests(Fixture):
         self.note('notes/broken.md', 'broken', status=None)
         self.note('notes/m.md', 'm', sources=['source.txt'], body='[[broken]]')
         self.assertEqual(self.run_cli('check')[0], 1)
-        status, out, err = self.run_cli('snapshot', '--notes', 'n', 'm')
+        status, out, err = self.run_cli('snapshot', '--notes', 'n')
         self.assertEqual(status, 0, err)
         self.assertIn('1 errors on 1 other pages do not block this snapshot', err)
         baseline = json.loads((self.vault / '.knowledge/sources.json').read_text())
-        self.assertEqual(sorted(baseline), ['m', 'n'])
+        self.assertEqual(sorted(baseline), ['n'])
+        # A selected page that links to the broken page is refused; the link only looks fine because the error is not repeated.
+        status, _, err = self.run_cli('snapshot', '--notes', 'n', 'm')
+        self.assertEqual(status, 1)
+        self.assertIn('notes/m.md: link broken names a page that failed validation', err)
+        self.assertEqual(sorted(json.loads((self.vault / '.knowledge/sources.json').read_text())), ['n'])
         # The selected page itself must be valid, including one whose own frontmatter fails.
         before = (self.vault / '.knowledge/sources.json').read_bytes()
         self.note('notes/m.md', 'm', sources=['source.txt'], body='[[nowhere]]')
@@ -1047,7 +1052,75 @@ class GapLayerTests(Fixture):
         self.assertEqual(self.run_cli('snapshot', '--notes', 'u')[0], 0)
         (self.repo / 'new.txt').write_text('two', encoding='utf-8')
         self.assertEqual(self.run_cli('check', '--strict', '--ignore-dirty')[0], 1)  # n is still committed-changed
-        self.assertIn('changed source new.txt (uncommitted change, not counted)', self.run_cli('check', '--ignore-dirty')[2])
+        # An untracked file has no HEAD blob to equal the accepted bytes, so it is never forgiven.
+        self.assertNotIn('not counted', self.run_cli('check', '--ignore-dirty')[2].split('new.txt')[0].split('\n')[-1])
+        self.assertIn('changed source new.txt\n', self.run_cli('check', '--ignore-dirty')[2])
+
+    def test_stale_canvas_accepts_obsidian_layout_but_not_hand_made_content(self):
+        card = {'id': 'a', 'type': 'file', 'file': 'a.md', 'x': 0, 'y': 0, 'width': 300, 'height': 200}
+        edge = {'id': 'e0', 'fromNode': 'a', 'toNode': 'b'}
+        canvas = self.root / 'Map.canvas'
+
+        def verdict(**changes):
+            data = {'nodes': [card, {**card, 'id': 'b', 'file': 'b.md', 'x': 340}], 'edges': [edge]} | changes
+            canvas.write_text(json.dumps(data, indent='\t'), encoding='utf-8')
+            return k.stale_canvas(canvas)
+        self.assertTrue(verdict())
+        self.assertTrue(verdict(edges=[{**edge, 'fromSide': 'bottom', 'toSide': 'top'}]))  # as saved by Obsidian
+        self.assertTrue(verdict(nodes=[{**card, 'x': 500, 'y': 90}]))  # moved card
+        self.assertFalse(verdict(edges=[{**edge, 'label': 'depends on'}]))
+        self.assertFalse(verdict(edges=[{**edge, 'color': '1'}]))
+        self.assertFalse(verdict(edges=[{**edge, 'fromSide': 'nowhere'}]))
+        self.assertFalse(verdict(edges=[{**edge, 'id': 'xyz'}]))
+        self.assertFalse(verdict(nodes=[card, {'id': 't', 'type': 'text', 'text': 'mine', 'x': 0, 'y': 0, 'width': 300, 'height': 200}]))
+        self.assertFalse(verdict(nodes=[{**card, 'color': '2'}]))
+        self.assertFalse(verdict(nodes=[{**card, 'width': 400}]))
+
+    def test_ignore_dirty_does_not_hide_a_committed_unreviewed_change(self):
+        self.init_git(self.repo)
+        self.assertEqual(self.run_cli('snapshot', '--all')[0], 0)
+        (self.repo / 'source.txt').write_text('committed change', encoding='utf-8')
+        self.git_in(self.repo, 'commit', '-am', 'edit')
+        self.assertEqual(self.run_cli('check', '--strict', '--ignore-dirty')[0], 1)
+        (self.repo / 'source.txt').write_text('committed change\n', encoding='utf-8')  # whitespace edit on top
+        status, _, err = self.run_cli('check', '--strict', '--ignore-dirty')
+        self.assertEqual(status, 1, err)
+        self.assertNotIn('not counted', err)
+        # Line-ending variants of the accepted bytes still count as uncommitted-only drift.
+        self.git_in(self.repo, 'checkout', 'source.txt')
+        (self.repo / 'source.txt').write_bytes(b'one\ntwo\n')
+        self.git_in(self.repo, 'commit', '-am', 'back')
+        self.assertEqual(self.run_cli('snapshot', '--all')[0], 0)
+        (self.repo / 'source.txt').write_bytes(b'one\r\ntwo\r\n')
+        status, _, err = self.run_cli('check', '--strict', '--ignore-dirty')
+        self.assertEqual(status, 0, err)
+        self.assertIn('line endings differ in source source.txt (uncommitted change, not counted)', err)
+
+    def test_cascade_suppression_hides_only_the_missing_error(self):
+        self.note('notes/broken.md', 'broken', status=None)
+        self.note('gaps/g/broken.md', 'gb', 'gap', status=None)  # a failed page that still says it is a gap
+        self.note('notes/other/broken.md', 'broken2', status=None)
+        self.note('notes/w.md', 'w', sources=['source.txt'], body='[[broken]]')  # two failed pages share the name
+        self.note('notes/v.md', 'v', sources=['source.txt'], body='[[gaps/g/broken]]')
+        self.note('notes/x.md', 'x', areas=['n'], sources=['source.txt'])  # n is a note, not an area
+        status, err = self.errors()
+        self.assertEqual(status, 1, err)
+        self.assertIn('notes/w.md: ambiguous wikilink broken', err)
+        self.assertIn('notes/v.md: spec pages must not link to the gap layer', err)
+        self.assertIn('notes/x.md: unknown area n', err)
+
+    def test_snapshot_notes_refuses_a_page_with_a_bad_area_or_wrong_type_target(self):
+        self.note('areas/ba.md', 'ba', 'area', areas=[], updated='2026-13-45')
+        self.note('notes/m.md', 'm', areas=['a', 'ba'], sources=['source.txt'])
+        before = (self.vault / '.knowledge/sources.json').read_bytes() if (self.vault / '.knowledge/sources.json').exists() else None
+        status, _, err = self.run_cli('snapshot', '--notes', 'm')
+        self.assertEqual(status, 1)
+        self.assertIn('notes/m.md: area ba names a page that failed validation', err)
+        self.assertEqual(before, (self.vault / '.knowledge/sources.json').read_bytes() if (self.vault / '.knowledge/sources.json').exists() else None)
+        self.note('notes/m.md', 'm', areas=['n'], sources=['source.txt'])
+        status, _, err = self.run_cli('snapshot', '--notes', 'm')
+        self.assertEqual(status, 1)
+        self.assertIn('notes/m.md: unknown area n', err)
 
     def test_ignore_dirty_in_a_subdirectory_of_the_work_tree_and_outside_git(self):
         with self.assertRaises(SystemExit) as exc, redirect_stderr(StringIO()):

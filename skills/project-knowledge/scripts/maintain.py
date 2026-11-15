@@ -16,6 +16,8 @@ import tempfile
 
 import knowledge
 
+PARTIAL_EXIT = 3  # a partial finish; 2 is argparse's usage error and 1 is any other failure
+
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
@@ -79,8 +81,9 @@ def retarget_hint(repo, vault, target):
         if parents and any(not housekeeping(p, vault_rel) for row in changes(repo, parents[0], commit) for p in row['paths']):
             return None
     return (f'plan target {target} is not HEAD {head}, but every commit in between touches only excluded paths (the vault, the portable skill copy, '
-            f'their wrapper files). Re-run "scan --write-status", set review_base/review_target in the run page to the new range (review_target: {head}), '
-            'then regenerate the receipt with "receipt" and run finish again.')
+            f'their wrapper files). First set review_target in the run page to the new HEAD (review_target: {head}; review_base stays), '
+            'then re-run "scan --write-status" (the plan records the run page\'s bytes, so the page must be edited before the scan), '
+            'regenerate the receipt with "receipt", fill in the dispositions and run finish again. Do not commit the vault in between: that would move HEAD again.')
 
 
 def changes(repo, left, right):
@@ -297,7 +300,7 @@ def status(vault, plan):
 
 
 def finish(repo, vault, plan_path, review_path):
-    """Return (message, exit code): 0 when the checkpoint advanced or nothing was pending, 2 for a partial finish."""
+    """Return (message, exit code): 0 when the checkpoint advanced or nothing was pending, PARTIAL_EXIT (3, distinct from argparse's usage error 2) for a partial finish."""
     plan_bytes = plan_path.read_bytes()
     plan, review = json.loads(plan_bytes), json.loads(review_path.read_bytes())
     if review.get('plan_sha256') != hashlib.sha256(plan_bytes).hexdigest():
@@ -419,7 +422,7 @@ def finish(repo, vault, plan_path, review_path):
             lines = [f'partial: accepted {len(accepted)} notes; deferred {len(deferred_paths)} paths, {len(deferred_notes)} notes; checkpoint stays at {checkpoint}']
             lines += [f'deferred path {p}: {r}' for p, r in sorted(deferred_paths.items())]
             lines += [f'deferred note {n}: {r}' for n, r in sorted(deferred_notes.items())]
-            return '\n'.join(lines), 2
+            return '\n'.join(lines), PARTIAL_EXIT
         return 'review checkpoint advanced to ' + plan['target'], 0
 
 

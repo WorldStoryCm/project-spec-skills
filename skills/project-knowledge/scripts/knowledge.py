@@ -293,8 +293,14 @@ def tolerates_missing_source(meta, ids):
     return False
 
 
+CANVAS_SIDES = {'top', 'right', 'bottom', 'left'}
+
+
 def stale_canvas(file):
-    """True for a Map.canvas written by an earlier build: only 300x200 file cards and e0..eN edges, so nothing hand-made is lost."""
+    """True for a Map.canvas written by an earlier build: only 300x200 file cards and e0..eN edges, so nothing hand-made is lost.
+
+    Obsidian adds fromSide/toSide to edges when it saves a canvas; those are layout, not content.
+    """
     if file.is_symlink() or not file.is_file():
         return False
     try:
@@ -302,7 +308,9 @@ def stale_canvas(file):
         return (set(data) == {'nodes', 'edges'}
                 and all(set(n) == {'id', 'type', 'file', 'x', 'y', 'width', 'height'} and n['type'] == 'file'
                         and (n['width'], n['height']) == (300, 200) for n in data['nodes'])
-                and all(set(e) == {'id', 'fromNode', 'toNode'} and e['id'] == f'e{i}' for i, e in enumerate(data['edges'])))
+                and all({'id', 'fromNode', 'toNode'} <= set(e) <= {'id', 'fromNode', 'toNode', 'fromSide', 'toSide'}
+                        and e['id'] == f'e{i}' and all(e.get(side, 'top') in CANVAS_SIDES for side in ('fromSide', 'toSide'))
+                        for i, e in enumerate(data['edges'])))
     except (OSError, ValueError, TypeError, KeyError):
         return False
 
@@ -334,6 +342,12 @@ def line_ending_variant(data, old):
     return old in {hashlib.sha256(lf).hexdigest(), hashlib.sha256(lf.replace(b'\n', b'\r\n')).hexdigest()}
 
 
+def head_blob(repo, source):
+    """Bytes of the source as committed at HEAD, or None when HEAD has no such file (untracked, new or no commits)."""
+    result = subprocess.run(['git', '-C', str(repo), 'show', f'HEAD:./{posixpath.normpath(source)}'], capture_output=True)
+    return None if result.returncode else result.stdout
+
+
 def uncommitted_paths(repo):
     """Repo-relative paths Git reports as modified, staged or untracked (one status call), or None outside a work tree."""
     probe = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--is-inside-work-tree', '--show-prefix'], capture_output=True)
@@ -363,11 +377,12 @@ def error_page(message):
 
 
 def load_vault(repo, vault, freshness=True, dirty=None, report=None):
-    """dirty: repo-relative paths with uncommitted changes whose freshness warnings are marked, not counted.
+    """dirty: repo-relative paths with uncommitted changes. Their freshness warning is marked, not counted, only when
+    the accepted fingerprint equals the file's HEAD blob (up to LF/CRLF), so the sole drift is uncommitted.
 
     report, when given, receives 'failed': {page path: parsed id or None} for pages that failed validation.
     """
-    errors, warnings, notes, failed = [], [], [], {}
+    errors, warnings, notes, failed, failed_kind, cascade = [], [], [], {}, {}, []
     baseline_file = vault / '.knowledge/sources.json'
     baseline = {}
     if baseline_file.exists():
@@ -413,13 +428,17 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
             # The page still exists as a link target; only its own errors are real.
             ident = meta.get('id') if isinstance(meta, dict) else None
             failed[rel] = ident if isinstance(ident, str) and re.fullmatch(r'[a-z0-9-]+', ident) else None
-    if report is not None:
-        report['failed'] = failed
+            kind = meta.get('type') if isinstance(meta, dict) else None
+            failed_kind[rel] = kind if kind in TYPES else None
     failed_ids = {i for i in failed.values() if i}
-    failed_stems = {rel[:-3] for rel in failed}
+    failed_id_kinds = {}
+    for rel, ident in failed.items():
+        if ident:
+            failed_id_kinds.setdefault(ident, set()).add(failed_kind[rel])
+    failed_stems = {rel[:-3]: failed_kind[rel] for rel in failed}
     failed_names = {}
-    for stem in failed_stems:
-        failed_names[PurePosixPath(stem).name] = failed_names.get(PurePosixPath(stem).name, 0) + 1
+    for stem, kind in failed_stems.items():
+        failed_names.setdefault(PurePosixPath(stem).name, []).append(kind)
     ids, paths, basenames = {}, {}, {}
     for note in notes:
         meta, rel = note['meta'], note['path']
@@ -439,7 +458,7 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
         if meta['type'] == 'gap' and meta.get('duplicate_of'):
             other = ids.get(meta['duplicate_of'])
             if other is None and meta['duplicate_of'] in failed_ids:
-                pass
+                cascade.append(f"{rel}: duplicate_of {meta['duplicate_of']} names a page that failed validation")
             elif other is None or other['meta']['type'] != 'gap':
                 errors.append(f"{rel}: duplicate_of {meta['duplicate_of']} is not the id of an existing gap")
             elif other is note:
@@ -447,7 +466,7 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
         if meta['type'] == 'plan':
             other = ids.get(meta['gap'])
             if other is None and meta['gap'] in failed_ids:
-                pass
+                cascade.append(f"{rel}: gap {meta['gap']} names a page that failed validation")
             elif other is None or other['meta']['type'] != 'gap':
                 errors.append(f"{rel}: gap {meta['gap']} is not the id of an existing gap")
             else:
@@ -465,7 +484,9 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
             if meta['recheck'] != 'not-checked' and found.count('Recheck') == 1 and not texts['Recheck'].strip():
                 errors.append(f"{rel}: the Recheck section must say what was checked once recheck is '{meta['recheck']}'")
         for area in meta['areas']:
-            if area in failed_ids and area not in area_ids:
+            if area not in ids and area in failed_ids and failed_id_kinds[area] & {None, 'area'}:
+                # Only the "missing" error is hidden; a failed page known to be another type still reports it.
+                cascade.append(f'{rel}: area {area} names a page that failed validation')
                 continue
             if area not in area_ids:
                 errors.append(f'{rel}: unknown area {area}')
@@ -481,16 +502,24 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
             if target.endswith('.md'):
                 target = target[:-3]
             choices = basenames.get(target, []) if '/' not in target else ([paths[target]] if target in paths else [])
-            broken = failed_names.get(target, 0) if '/' not in target else int(target in failed_stems)
-            if broken and not choices:
-                continue  # the page exists but failed validation; its own errors are the root cause
+            broken_kinds = failed_names.get(target, []) if '/' not in target else ([failed_stems[target]] if target in failed_stems else [])
+            broken = len(broken_kinds)
+            if broken == 1 and not choices:
+                # The one candidate exists but failed validation; its own errors are the root cause of "missing".
+                if meta['type'] in {'area', 'note'} and broken_kinds[0] in {'gap', 'plan'}:
+                    errors.append(f"{rel}: spec pages must not link to the gap layer ({'embed ' if embed else ''}{target}); link from the gap to this page instead")
+                else:
+                    cascade.append(f'{rel}: link {target} names a page that failed validation')
+                    if meta['type'] == 'run':
+                        run_links += 1
+                continue
             if embed and not choices and PurePosixPath(target).suffix:
                 # Not a note: Obsidian embeds images and PDFs by file name.
                 if not attachment_exists(vault, target, attachments):
                     errors.append(f'{rel}: missing embed {target}')
                 continue
             if len(choices) + broken != 1:
-                errors.append(f"{rel}: {'ambiguous' if choices else 'missing'} {'embed' if embed else 'wikilink'} {target}")
+                errors.append(f"{rel}: {'ambiguous' if len(choices) + broken > 1 else 'missing'} {'embed' if embed else 'wikilink'} {target}")
             elif meta['type'] in {'area', 'note'} and choices[0]['meta']['type'] in {'gap', 'plan'}:
                 errors.append(f"{rel}: spec pages must not link to the gap layer ({'embed ' if embed else ''}{target}); link from the gap to this page instead")
             elif meta['type'] == 'run':
@@ -529,7 +558,12 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
                     old = baseline.get(meta['id'], {}).get(source)
                     data = path.read_bytes()
                     if old != hashlib.sha256(data).hexdigest():
-                        mark = UNCOUNTED if old and dirty is not None and posixpath.normpath(source) in dirty else ''
+                        mark = ''
+                        if old and dirty is not None and posixpath.normpath(source) in dirty:
+                            # Forgive only pure uncommitted drift: the accepted bytes are what HEAD holds (up to line endings).
+                            blob = head_blob(repo, source)
+                            if blob is not None and (hashlib.sha256(blob).hexdigest() == old or line_ending_variant(blob, old)):
+                                mark = UNCOUNTED
                         if old and line_ending_variant(data, old):
                             warnings.append(f'{rel}: line endings differ in source {source}{mark}')
                         else:
@@ -538,6 +572,9 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
                         note['stale'] = True
             except (OSError, ValueError) as exc:
                 errors.append(f'{rel}: {source}: {exc}')
+    if report is not None:
+        report['failed'] = failed
+        report['cascade'] = cascade
     return notes, sorted(edges), errors, warnings, baseline
 
 
@@ -803,6 +840,8 @@ def main(argv=None):
                 blocking.append(message)
             else:
                 ignored.append(message)
+        # A selected page that leans on a page which failed validation cannot be accepted yet.
+        blocking += [m for m in report['cascade'] if error_page(m) in selected]
         errors = blocking
         missing = wanted - by_id.keys()
         if missing:

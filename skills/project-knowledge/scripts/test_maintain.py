@@ -702,7 +702,7 @@ class MaintainTests(unittest.TestCase):
                                      notes={'other': {'status': 'deferred', 'reason': 'waits for other.txt'}})
         before = self.state()
         checkpoint = json.loads(before['.knowledge/review.json'])['reviewed_through']
-        result = self.cli('finish', '--plan', str(planpath), '--review', str(receipt), code=2)
+        result = self.cli('finish', '--plan', str(planpath), '--review', str(receipt), code=3)
         self.assertIn(f'partial: accepted 1 notes; deferred 1 paths, 1 notes; checkpoint stays at {checkpoint}', result.stdout)
         self.assertIn('deferred path other.txt: owner has uncommitted edits', result.stdout)
         self.assertIn('deferred note other: waits for other.txt', result.stdout)
@@ -808,6 +808,35 @@ class MaintainTests(unittest.TestCase):
         self.git('reset', '--hard', head)
         planpath, plan = self.plan()
         self.assertEqual(plan['target'], head)
+
+    def test_documented_retarget_order_reaches_a_successful_finish(self):
+        self.change()
+        planpath, plan = self.plan()
+        out, _ = self.receipt_cli(planpath)
+        (self.vault / 'note.md').write_text((self.vault / 'note.md').read_text() + 'prose\n')
+        self.git('add', '.')
+        self.git('commit', '-m', 'vault only')
+        head = self.git('rev-parse', 'HEAD').strip()
+        message = self.cli('finish', '--plan', str(planpath), '--review', str(out), ok=False).stderr
+        # Follow the order the message and sync.md give: run page first, then scan, receipt, dispositions, finish.
+        self.assertLess(message.index('review_target: ' + head), message.index('scan --write-status'))
+        self.assertLess(message.index('scan --write-status'), message.index('"receipt"'))
+        run = self.vault / 'runs/review.md'
+        run.write_text(run.read_text().replace(plan['target'], head))
+        self.cli('scan', '--write-status')
+        planpath = self.vault / '.knowledge/sync-plan.json'
+        plan = json.loads(planpath.read_text())
+        self.assertEqual(plan['target'], head)
+        out, _ = self.receipt_cli(planpath)
+        data = json.loads(out.read_text())
+        data['paths'] = {p: {'status': 'reviewed', 'reason': 'read'} for p in data['paths']}
+        data['notes'] = {n: {**v, 'status': 'unchanged'} for n, v in data['notes'].items()}
+        out.write_text(json.dumps(data))
+        self.assertIn('review checkpoint advanced to ' + head, self.cli('finish', '--plan', str(planpath), '--review', str(out)).stdout)
+
+    def test_partial_finish_exit_status_is_not_the_usage_error_status(self):
+        self.assertEqual(maintain.PARTIAL_EXIT, 3)
+        self.assertEqual(subprocess.run(['python3', str(SCRIPT), 'finish'], capture_output=True).returncode, 2)
 
     def test_receipt_reports_what_it_kept_and_reset(self):
         self.two_note_range()

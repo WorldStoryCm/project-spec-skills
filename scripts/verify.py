@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 KNOWLEDGE = ROOT / 'skills/project-knowledge'
 EXAMPLE = ROOT / 'examples/parcel-desk'
 VAULT = EXAMPLE / 'knowledge/parcel-desk'
-SKILLS = ('project-knowledge', 'spec-audit', 'spec-investigation', 'spec-plan')
+SKILLS = ('project-knowledge', 'spec-audit', 'spec-change', 'spec-investigation', 'spec-plan')
 ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
 DATA = re.compile(r'(<script id="knowledge-data" type="application/json">\s*)(.*?)(\s*</script>)', re.S)
 
@@ -138,7 +138,7 @@ def check_generated():
 
 
 GAP_RULES = KNOWLEDGE / 'references/gaps.md'
-GAP_RULE_COPIES = tuple(ROOT / 'skills' / name / 'references/gaps.md' for name in ('spec-audit', 'spec-investigation', 'spec-plan'))
+GAP_RULE_COPIES = tuple(ROOT / 'skills' / name / 'references/gaps.md' for name in ('spec-audit', 'spec-change', 'spec-investigation', 'spec-plan'))
 
 
 def check_gap_rules():

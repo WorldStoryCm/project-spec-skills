@@ -84,7 +84,7 @@ Use `agent` as the name for entries you write yourself. Layout of options, objec
 | New gap: `kind`, `recheck: "not-checked"`, `decision: "open"`, optional `priority`/`confidence` | The agent that found it |
 | `recheck`, `rechecked_by`, `rechecked_on`, `Recheck` text | Whoever actually performed the check; an agent writes `agent` only for a check it ran itself, with its commands and results. An agent may also set `recheck: "outdated"` when a cited source changed since the recorded recheck, keeping the other two fields |
 | `decision: accepted`, `rejected`, `deferred` with `decided_by`, `decided_on` | A person only. An agent writes it only when a person said so in the conversation, and records that person's name |
-| `decision: done` | An agent may set it after reading current code that closes the question; it cites where in `Decision` and records that reading as a recheck (see below). A person closing a gap as done puts their name in `rechecked_by` |
+| `decision: done` | An agent may set it after reading current code that closes the question; it cites where in `Decision` and records that reading as a recheck (see below). A person closing a gap as done records the decision in `decided_by`/`Decision`; their name goes in `rechecked_by` only if they read or ran the current code themselves, otherwise the recheck fields stay as they are |
 | `decision: duplicate`, `duplicate_of` | Agent or person (bookkeeping) |
 | `Discussion` | Anyone, by appending |
 
@@ -92,7 +92,7 @@ Never guess a decision from silence, from a plan existing, or from a task being 
 
 ## Closing a gap as done
 
-When an agent sets `decision: "done"` because it read (or ran) the current code and the gap no longer holds, that reading is itself a recheck, and the page should say so. In the same edit record `recheck: "not-reproduced"`, `rechecked_by: "agent"`, today's `rechecked_on`, and add a dated entry to `Recheck` saying what was read or run. In `Decision`, say where in the code the question is now closed. The two sections answer different questions: `Recheck` is how you know it no longer holds, `Decision` is where the code does it. Without the recheck fields a closed gap looks as if nobody ever looked at the code. When a person closes a gap as done, their name goes in `rechecked_by`, not `agent`. If you are not sure the question is closed, leave it open.
+When an agent sets `decision: "done"` because it read (or ran) the current code and the gap no longer holds, that reading is itself a recheck, and the page should say so. In the same edit record `recheck: "not-reproduced"`, `rechecked_by: "agent"`, today's `rechecked_on`, and add a dated entry to `Recheck` saying what was read or run. In `Decision`, say where in the code the question is now closed. The two sections answer different questions: `Recheck` is how you know it no longer holds, `Decision` is where the code does it. Without the recheck fields a closed gap looks as if nobody ever looked at the code. When a person closes a gap as done, they record the decision in `decided_by` and `Decision`. Their name goes in `rechecked_by` (not `agent`) only if they read or ran the current code themselves and add a `Recheck` entry saying what they did; if they decided without doing so, leave the recheck fields as they are. If you are not sure the question is closed, leave it open.
 
 ## Derived state
 
