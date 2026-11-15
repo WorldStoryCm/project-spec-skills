@@ -1,6 +1,6 @@
 {
   "title": "Parcel Desk knowledge",
-  "generatedAt": "2026-11-15T11:28:35.081627+00:00",
+  "generatedAt": "2026-11-15T16:25:41.598978+00:00",
   "nodes": [
     {
       "id": "index",
@@ -252,7 +252,7 @@
       ],
       "path": "notes/cancellation-boundary.md",
       "body": "# Only requested pickups are currently cancellable\n\nArea: [[areas/pickups|Pickup cancellation]]. Use this note when changing allowed states or explaining a rejected cancellation.\n\n`cancel_pickup` first runs the [[notes/ownership-check|ownership check]]. It then requires `pickup.state == \"requested\"`; any other value, including `picked_up` and `packed`, raises `ValueError(\"Only requested pickups can be cancelled\")` before anything is changed. A pickup that passes both checks gets state `cancelled` and is returned. The [service](../../../src/pickups.py) establishes this; the code has no list of states and treats every value except `requested` the same way. The service refers to no other state name.\n\nThe [[notes/route-responses|adapter]] turns the `ValueError` into status 409. The existing [tests](../../../tests/test_pickups.py) cover a `requested` pickup (cancelled) and a `picked_up` pickup (409, unchanged); none uses `packed`. The three-test suite passed during the example check (`python3 -m unittest discover -s tests -v`, see [[01-coverage|coverage]]).\n",
-      "summary": "",
+      "summary": "A customer can cancel a pickup only while it is still requested. Once it is packed or picked up, the cancellation is refused and nothing changes.",
       "stale": false,
       "kind": "",
       "recheck": "",
@@ -290,7 +290,7 @@
       ],
       "path": "notes/ownership-check.md",
       "body": "# The owner check runs before the state check\n\nAreas: [[areas/access|Customer access]] and [[areas/pickups|Pickup cancellation]].\n\n`cancel_pickup` compares `pickup.customer_id` with the supplied customer ID before it looks at the state. A mismatch raises `PermissionError` and nothing is changed; the adapter maps it to status 403 ([service](../../../src/pickups.py), [adapter](../../../src/routes.py)). The only caller identity in the code is that supplied string: the adapter's docstring says the caller has already authenticated the customer, and no partner or staff identity exists.\n\n`test_other_customer_cannot_cancel` in the [tests](../../../tests/test_pickups.py) uses a `requested` pickup and checks status 403 and unchanged state; it passed in the example check. [[notes/cancellation-boundary|State eligibility]] applies only after this check passes.\n",
-      "summary": "",
+      "summary": "Only the customer who owns a pickup can cancel it. Anyone else is refused before the state of the pickup is looked at, and nothing changes.",
       "stale": false,
       "kind": "",
       "recheck": "",
@@ -328,7 +328,7 @@
       ],
       "path": "notes/route-responses.md",
       "body": "# Cancellation exceptions become adapter statuses\n\nAreas: [[areas/pickups|Pickup cancellation]] and [[areas/access|Customer access]].\n\nThe in-process `cancel_request` adapter calls `cancel_pickup` and returns a dictionary: `{\"status\": 403, \"error\": \"forbidden\"}` for `PermissionError`, `{\"status\": 409, \"error\": \"cancellation_conflict\"}` for `ValueError`, and `{\"status\": 200, \"state\": <new state>}` on success. See [the adapter](../../../src/routes.py) and [the called service](../../../src/pickups.py).\n\n[[notes/ownership-check|Ownership]] decides the 403 case and [[notes/cancellation-boundary|state eligibility]] decides the 409 case, so a `packed` pickup owned by the caller reaches the 409 branch. The [existing tests](../../../tests/test_pickups.py) exercise the three branches with a requested, an other-customer and a collected pickup, and passed in the example check. The values are dictionaries returned in-process, not observed HTTP responses.\n",
-      "summary": "",
+      "summary": "A cancellation request gets one of three answers: cancelled, refused because the pickup belongs to someone else, or refused because it can no longer be cancelled.",
       "stale": false,
       "kind": "",
       "recheck": "",

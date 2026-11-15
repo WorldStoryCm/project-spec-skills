@@ -6,6 +6,7 @@ status: "current"
 areas: ["access", "pickups"]
 sources: ["src/pickups.py", "src/routes.py", "tests/test_pickups.py"]
 tags: ["knowledge", "rule"]
+summary: "Only the customer who owns a pickup can cancel it. Anyone else is refused before the state of the pickup is looked at, and nothing changes."
 updated: "2026-11-14"
 ---
 

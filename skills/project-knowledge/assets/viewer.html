@@ -673,6 +673,197 @@
         font: inherit;
         text-align: left;
       }
+      .reading {
+        display: grid;
+        grid-template-columns: 290px minmax(0, 1fr);
+        height: calc(100vh - 70px - 48px);
+        min-height: 0;
+        background: var(--white);
+      }
+      .outline {
+        overflow: auto;
+        padding: 20px 14px 40px 20px;
+        border-right: 1px solid var(--line);
+        background: var(--paper);
+      }
+      .outline button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        border: 0;
+        background: none;
+        padding: 6px 10px;
+        border-radius: 7px;
+        line-height: 1.35;
+      }
+      .outline button:hover {
+        background: var(--pale);
+      }
+      .outline button[aria-current="true"] {
+        background: var(--pale);
+        color: var(--teal);
+        font-weight: 650;
+      }
+      .outline .outline-home {
+        font-weight: 700;
+        margin: 16px 0 4px;
+      }
+      .outline .outline-area {
+        font-weight: 650;
+        margin-top: 14px;
+      }
+      .outline .outline-note {
+        padding-left: 22px;
+        font-size: 14px;
+        color: #3d5249;
+      }
+      .page {
+        overflow: auto;
+        padding: 44px 56px 90px;
+      }
+      .page-body {
+        max-width: 760px;
+        margin: 0 auto;
+      }
+      .page-body > h1 {
+        font-size: 32px;
+        line-height: 1.2;
+        letter-spacing: -0.01em;
+        margin: 0 0 14px;
+      }
+      .page-body > h2 {
+        font-size: 21px;
+        margin: 40px 0 6px;
+      }
+      .page-body h2 .wiki {
+        color: var(--ink);
+        text-decoration: none;
+      }
+      .page-body h2 .wiki:hover {
+        color: var(--teal);
+        text-decoration: underline;
+      }
+      .page .lead {
+        font-size: 18px;
+        line-height: 1.6;
+        color: #2b443c;
+        margin: 0 0 26px;
+      }
+      .page .area-summary {
+        color: #45594f;
+        margin: 0 0 6px;
+      }
+      .crumbs {
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 18px;
+      }
+      .crumbs .wiki {
+        text-decoration: none;
+      }
+      .feature {
+        padding: 13px 0;
+        border-top: 1px solid var(--line);
+      }
+      .feature-title {
+        border: 0;
+        background: none;
+        padding: 0;
+        font-weight: 650;
+        font-size: 16px;
+        text-align: left;
+      }
+      .feature-title:hover {
+        color: var(--teal);
+        text-decoration: underline;
+      }
+      .feature p {
+        margin: 4px 0 0;
+        color: #45594f;
+      }
+      .quiet {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .feature .quiet {
+        display: block;
+        margin-top: 4px;
+      }
+      .related {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 8px 0 28px;
+      }
+      .chip {
+        border: 1px solid var(--line);
+        background: var(--paper);
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 14px;
+      }
+      .chip:hover {
+        border-color: var(--teal);
+        color: var(--teal);
+      }
+      .label {
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 26px 0 0;
+      }
+      .page details {
+        border-top: 1px solid var(--line);
+        padding: 12px 0;
+      }
+      .page details + details {
+        margin-top: 0;
+      }
+      .page .fold-start {
+        margin-top: 34px;
+      }
+      .page summary {
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+        color: #45594f;
+      }
+      .page details[open] > summary {
+        margin-bottom: 12px;
+      }
+      .tech {
+        display: grid;
+        grid-template-columns: 110px minmax(0, 1fr);
+        gap: 6px 14px;
+        font-size: 13px;
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      .tech dt {
+        color: var(--muted);
+      }
+      .tech dd {
+        margin: 0;
+      }
+      @media (max-width: 760px) {
+        .reading {
+          display: block;
+          height: auto;
+        }
+        .outline {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+          max-height: 40vh;
+        }
+        .page {
+          padding: 26px 18px 60px;
+        }
+        .page-body > h1 {
+          font-size: 26px;
+        }
+      }
       .empty {
         color: var(--muted);
         padding: 20px 0;
@@ -807,7 +998,8 @@
       </div>
     </header>
     <div class="modebar" role="group" aria-label="Layer">
-      <button type="button" id="mode-spec" aria-pressed="true">Spec</button
+      <button type="button" id="mode-read" aria-pressed="true">Read</button
+      ><button type="button" id="mode-spec" aria-pressed="false">Map</button
       ><button type="button" id="mode-gaps" aria-pressed="false">
         Gaps<span class="pill" id="mode-wait" hidden></span>
       </button>
@@ -818,7 +1010,20 @@
       ><button data-view="map" aria-selected="true">Map</button
       ><button data-view="reader" aria-selected="false">Note</button>
     </nav>
-    <main class="workspace" data-view="map">
+    <div class="reading" id="reading">
+      <nav class="outline" aria-label="Contents">
+        <input
+          class="search"
+          id="read-search"
+          type="search"
+          placeholder="Search the spec"
+          aria-label="Search the spec"
+        />
+        <div id="outline"></div>
+      </nav>
+      <article class="page" id="page" aria-live="polite"></article>
+    </div>
+    <main class="workspace" data-view="map" hidden>
       <aside>
         <h2 id="nav-title">Spec pages</h2>
         <input
@@ -909,7 +1114,8 @@
           list = $("#list"),
           graph = $("#graph"),
           detail = $("#detail");
-        let mode = "spec",
+        let mode = "read",
+          readPage = null, // the spec page open in Read; null is the overview
           filter = "all",
           gapState = "all",
           selected = null,
@@ -1059,7 +1265,11 @@
         });
 
         // Controls are built once and updated in place so keyboard focus is kept.
-        const modeButtons = { spec: $("#mode-spec"), gap: $("#mode-gaps") };
+        const modeButtons = {
+          read: $("#mode-read"),
+          spec: $("#mode-spec"),
+          gap: $("#mode-gaps"),
+        };
         const specFilters = [
           ["all", "All"],
           ["area", "Areas"],
@@ -1134,8 +1344,21 @@
           mode = m;
           render(false);
         }
-        modeButtons.spec.addEventListener("click", () => setMode("spec"));
+        modeButtons.read.addEventListener("click", () => {
+          // Keep the reader on the page they were looking at.
+          if (mode !== "read" && selected && layerOf(selected) === "spec")
+            readPage = selected;
+          setMode("read");
+        });
+        modeButtons.spec.addEventListener("click", () => {
+          if (mode === "read" && readPage) {
+            mode = "spec";
+            showDetail(readPage);
+            switchView("map");
+          } else setMode("spec");
+        });
         modeButtons.gap.addEventListener("click", () => setMode("gap"));
+        $("#read-search").addEventListener("input", () => render());
         $("#search").addEventListener("input", () => render());
         $("#area").addEventListener("change", () => render());
         $("#kind").addEventListener("change", () => render());
@@ -1430,6 +1653,15 @@
         }
         function openNode(n) {
           const layer = layerOf(n);
+          // Reading stays in Read for spec pages; gaps and overview pages open in their own views.
+          if (mode === "read") {
+            if (layer === "spec") return openRead(n);
+            mode = layer === "gap" ? "gap" : "spec";
+          }
+          showDetail(n);
+        }
+        function showDetail(n) {
+          const layer = layerOf(n);
           if (layer !== "nav") mode = layer;
           // Jumping to a gap must not leave it hidden by stale filters.
           if (mode === "gap" && isGap(n) && !visible().includes(n))
@@ -1523,9 +1755,14 @@
         }
         function updateChrome() {
           document.body.dataset.mode = mode;
-          const gaps = mode === "gap";
-          modeButtons.spec.setAttribute("aria-pressed", String(!gaps));
+          const gaps = mode === "gap",
+            read = mode === "read";
+          modeButtons.read.setAttribute("aria-pressed", String(read));
+          modeButtons.spec.setAttribute("aria-pressed", String(mode === "spec"));
           modeButtons.gap.setAttribute("aria-pressed", String(gaps));
+          $("#reading").hidden = !read;
+          workspace.hidden = read;
+          $(".mobile-tabs").hidden = read;
           const wait = nodes.filter((n) =>
             ["needs-recheck", "needs-decision"].includes(stateOf(n)),
           ).length;
@@ -1534,7 +1771,9 @@
           pill.textContent = wait + " waiting";
           $("#mode-hint").textContent = gaps
             ? "Questions about what is missing or could be added. Each one is rechecked and decided by a person."
-            : "How the code is implemented now.";
+            : read
+              ? "What the product does today, in plain words."
+              : "How the pages of the spec connect.";
           $("#panel-spec").hidden = gaps;
           $("#panel-gaps").hidden = !gaps;
           $("#nav-title").textContent = gaps ? "Gap queue" : "Spec pages";
@@ -1595,8 +1834,183 @@
           b.addEventListener("click", () => openNode(n));
           return b;
         }
+        // --- Read: the spec as a document. No properties, no map; code detail and open questions are folded away.
+        const primaryArea = (n) => (n.areas || [])[0] || "";
+        const isFeature = (n) => n.type === "note" && n.status !== "superseded";
+        const featuresOf = (area) =>
+          nodes.filter((n) => isFeature(n) && primaryArea(n) === area.id).sort(byTitle);
+        const looseFeatures = () =>
+          nodes
+            .filter((n) => isFeature(n) && byId.get(primaryArea(n))?.type !== "area")
+            .sort(byTitle);
+        const waiting = (n) =>
+          gapsAbout(n).filter((g) =>
+            ["needs-recheck", "needs-decision"].includes(stateOf(g)),
+          );
+        const plural = (count, word) => count + " " + word + (count === 1 ? "" : "s");
+        function readMatches(n) {
+          const q = $("#read-search").value.trim().toLocaleLowerCase();
+          return (
+            !q ||
+            (str(n.title) + " " + str(n.summary) + " " + str(n.body))
+              .toLocaleLowerCase()
+              .includes(q)
+          );
+        }
+        // The page repeats its title as a first heading; the reader already shows it.
+        const bodyOf = (n) => str(n.body).replace(/^\s*# [^\n]*\n?/, "");
+        function openRead(n) {
+          mode = "read";
+          readPage = n;
+          selected = n;
+          render();
+          $("#page").scrollTop = 0;
+        }
+        function readButton(n, text, cls) {
+          const b = el("button", text == null ? n.title : text, cls || "wiki");
+          b.type = "button";
+          b.addEventListener("click", () => openRead(n));
+          return b;
+        }
+        function renderOutline() {
+          const out = $("#outline");
+          out.replaceChildren();
+          const home = readButton(null, data.title || "Overview", "outline-home");
+          home.setAttribute("aria-current", String(!readPage));
+          out.append(home);
+          const add = (n, cls) => {
+            const b = readButton(n, n.title, cls);
+            b.setAttribute("aria-current", String(readPage?.id === n.id));
+            out.append(b);
+          };
+          let any = false;
+          areas.forEach((a) => {
+            const features = featuresOf(a),
+              hits = features.filter(readMatches);
+            if (!readMatches(a) && !hits.length) return;
+            any = true;
+            add(a, "outline-area");
+            (hits.length ? hits : features).forEach((f) => add(f, "outline-note"));
+          });
+          const loose = looseFeatures().filter(readMatches);
+          loose.forEach((f) => add(f, "outline-note"));
+          if (!any && !loose.length)
+            out.append(el("p", "Nothing matches.", "empty"));
+        }
+        function featureList(features) {
+          const box = el("div", null, "features");
+          features.forEach((f) => {
+            const item = el("div", null, "feature");
+            item.append(readButton(f, f.title, "feature-title"));
+            if (str(f.summary).trim()) item.append(el("p", f.summary));
+            const open = waiting(f).length;
+            if (open) item.append(el("span", plural(open, "open question"), "quiet"));
+            box.append(item);
+          });
+          return box;
+        }
+        function fold(title, content, first) {
+          const d = el("details", null, first ? "fold-start" : "");
+          d.append(el("summary", title), content);
+          return d;
+        }
+        function questionsFold(n, first) {
+          const about = gapsAbout(n).filter(
+            (g) => !["done", "rejected", "duplicate"].includes(stateOf(g)),
+          );
+          if (!about.length) return null;
+          const ul = el("ul", null, "link-list");
+          about.forEach((g) => {
+            const li = el("li");
+            li.append(nodeButton(g), stateBadge(g));
+            ul.append(li);
+          });
+          return fold("Open questions and planned changes (" + about.length + ")", ul, first);
+        }
+        function techFold(n, first) {
+          const dl = el("dl", null, "tech");
+          const row = (k, v) => {
+            if (v) dl.append(el("dt", k), el("dd", v));
+          };
+          row("Status", labels[n.status] || str(n.status));
+          row("Updated", str(n.updated));
+          row("Page", str(n.path));
+          row("Sources", (Array.isArray(n.sources) ? n.sources : []).join(", "));
+          if (n.stale && n.status !== "stale")
+            row("Review", "Sources have changed since this page was last checked.");
+          return fold("Technical details", dl, first);
+        }
+        function renderPage() {
+          const page = $("#page"),
+            body = el("div", null, "page-body"),
+            n = readPage;
+          page.replaceChildren(body);
+          if (!n) {
+            body.append(
+              el("h1", data.title || "Specification"),
+              el("p", "What the product does today, area by area.", "lead"),
+            );
+            areas.forEach((a) => {
+              const h = el("h2");
+              h.append(readButton(a));
+              body.append(h);
+              if (str(a.summary).trim()) body.append(el("p", a.summary, "area-summary"));
+              body.append(featureList(featuresOf(a)));
+            });
+            const loose = looseFeatures();
+            if (loose.length) body.append(el("h2", "Other"), featureList(loose));
+            if (!areas.length && !loose.length)
+              body.append(el("p", "This spec has no pages yet.", "empty"));
+            return;
+          }
+          const crumbs = el("div", null, "crumbs");
+          crumbs.append(readButton(null, data.title || "Overview"));
+          const parent = n.type === "note" ? byId.get(primaryArea(n)) : null;
+          if (parent && parent.type === "area")
+            crumbs.append(document.createTextNode(" › "), readButton(parent));
+          body.append(crumbs, el("h1", n.title));
+          const summary = str(n.summary).trim();
+          if (summary) body.append(el("p", summary, "lead"));
+          let folds = 0;
+          if (n.type === "area") {
+            body.append(featureList(featuresOf(n)));
+          } else if (!summary) {
+            // No plain-language summary yet: the page text is all there is to read.
+            body.append(markdown(bodyOf(n), n));
+          }
+          const related = neighbours(n, "spec").filter(
+            (r) => r.id !== parent?.id && !(n.type === "area" && primaryArea(r) === n.id),
+          );
+          if (related.length) {
+            const chips = el("div", null, "related");
+            related.forEach((r) => chips.append(readButton(r, r.title, "chip")));
+            body.append(el("p", "Related", "label"), chips);
+          }
+          if (n.type === "area" || summary)
+          {
+            body.append(
+              fold(
+                n.type === "area" ? "More about this area" : "How it works in the code",
+                markdown(bodyOf(n), n),
+                true,
+              ),
+            );
+            folds++;
+          }
+          const questions = questionsFold(n, !folds);
+          if (questions) {
+            body.append(questions);
+            folds++;
+          }
+          body.append(techFold(n, !folds));
+        }
         function render(preserveView = false) {
           updateChrome();
+          if (mode === "read") {
+            renderOutline();
+            renderPage();
+            return;
+          }
           const shown = visible();
           $("#list-label").textContent =
             (mode === "gap" ? "Gaps" : "Materials") + " · " + shown.length;
