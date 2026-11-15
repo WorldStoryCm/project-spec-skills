@@ -297,22 +297,45 @@ CANVAS_SIDES = {'top', 'right', 'bottom', 'left'}
 
 
 def stale_canvas(file):
-    """True for a Map.canvas written by an earlier build: only 300x200 file cards and e0..eN edges, so nothing hand-made is lost.
+    """True for a Map.canvas in the exact shape the earlier generator wrote, so nothing hand-made is judged stale.
 
-    Obsidian adds fromSide/toSide to edges when it saves a canvas; those are layout, not content.
+    Cards sit on its grid (x in 0/340/680/1020, y a multiple of 80, 300x200), each id is a unique page id equal to
+    the file's stem, edges are e0..eN between those ids. Obsidian adds fromSide/toSide to edges when it saves a
+    canvas; those are layout, not content. A moved card counts as hand-made. Deleted cards or edges cannot be
+    detected here, which is why build moves a stale canvas aside instead of deleting it.
     """
     if file.is_symlink() or not file.is_file():
         return False
     try:
         data = json.loads(file.read_text(encoding='utf-8'))
-        return (set(data) == {'nodes', 'edges'}
+        if set(data) != {'nodes', 'edges'} or not isinstance(data['nodes'], list) or not isinstance(data['edges'], list):
+            return False
+        ids = [n['id'] for n in data['nodes']]
+        return (len(set(ids)) == len(ids)
                 and all(set(n) == {'id', 'type', 'file', 'x', 'y', 'width', 'height'} and n['type'] == 'file'
-                        and (n['width'], n['height']) == (300, 200) for n in data['nodes'])
+                        and (n['width'], n['height']) == (300, 200)
+                        and type(n['x']) is int and type(n['y']) is int and n['x'] in {0, 340, 680, 1020} and n['y'] >= 0 and n['y'] % 80 == 0
+                        and isinstance(n['file'], str) and n['file'].endswith('.md') and PurePosixPath(n['file']).stem == n['id']
+                        for n in data['nodes'])
                 and all({'id', 'fromNode', 'toNode'} <= set(e) <= {'id', 'fromNode', 'toNode', 'fromSide', 'toSide'}
-                        and e['id'] == f'e{i}' and all(e.get(side, 'top') in CANVAS_SIDES for side in ('fromSide', 'toSide'))
+                        and e['id'] == f'e{i}' and e['fromNode'] in ids and e['toNode'] in ids
+                        and all(e.get(side, 'top') in CANVAS_SIDES for side in ('fromSide', 'toSide'))
                         for i, e in enumerate(data['edges'])))
     except (OSError, ValueError, TypeError, KeyError):
         return False
+
+
+def move_aside(file, vault):
+    """Move file to .knowledge/<name>.removed (numeric suffix if taken, never overwriting); return the new path."""
+    target = vault / '.knowledge' / (file.name + '.removed')
+    n = 1
+    while target.exists() or target.is_symlink():
+        n += 1
+        target = vault / '.knowledge' / f'{file.name}.removed.{n}'
+    target.parent.mkdir(parents=True, exist_ok=True)
+    os.link(file, target)  # fails rather than replacing an existing file
+    file.unlink()
+    return target
 
 
 def markdown_target(rel, raw):
@@ -344,7 +367,7 @@ def line_ending_variant(data, old):
 
 def head_blob(repo, source):
     """Bytes of the source as committed at HEAD, or None when HEAD has no such file (untracked, new or no commits)."""
-    result = subprocess.run(['git', '-C', str(repo), 'show', f'HEAD:./{posixpath.normpath(source)}'], capture_output=True)
+    result = subprocess.run(['git', '-C', str(repo), 'cat-file', 'blob', f'HEAD:./{posixpath.normpath(source)}'], capture_output=True)
     return None if result.returncode else result.stdout
 
 
@@ -457,7 +480,7 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
             note['state'] = gap_state(meta)
         if meta['type'] == 'gap' and meta.get('duplicate_of'):
             other = ids.get(meta['duplicate_of'])
-            if other is None and meta['duplicate_of'] in failed_ids:
+            if other is None and meta['duplicate_of'] in failed_ids and failed_id_kinds[meta['duplicate_of']] & {None, 'gap'}:
                 cascade.append(f"{rel}: duplicate_of {meta['duplicate_of']} names a page that failed validation")
             elif other is None or other['meta']['type'] != 'gap':
                 errors.append(f"{rel}: duplicate_of {meta['duplicate_of']} is not the id of an existing gap")
@@ -465,7 +488,7 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
                 errors.append(f'{rel}: duplicate_of must name a different gap')
         if meta['type'] == 'plan':
             other = ids.get(meta['gap'])
-            if other is None and meta['gap'] in failed_ids:
+            if other is None and meta['gap'] in failed_ids and failed_id_kinds[meta['gap']] & {None, 'gap'}:
                 cascade.append(f"{rel}: gap {meta['gap']} names a page that failed validation")
             elif other is None or other['meta']['type'] != 'gap':
                 errors.append(f"{rel}: gap {meta['gap']} is not the id of an existing gap")
@@ -528,13 +551,17 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
                 edges.add((meta['id'], choices[0]['meta']['id']))
         if meta['type'] in {'area', 'note'}:
             gap_files = {n['path'].casefold() for n in notes if n['meta']['type'] in {'gap', 'plan'}} | {'gaps.md'}
+            gap_files |= {f.casefold() for f, kind in failed_kind.items() if kind in {'gap', 'plan'}}
+            unknown_files = {f.casefold() for f, kind in failed_kind.items() if kind is None}
             for raw in MD_LINK.findall(text) + MD_REF.findall(text):
                 resolved = markdown_target(rel, raw)
                 if resolved is not None and resolved.casefold() in gap_files:
                     errors.append(f"{rel}: spec pages must not link to the gap layer ({raw.strip('<>')}); link from the gap to this page instead")
+                elif resolved is not None and resolved.casefold() in unknown_files:
+                    cascade.append(f'{rel}: link {raw.strip("<>")} names a page that failed validation')
         if meta['type'] == 'run':
             # A run touches many pages; as links they would turn it into a hub that glues every cluster together.
-            page_files = {n['path'].casefold() for n in notes}
+            page_files = {n['path'].casefold() for n in notes} | {f.casefold() for f in failed}
             run_links += sum(1 for raw in MD_LINK.findall(text) + MD_REF.findall(text)
                              if (markdown_target(rel, raw) or '').casefold() in page_files)
             if run_links:
@@ -889,12 +916,16 @@ def main(argv=None):
             if (vault / name).is_file() and not is_generated(vault / name):
                 raise ValueError(f'{name} is a hand-written page but this name is reserved for a generated file; build would overwrite it, so rename the page')
         write_json(vault / '.knowledge/graph.json', graph)
-        if stale_canvas(vault / 'Map.canvas'):
-            (vault / 'Map.canvas').unlink()
-            print('build: removed Map.canvas, which is no longer generated')
         atomic_write(vault / 'graph.html', template.replace('__KNOWLEDGE_DATA__', serialized))
         atomic_write(vault / 'AS-BUILT.md', render_as_built(notes, title))
         atomic_write(vault / 'GAPS.md', render_gaps(notes, title))
+        if stale_canvas(vault / 'Map.canvas'):
+            try:
+                moved = move_aside(vault / 'Map.canvas', vault)
+            except OSError as error:  # e.g. no hard links on this filesystem; never fall back to deleting
+                print(f'build: Map.canvas is no longer generated but could not be moved aside ({error}); left it in place, delete it by hand if nobody needs it')
+            else:
+                print(f"build: Map.canvas is no longer generated; moved it to {moved.relative_to(vault).as_posix()} (delete it if nobody needs it)")
     uncounted = len(warnings) - len(counted)
     print(f'{args.command}: {len(notes)} notes, {len(edges)} links, {len(warnings)} warnings' + (f' ({uncounted} uncommitted, not counted)' if uncounted else ''))
     return 0

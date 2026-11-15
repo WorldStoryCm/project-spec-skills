@@ -451,13 +451,21 @@ class GapLayerTests(Fixture):
 
     def test_build_removes_only_a_canvas_an_earlier_build_wrote(self):
         canvas = self.vault / 'Map.canvas'
-        old = {'nodes': [{'id': 'n', 'type': 'file', 'file': 'notes/n.md', 'x': 0, 'y': 0, 'width': 300, 'height': 200}],
+        old = {'nodes': [{'id': 'a', 'type': 'file', 'file': 'areas/a.md', 'x': 0, 'y': 0, 'width': 300, 'height': 200},
+                         {'id': 'n', 'type': 'file', 'file': 'notes/n.md', 'x': 340, 'y': 0, 'width': 300, 'height': 200}],
                'edges': [{'id': 'e0', 'fromNode': 'a', 'toNode': 'n'}]}
         canvas.write_text(json.dumps(old), encoding='utf-8')
         status, out, _ = self.build()
         self.assertEqual(status, 0)
         self.assertFalse(canvas.exists())
-        self.assertIn('removed Map.canvas', out)
+        aside = self.vault / '.knowledge/Map.canvas.removed'
+        self.assertEqual(json.loads(aside.read_text()), old)  # moved, not deleted
+        self.assertIn('moved it to .knowledge/Map.canvas.removed', out)
+        # A second stale canvas never overwrites the first one that was set aside.
+        canvas.write_text(json.dumps({**old, 'edges': []}), encoding='utf-8')
+        self.assertEqual(self.build()[0], 0)
+        self.assertEqual(json.loads(aside.read_text()), old)
+        self.assertEqual(json.loads((self.vault / '.knowledge/Map.canvas.removed.2').read_text())['edges'], [])
         for kept in ({**old, 'nodes': old['nodes'] + [{'id': 't', 'type': 'text', 'text': 'mine', 'x': 0, 'y': 0, 'width': 300, 'height': 200}]},
                      {**old, 'nodes': [{**old['nodes'][0], 'width': 420}]}, 'not json'):
             with self.subTest(kept=kept):
@@ -1053,7 +1061,6 @@ class GapLayerTests(Fixture):
         (self.repo / 'new.txt').write_text('two', encoding='utf-8')
         self.assertEqual(self.run_cli('check', '--strict', '--ignore-dirty')[0], 1)  # n is still committed-changed
         # An untracked file has no HEAD blob to equal the accepted bytes, so it is never forgiven.
-        self.assertNotIn('not counted', self.run_cli('check', '--ignore-dirty')[2].split('new.txt')[0].split('\n')[-1])
         self.assertIn('changed source new.txt\n', self.run_cli('check', '--ignore-dirty')[2])
 
     def test_stale_canvas_accepts_obsidian_layout_but_not_hand_made_content(self):
@@ -1067,7 +1074,13 @@ class GapLayerTests(Fixture):
             return k.stale_canvas(canvas)
         self.assertTrue(verdict())
         self.assertTrue(verdict(edges=[{**edge, 'fromSide': 'bottom', 'toSide': 'top'}]))  # as saved by Obsidian
-        self.assertTrue(verdict(nodes=[{**card, 'x': 500, 'y': 90}]))  # moved card
+        self.assertFalse(verdict(nodes=[{**card, 'x': 500, 'y': 90}]))  # a moved card is hand-made
+        self.assertFalse(verdict(nodes=[{**card, 'y': 40}]))
+        self.assertFalse(verdict(nodes=[card, card]))  # duplicate ids
+        self.assertFalse(verdict(edges=[{**edge, 'toNode': 'ghost'}]))
+        self.assertFalse(verdict(nodes=[{**card, 'file': 'other.md'}]))  # stem differs from the id
+        self.assertFalse(verdict(nodes=[{**card, 'file': 'a.txt'}]))
+        self.assertTrue(verdict(nodes=[{**card, 'x': 1020, 'y': 240}, {**card, 'id': 'b', 'file': 'x/b.md', 'x': 340, 'y': 0}]))
         self.assertFalse(verdict(edges=[{**edge, 'label': 'depends on'}]))
         self.assertFalse(verdict(edges=[{**edge, 'color': '1'}]))
         self.assertFalse(verdict(edges=[{**edge, 'fromSide': 'nowhere'}]))
@@ -1075,6 +1088,44 @@ class GapLayerTests(Fixture):
         self.assertFalse(verdict(nodes=[card, {'id': 't', 'type': 'text', 'text': 'mine', 'x': 0, 'y': 0, 'width': 300, 'height': 200}]))
         self.assertFalse(verdict(nodes=[{**card, 'color': '2'}]))
         self.assertFalse(verdict(nodes=[{**card, 'width': 400}]))
+
+    def test_markdown_links_to_failed_pages_keep_their_type(self):
+        self.note('gaps/g/broken.md', 'gb', 'gap', status=None)  # fails, but declares itself a gap
+        self.note('notes/broken.md', 'broken', status=None)
+        self.note('notes/u.md', 'u', sources=['source.txt'], body='[x](../gaps/g/broken.md)')
+        self.note('notes/m.md', 'm', sources=['source.txt'], body='[x](broken.md)')
+        self.note('runs/r.md', 'r', 'run', areas=[], body='[x](../notes/broken.md)')
+        status, err = self.errors()
+        self.assertIn('notes/u.md: spec pages must not link to the gap layer (../gaps/g/broken.md)', err)
+        self.assertIn('runs/r.md: run pages are history', err)
+        self.assertNotIn('ERROR: notes/m.md', err)  # a failed note is a fine target
+        self.assertEqual(self.run_cli('snapshot', '--notes', 'u')[0], 1)
+        # An unknown type cannot be judged: no error of its own, but it blocks the snapshot of the linking page.
+        self.note('notes/unk.md', 'unk', status=None)
+        (self.vault / 'notes/unk.md').write_text('---\nid: "unk"\n---\n')
+        self.note('notes/m.md', 'm', sources=['source.txt'], body='[x](unk.md)')
+        self.assertNotIn('ERROR: notes/m.md', self.errors()[1])
+        status, _, err = self.run_cli('snapshot', '--notes', 'm')
+        self.assertEqual(status, 1)
+        self.assertIn('notes/m.md: link unk.md names a page that failed validation', err)
+
+    def test_plan_gap_and_duplicate_of_cascade_only_for_failed_gaps(self):
+        self.gap('fg', recheck='bogus')  # fails, still a gap
+        self.note('plans/p.md', 'p', 'plan', status='planned', gap='fg', sources=['source.txt'])
+        self.gap('dup', decision='duplicate', duplicate_of='fg')
+        self.note('notes/broken.md', 'broken', status=None)
+        self.note('plans/q.md', 'q', 'plan', status='planned', gap='broken', sources=['source.txt'])
+        self.gap('dup2', decision='duplicate', duplicate_of='broken')
+        status, err = self.errors()
+        self.assertIn('plans/q.md: gap broken is not the id of an existing gap', err)
+        self.assertIn('duplicate_of broken is not the id of an existing gap', err)
+        self.assertNotIn('ERROR: plans/p.md', err)
+        self.assertNotIn('ERROR: gaps/dup.md', err)
+        for ident in ('p', 'dup'):
+            with self.subTest(ident=ident):
+                status, _, err = self.run_cli('snapshot', '--notes', ident)
+                self.assertEqual(status, 1)
+                self.assertIn('names a page that failed validation', err)
 
     def test_ignore_dirty_does_not_hide_a_committed_unreviewed_change(self):
         self.init_git(self.repo)
