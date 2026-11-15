@@ -6,22 +6,28 @@ status: "current"
 areas: []
 sources: []
 tags: ["knowledge"]
-updated: "2026-11-14"
+updated: "2026-11-15"
 ---
 
 # Parcel Desk knowledge
 
-A small **fictional** pickup service. This map records inspected source, intended behavior and questions. It is a worked example, not a production readiness assessment.
+A small **fictional** pickup service. The vault has two layers. The **as-built spec** says what the code does today and is derived only from source. The **gap queue** holds every question about what is missing, doubtful or proposed; people re-check and decide each one. This is a worked example, not a production readiness assessment.
 
-## Areas
+## The spec
 
-- **[[areas/pickups|Pickup cancellation]]** explains the state transition and response boundary.
-- [[areas/access|Customer access]] explains whose pickup can be changed.
+Read it as one document in [AS-BUILT](AS-BUILT.md) (generated), or page by page:
 
-## Where to begin
+- **[[areas/pickups|Pickup cancellation]]** covers the state transition and the response mapping.
+- [[areas/access|Customer access]] covers whose pickup can be changed.
 
-Follow [[notes/cancellation-boundary|the cancellation boundary]], then [[notes/route-responses|the route response mapping]]. The ownership rule in [[notes/ownership-check|Customer ownership]] runs first.
+Start with [[notes/cancellation-boundary|the cancellation boundary]], then [[notes/route-responses|the route response mapping]]. The rule in [[notes/ownership-check|Customer ownership]] runs first.
 
-There is one confirmed source/spec mismatch: [[gaps/packed-cancellation|Packed cancellation]]. [[gaps/partner-decision|Partner cancellation]] is an open product decision. [[gaps/deployment-evidence|Deployment evidence]] is outside this fixture's verification scope.
+## The gap queue
 
-See [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. Open `graph.html` in a browser or `Map.canvas` in Obsidian. A flagged node does not by itself mean a missing feature.
+[GAPS](GAPS.md) (generated) lists every gap by state. In this example:
+
+- [[gaps/packed-cancellation|Packed cancellation]] is accepted, with [[plans/packed-cancellation|a plan]].
+- [[gaps/partner-decision|Partner cancellation]] has been rechecked and awaits a person's decision.
+- [[gaps/deployment-evidence|Deployment evidence]] has not been rechecked yet.
+
+See [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. `AS-BUILT.md` and `GAPS.md` appear after `build`; open `graph.html` in a browser or `Map.canvas` in Obsidian for the map.

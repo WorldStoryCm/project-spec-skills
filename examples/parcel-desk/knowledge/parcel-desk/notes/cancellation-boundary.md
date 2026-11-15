@@ -4,7 +4,7 @@ title: "Only requested pickups are currently cancellable"
 type: "note"
 status: "current"
 areas: ["pickups"]
-sources: ["src/pickups.py", "SPEC.md"]
+sources: ["src/pickups.py", "tests/test_pickups.py"]
 tags: ["knowledge", "workflow"]
 updated: "2026-11-14"
 ---
@@ -13,8 +13,6 @@ updated: "2026-11-14"
 
 Area: [[areas/pickups|Pickup cancellation]]. Use this note when changing allowed states or explaining a rejected cancellation.
 
-**Implementation:** `cancel_pickup` checks ownership, then requires `pickup.state == "requested"`. Accepted calls set state to `cancelled`. Any other state raises `ValueError` before the mutation. The [service](../../../src/pickups.py) establishes this behavior; it is not inferred from the graph.
+`cancel_pickup` first runs the [[notes/ownership-check|ownership check]]. It then requires `pickup.state == "requested"`; any other value, including `picked_up` and `packed`, raises `ValueError("Only requested pickups can be cancelled")` before anything is changed. A pickup that passes both checks gets state `cancelled` and is returned. The [service](../../../src/pickups.py) establishes this; the code has no list of states and treats every value except `requested` the same way. The service refers to no other state name.
 
-**Intent:** CAN-1 in the [spec](../../../SPEC.md) includes both `requested` and `packed` before collection. The difference is tracked by [[gaps/packed-cancellation|the packed cancellation gap]]. This current note describes code, not agreement with the requirement.
-
-The [[notes/ownership-check|ownership guard]] runs first. The [[notes/route-responses|adapter]] converts state rejection to status 409. Existing tests verify requested and collected cases; they do not cover packed success. See [[01-coverage|coverage]] for the executed test command. A focused packed-case assertion remains a proposed regression test.
+The [[notes/route-responses|adapter]] turns the `ValueError` into status 409. The existing [tests](../../../tests/test_pickups.py) cover a `requested` pickup (cancelled) and a `picked_up` pickup (409, unchanged); none uses `packed`. The three-test suite passed during the example check (`python3 -m unittest discover -s tests -v`, see [[01-coverage|coverage]]).

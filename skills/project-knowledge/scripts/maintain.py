@@ -42,6 +42,11 @@ def atomic(path, data):
             os.unlink(name)
 
 
+def safe_bytes(text):
+    # Paths that are not valid UTF-8 arrive as lone surrogates; show them as \udcXX escapes.
+    return text.encode('utf-8', 'backslashreplace')
+
+
 def jsonbytes(value):
     return (json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + '\n').encode()
 
@@ -50,7 +55,7 @@ def relevant(path, vault_rel):
     p = Path(path)
     parts = p.parts
     bundle_metadata = vault_rel.startswith('knowledge/') and path in {'knowledge/README.md', 'knowledge/.gitignore'}
-    return bool(parts) and not bundle_metadata and not knowledge.credential_path(path) and not (path == vault_rel or path.startswith(vault_rel + '/')) and not (path == 'knowledge/tooling/project-knowledge' or path.startswith('knowledge/tooling/project-knowledge/')) and not any(x in {'.git', 'node_modules', '.next', 'dist', 'build', 'coverage', '__pycache__'} for x in parts)
+    return bool(parts) and not bundle_metadata and not knowledge.credential_path(path) and not (path == vault_rel or path.startswith(vault_rel + '/')) and not (path == 'knowledge/tooling/project-knowledge' or path.startswith('knowledge/tooling/project-knowledge/')) and not any(knowledge.fold(x) in {'.git', 'node_modules', '.next', 'dist', 'build', 'coverage', '__pycache__'} for x in parts)
 
 
 def changes(repo, left, right):
@@ -81,17 +86,44 @@ def normalized(path):
     return Path(path).as_posix()
 
 
+class Evidence:
+    """Resolve each evidence path once so matching is dictionary/set lookup, not repeated stat calls."""
+
+    def __init__(self, repo):
+        self.repo = repo
+        self._keys = {}
+
+    def keys(self, path):
+        # Casefold is intentionally conservative even on case-sensitive volumes; it
+        # also preserves impact when a formerly cited path has been deleted.
+        got = self._keys.get(path)
+        if got is None:
+            inode = None
+            try:
+                info = knowledge.safe_path(self.repo, path).stat()
+                inode = (info.st_dev, info.st_ino)
+            except (OSError, ValueError):
+                pass
+            got = self._keys[path] = (normalized(path).casefold(), inode)
+        return got
+
+    def group(self, paths):
+        names, inodes = set(), set()
+        for path in paths:
+            name, inode = self.keys(path)
+            names.add(name)
+            if inode is not None:
+                inodes.add(inode)
+        return names, inodes
+
+    def matches(self, group, path):
+        name, inode = self.keys(path)
+        return name in group[0] or (inode is not None and inode in group[1])
+
+
 def same_evidence(repo, left, right):
-    # Casefold is intentionally conservative even on case-sensitive volumes; it
-    # also preserves impact when a formerly cited path has been deleted.
-    if normalized(left).casefold() == normalized(right).casefold():
-        return True
-    try:
-        a = knowledge.safe_path(repo, left).stat()
-        b = knowledge.safe_path(repo, right).stat()
-        return (a.st_dev, a.st_ino) == (b.st_dev, b.st_ino)
-    except (OSError, ValueError):
-        return False
+    evidence = Evidence(repo)
+    return evidence.matches(evidence.group([right]), left)
 
 
 def validate_selected_evidence(repo, vault, selected, target):
@@ -113,7 +145,7 @@ def validate_selected_evidence(repo, vault, selected, target):
             try:
                 mode = evidence.lstat().st_mode
             except FileNotFoundError:
-                if note['meta']['status'] in ('stale', 'superseded'):
+                if knowledge.tolerates_missing_source(note['meta'], by_id):
                     continue
                 raise ValueError('affected note cites missing evidence: ' + ident)
             if not stat.S_ISREG(mode):
@@ -158,17 +190,21 @@ def scan(repo, vault, target):
         blockers.append('worktree has unresolved merge conflicts')
     if tip != head:
         blockers.append('target is not checked out at HEAD; remote evidence cannot be accepted')
-    commits = git(repo, 'rev-list', '--reverse', base + '..' + tip).splitlines() if not any('ancestor' in b for b in blockers) else []
+    # One call lists the whole range with parents; each line is "commit parent...".
+    listing = git(repo, 'rev-list', '--reverse', '--parents', base + '..' + tip).splitlines() if not any('ancestor' in b for b in blockers) else []
+    commits = [line.split()[0] for line in listing]
     rows = []
-    for commit in commits:
-        parents = git(repo, 'rev-list', '--parents', '-n', '1', commit).split()
-        if len(parents) > 1:
-            rows.extend({'commit': commit, **row} for row in changes(repo, parents[1], commit))
+    for line in listing:
+        commit, *parents = line.split()
+        if parents:
+            rows.extend({'commit': commit, **row} for row in changes(repo, parents[0], commit))
     paths = sorted({p for row in rows for p in row['paths'] if relevant(p, vr)})
     rows = [{**row, 'paths': [p for p in row['paths'] if relevant(p, vr)]} for row in rows if any(relevant(p, vr) for p in row['paths'])]
     dirty_paths = [p for p in dirty(repo) if relevant(p, vr)]
     notes, edges, errors, warnings, baseline = knowledge.load_vault(repo, vault)
-    affected = {n['meta']['id']: n for n in notes if any(same_evidence(repo, source, path) for source in list(n['meta']['sources']) + list(baseline.get(n['meta']['id'], {})) for path in paths)}
+    evidence = Evidence(repo)
+    changed = evidence.group(paths)
+    affected = {n['meta']['id']: n for n in notes if any(evidence.matches(changed, source) for source in list(n['meta']['sources']) + list(baseline.get(n['meta']['id'], {})))}
     sources = sorted({p for n in notes for p in n['meta']['sources']} | set(paths) | set(dirty_paths))
     source_hashes = {}
     skipped_sources = []
@@ -182,10 +218,11 @@ def scan(repo, vault, target):
             source_hashes[source] = digest(path)
         except (ValueError, OSError):
             skipped_sources.append(source)
-    dirty_affected = sorted(n['meta']['id'] for n in notes if any(same_evidence(repo, source, path) for source in n['meta']['sources'] for path in dirty_paths))
+    dirty_group = evidence.group(dirty_paths)
+    dirty_affected = sorted(n['meta']['id'] for n in notes if any(evidence.matches(dirty_group, source) for source in n['meta']['sources']))
     note_hashes = {n['meta']['id']: {'path': n['path'], 'sha256': digest(vault / n['path']), 'sources': n['meta']['sources'], 'areas': n['meta']['areas']} for n in notes}
-    mapped = {normalized(p) for n in affected.values() for p in list(n['meta']['sources']) + list(baseline.get(n['meta']['id'], {}))}
-    return {'schema': 1, 'scanned_at': dt.datetime.now(dt.timezone.utc).isoformat(), 'repo': str(repo), 'vault': str(vault), 'git_dir': git(repo, 'rev-parse', '--absolute-git-dir'), 'branch': branch, 'head': head, 'target': tip, 'base': base, 'cursor_sha256': digest(cursorpath), 'baseline_sha256': digest(vault / '.knowledge/sources.json'), 'commits': commits, 'changes': rows, 'paths': paths, 'dirty': dirty_paths, 'dirty_affected_notes': dirty_affected, 'skipped_sources': skipped_sources, 'affected_notes': sorted(affected), 'affected_areas': sorted({a for n in affected.values() for a in n['meta']['areas']}), 'unmapped': [path for path in paths if not any(same_evidence(repo, path, source) for source in mapped)], 'source_hashes': source_hashes, 'notes': note_hashes, 'errors': errors, 'warnings': warnings, 'blockers': blockers, 'state': 'blocked' if blockers or errors else ('pending' if paths or dirty_paths or warnings else 'ready')}
+    mapped = evidence.group({normalized(p) for n in affected.values() for p in list(n['meta']['sources']) + list(baseline.get(n['meta']['id'], {}))})
+    return {'schema': 1, 'scanned_at': dt.datetime.now(dt.timezone.utc).isoformat(), 'repo': str(repo), 'vault': str(vault), 'git_dir': git(repo, 'rev-parse', '--absolute-git-dir'), 'branch': branch, 'head': head, 'target': tip, 'base': base, 'cursor_sha256': digest(cursorpath), 'baseline_sha256': digest(vault / '.knowledge/sources.json'), 'commits': commits, 'changes': rows, 'paths': paths, 'dirty': dirty_paths, 'dirty_affected_notes': dirty_affected, 'skipped_sources': skipped_sources, 'affected_notes': sorted(affected), 'affected_areas': sorted({a for n in affected.values() for a in n['meta']['areas']}), 'unmapped': [path for path in paths if not evidence.matches(mapped, path)], 'source_hashes': source_hashes, 'notes': note_hashes, 'errors': errors, 'warnings': warnings, 'blockers': blockers, 'state': 'blocked' if blockers or errors else ('pending' if paths or dirty_paths or warnings else 'ready')}
 
 
 @contextlib.contextmanager
@@ -230,7 +267,7 @@ def status(vault, plan):
             'max-width:70rem;margin:auto;padding:1.5rem;color:#222}pre{font:inherit;white-space:pre-wrap;'
             'overflow-wrap:anywhere}a{color:#164cb5}</style><h1>Knowledge sync status</h1>'
             '<p><a href="graph.html">Open the knowledge map</a></p><pre>' + html.escape('\n'.join(lines)) + '</pre></html>')
-    for name, content in [('.knowledge/sync-plan.json', data), ('.knowledge/sync-status.md', text.encode()), ('sync.html', page.encode())]:
+    for name, content in [('.knowledge/sync-plan.json', data), ('.knowledge/sync-status.md', safe_bytes(text)), ('sync.html', safe_bytes(page))]:
         atomic(knowledge.output_path(vault, name), content)
 
 
@@ -254,6 +291,9 @@ def finish(repo, vault, plan_path, review_path):
                 raise ValueError('path needs reviewed/excluded decision and reason: ' + path)
             if path in plan['dirty']:
                 raise ValueError('dirty integrated path requires a clean review: ' + path)
+        ev = Evidence(repo)
+        excluded = ev.group([path for path, decision in paths.items() if decision.get('status') == 'excluded'])
+        dirty_now = ev.group(now['dirty'])
         for ident, old in plan['notes'].items():
             current = now['notes'].get(ident)
             if current is None or current['path'] != old['path']:
@@ -264,13 +304,13 @@ def finish(repo, vault, plan_path, review_path):
                     raise ValueError('note requires updated/unchanged decision with expected hash: ' + ident)
                 if decision['status'] == 'unchanged' and current != old:
                     raise ValueError('unchanged note was modified: ' + ident)
-                if any(decision.get('status') == 'excluded' and same_evidence(repo, source, path) for source in current['sources'] for path, decision in paths.items()):
+                if any(ev.matches(excluded, source) for source in current['sources']):
                     raise ValueError('affected note cites excluded evidence: ' + ident)
                 for source in current['sources']:
                     evidence = knowledge.safe_path(repo, source)
                     if evidence.resolve() != repo / normalized(source):
                         raise ValueError('affected note cites aliased evidence; use its canonical path: ' + ident)
-                    if any(same_evidence(repo, source, path) for path in now['dirty']):
+                    if ev.matches(dirty_now, source):
                         raise ValueError('affected note cites dirty evidence: ' + ident)
                 if any(s not in plan['source_hashes'] or plan['source_hashes'][s] != now['source_hashes'].get(s) for s in current['sources']):
                     raise ValueError('new or changed source requires rescan: ' + ident)
@@ -301,7 +341,7 @@ def finish(repo, vault, plan_path, review_path):
             if knowledge.main(['check', '--repo', str(repo), '--vault', str(staged)]) != 0 or knowledge.main(['build', '--repo', str(repo), '--vault', str(staged)]) != 0:
                 raise ValueError('structural check or build failed')
             # Validate all output destinations before publishing anything.
-            outputs = ['.knowledge/sources.json', '.knowledge/graph.json', 'Map.canvas', 'graph.html', '.knowledge/review.json']
+            outputs = ['.knowledge/sources.json', '.knowledge/graph.json', 'Map.canvas', 'graph.html', 'AS-BUILT.md', 'GAPS.md', '.knowledge/review.json']
             destinations = [knowledge.output_path(vault, p) for p in outputs]
             cursor = json.loads((vault / '.knowledge/review.json').read_text())
             cursor['reviewed_through'] = plan['target']; cursor['run_path'] = run_path
@@ -331,9 +371,69 @@ def finish(repo, vault, plan_path, review_path):
         return 'review checkpoint advanced to ' + plan['target']
 
 
+def receipt(repo, vault, plan_path, out, run=None):
+    """Write a review receipt with every hash filled in and each status/reason left empty.
+
+    An existing receipt keeps the statuses and reasons already entered for entries that still apply.
+    """
+    plan_bytes = plan_path.read_bytes()
+    plan = json.loads(plan_bytes)
+    if plan.get('vault') != str(vault):
+        raise ValueError('plan was written for a different vault')
+    previous = {}
+    if out.exists():
+        previous = json.loads(out.read_bytes())
+        if not isinstance(previous, dict):
+            raise ValueError('existing receipt is not a JSON object')
+    old_paths = previous.get('paths') if isinstance(previous.get('paths'), dict) else {}
+    old_notes = previous.get('notes') if isinstance(previous.get('notes'), dict) else {}
+
+    def kept(table, key, field):
+        entry = table.get(key)
+        value = entry.get(field) if isinstance(entry, dict) else None
+        return value if isinstance(value, str) else ''
+
+    plan_hash = hashlib.sha256(plan_bytes).hexdigest()
+    same_plan = previous.get('plan_sha256') == plan_hash  # path dispositions belong to the plan they reviewed
+    result = {'plan_sha256': plan_hash,
+              'paths': {p: {'status': kept(old_paths, p, 'status') if same_plan else '', 'reason': kept(old_paths, p, 'reason') if same_plan else ''} for p in plan['paths']},
+              'notes': {}}
+    for ident in plan['affected_notes']:
+        file = knowledge.safe_path(vault, plan['notes'][ident]['path'])
+        current = digest(file)
+        # A note disposition belongs to the exact bytes that were reviewed.
+        keep = kept(old_notes, ident, 'expected_sha256') == current
+        result['notes'][ident] = {'status': kept(old_notes, ident, 'status') if keep else '', 'expected_sha256': current}
+    if run is not None:
+        run_path = run.resolve().relative_to(vault).as_posix() if run.is_absolute() else run.as_posix()
+    elif plan['paths']:
+        loaded, _, _, _, _ = knowledge.load_vault(repo, vault, freshness=False)
+        found = [n['path'] for n in loaded if n['meta']['type'] == 'run' and n['path'].startswith('runs/')
+                 and n['meta'].get('review_base') == plan['base'] and n['meta'].get('review_target') == plan['target']]
+        if len(found) != 1:
+            raise ValueError(f'found {len(found)} run notes for this range; pass --run runs/NAME.md')
+        run_path = found[0]
+    else:
+        run_path = None
+    if run_path is not None:
+        if not run_path.startswith('runs/') or not run_path.endswith('.md'):
+            raise ValueError('run must be a runs/*.md path inside the vault')
+        file = knowledge.output_path(vault, run_path)
+        if not file.is_file():
+            raise ValueError('run note does not exist: ' + run_path)
+        result['run_path'] = run_path
+        result['run_sha256'] = digest(file)
+    atomic(out, jsonbytes(result))
+    return f"receipt written: fill status and reason for {len(result['paths'])} paths and status for {len(result['notes'])} notes"
+
+
 def main():
     parser = argparse.ArgumentParser()
     subs = parser.add_subparsers(dest='command', required=True)
+    rp = subs.add_parser('receipt')
+    rp.add_argument('--repo', required=True, type=Path); rp.add_argument('--vault', required=True, type=Path)
+    rp.add_argument('--plan', required=True, type=Path); rp.add_argument('--out', required=True, type=Path)
+    rp.add_argument('--run', type=Path)
     for name in ('scan', 'finish'):
         p = subs.add_parser(name); p.add_argument('--repo', required=True, type=Path); p.add_argument('--vault', required=True, type=Path)
         if name == 'scan':
@@ -341,7 +441,9 @@ def main():
         else:
             p.add_argument('--plan', required=True, type=Path); p.add_argument('--review', required=True, type=Path)
     args = parser.parse_args(); repo = args.repo.resolve(); vault = args.vault.resolve()
-    if args.command == 'scan':
+    if args.command == 'receipt':
+        print(receipt(repo, vault, args.plan, args.out, args.run))
+    elif args.command == 'scan':
         report = scan(repo, vault, args.target)
         if args.write_status:
             with lock(vault): status(vault, report)

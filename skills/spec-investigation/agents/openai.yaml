@@ -1,4 +1,4 @@
 interface:
   display_name: "Spec Investigation"
   short_description: "Trace one behavior or discrepancy to evidence"
-  default_prompt: "Use $spec-investigation to answer this behavior question, citing what you checked and what remains unresolved."
+  default_prompt: "Use $spec-investigation to answer this behavior question, citing what you checked and what remains unresolved. For a gap page, record the result in its Recheck section and leave the decision to a person."

@@ -4,18 +4,17 @@ title: "Pickup cancellation"
 type: "area"
 status: "partial"
 areas: []
-sources: ["src/pickups.py", "src/routes.py", "SPEC.md", "tests/test_pickups.py"]
+sources: ["src/pickups.py", "src/routes.py", "tests/test_pickups.py"]
 tags: ["area"]
+summary: "How a customer's pickup is cancelled in the in-memory service and how the adapter reports the outcome."
 updated: "2026-11-14"
 ---
 
 # Pickup cancellation
 
-This area covers the in-memory transition and its adapter response. It depends on [[areas/access|customer access]] before state changes are considered.
+This area covers the in-memory cancellation transition and the adapter response built from it. It depends on [[areas/access|customer access]], whose owner check runs before any state is considered.
 
-- [[notes/cancellation-boundary|Cancellation boundary]]: the service currently accepts only `requested`.
+- [[notes/cancellation-boundary|Cancellation boundary]]: the service cancels only pickups whose state is `requested`.
 - [[notes/route-responses|Route responses]]: service exceptions become status values.
-- [[gaps/packed-cancellation|Packed cancellation]]: the accepted requirement includes a state the implementation rejects.
-- [[gaps/partner-decision|Partner cancellation]]: proposed actor variation awaiting a decision.
 
-Evidence: [service](../../../src/pickups.py), [adapter](../../../src/routes.py), [requirements](../../../SPEC.md), [tests](../../../tests/test_pickups.py). All four files were inspected. Three existing tests passed during the example check. Real transport, persistence and deployment are not modeled; see [[gaps/deployment-evidence|verification limits]].
+Read: [service](../../../src/pickups.py), [adapter](../../../src/routes.py) and [tests](../../../tests/test_pickups.py). The three existing tests passed in the example check. Not modeled: real transport, persistence, concurrent requests and deployment.

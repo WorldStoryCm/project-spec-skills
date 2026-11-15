@@ -6,15 +6,19 @@ status: "current"
 areas: []
 sources: ["SPEC.md", "src/pickups.py", "src/routes.py", "tests/test_pickups.py"]
 tags: ["run"]
-updated: "2026-11-14"
+updated: "2026-11-15"
 ---
 
 # Fictional project survey
 
-This authored example surveys all four fixture source/spec/test files. It is not a transcript of an independent agent run. The fixture has no independent application revision: it is shipped inside the toolkit repository, whose Git commit identifies the exact version.
+This authored example surveys the four fixture source, requirements and test files. It is not a transcript of an independent agent run. The fixture has no independent application revision: it ships inside the toolkit repository, whose Git commit identifies the exact version.
 
-Created [[areas/pickups|pickup]] and [[areas/access|access]] maps, three behavior notes and three questions with different next actions. The accepted packed cancellation requirement diverges from code. Partner behavior is undecided. Deployment evidence is deliberately absent.
+## 2026-11-14: survey
 
-Executed `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. Reviewed source fingerprints were then accepted for the example; view generation does not make application claims true. Release checks, separate agent evaluations and browser observations are reported in the toolkit's `VALIDATION.md`.
+Wrote the [[areas/pickups|pickup]] and [[areas/access|access]] maps and three behavior notes from the code. Raised three gaps, each with `decision: "open"`: [[gaps/packed-cancellation|packed cancellation]] (the code rejects a state the requirements allow), [[gaps/partner-decision|partner cancellation]] (the requirements leave it undecided) and [[gaps/deployment-evidence|deployment evidence]] (not checkable in this fixture). Ran `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. Reviewed source fingerprints were then accepted; view generation does not make claims true.
 
-See [[00-index|the index]] and [[01-coverage|coverage]]. No external system was queried and no real product behavior is implied.
+## 2026-11-15: gap queue
+
+Tomas Brandt rechecked packed cancellation by running the fixture; Priya Nair accepted it and [[plans/packed-cancellation|a plan]] was written. The agent rechecked partner cancellation by reading the code and left the decision open. Deployment evidence has not been rechecked. No spec note changed.
+
+See [[00-index|the index]] and [[01-coverage|coverage]]. No external system was queried and no real product behavior is implied. Release checks and browser observations are in the toolkit's `VALIDATION.md`.

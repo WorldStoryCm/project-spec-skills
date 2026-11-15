@@ -57,18 +57,17 @@ def frontmatter():
 
 def without_code(text):
     # Remove fenced blocks and inline code before looking for ordinary Markdown links.
+    # CommonMark: a backtick opener's info string cannot contain a backtick, and a closer has no info string.
     lines, fence = [], None
     for line in text.splitlines():
-        match = re.match(r'^\s{0,3}(`{3,}|~{3,})', line)
-        if match:
-            mark = match.group(1)
-            if fence is None:
-                fence = (mark[0], len(mark))
-            elif mark[0] == fence[0] and len(mark) >= fence[1]:
-                fence = None
-            continue
+        match = re.match(r'^\s{0,3}(`{3,}|~{3,})(.*)$', line)
         if fence is None:
-            lines.append(re.sub(r'(`+).*?\1', '', line))
+            if match and not (match.group(1)[0] == '`' and '`' in match.group(2)):
+                fence = (match.group(1)[0], len(match.group(1)))
+            else:
+                lines.append(re.sub(r'(`+).*?\1', '', line))
+        elif match and match.group(1)[0] == fence[0] and len(match.group(1)) >= fence[1] and not match.group(2).strip():
+            fence = None
     return '\n'.join(lines)
 
 
@@ -129,7 +128,30 @@ def check_generated():
             errors.append('graph.html viewer differs from current template')
         if json.loads((VAULT / 'Map.canvas').read_text(encoding='utf-8')) != json.loads((copy / 'Map.canvas').read_text(encoding='utf-8')):
             errors.append('Map.canvas differs from current notes and links')
+        for name in ('AS-BUILT.md', 'GAPS.md'):
+            shipped = VAULT / name
+            if not shipped.is_file():
+                errors.append(f'{name} is missing from the example vault; run build')
+            elif shipped.read_bytes() != (copy / name).read_bytes():
+                errors.append(f'{name} differs from the generated copy; run build')
         return errors
+
+
+GAP_RULES = KNOWLEDGE / 'references/gaps.md'
+GAP_RULE_COPIES = tuple(ROOT / 'skills' / name / 'references/gaps.md' for name in ('spec-audit', 'spec-investigation', 'spec-plan'))
+
+
+def check_gap_rules():
+    if not GAP_RULES.is_file():
+        return [f'{GAP_RULES.relative_to(ROOT)} is missing (it is the canonical gap rules file)']
+    canonical = GAP_RULES.read_bytes()
+    errors = []
+    for copy in GAP_RULE_COPIES:
+        if not copy.is_file():
+            errors.append(f'{copy.relative_to(ROOT)} is missing; copy it from {GAP_RULES.relative_to(ROOT)}')
+        elif copy.read_bytes() != canonical:
+            errors.append(f'{copy.relative_to(ROOT)} differs from {GAP_RULES.relative_to(ROOT)}; copy it byte for byte')
+    return errors
 
 
 def stage(label, check):
@@ -167,6 +189,7 @@ def main():
     results.append(run('fictional fixture tests', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'], cwd=EXAMPLE))
     results.append(run('strict vault check', [sys.executable, str(KNOWLEDGE / 'scripts/knowledge.py'), 'check', '--strict', '--repo', str(EXAMPLE), '--vault', str(VAULT)]))
     results.append(stage('generated graph artifacts', check_generated))
+    results.append(stage('gap rules copies', check_gap_rules))
     try:
         results.append(node_check())
     except OSError as exc:
