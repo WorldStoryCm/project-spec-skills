@@ -6,6 +6,7 @@ status: "current"
 areas: ["pickups", "access"]
 sources: ["src/routes.py", "src/pickups.py", "tests/test_pickups.py"]
 tags: ["knowledge", "contract"]
+summary: "A cancellation request gets one of three answers: cancelled, refused because the pickup belongs to someone else, or refused because it can no longer be cancelled."
 updated: "2026-11-14"
 ---
 

@@ -51,7 +51,8 @@ function walk(root, visit) {
 function findAll(root, pred) { const out = []; walk(root, e => { if (pred(e)) out.push(e); }); return out; }
 function cls(e) { return String(e.className || e.attrs.class || ''); }
 
-function load(payload) {
+// The viewer opens in Read; most checks below are about the Map and Gaps views, so load() switches to Map unless told otherwise.
+function load(payload, startMode = 'spec') {
   const registry = new Map();
   const body = new FakeEl('body');
   const document = {
@@ -88,7 +89,13 @@ function load(payload) {
       item.click();
     },
     stateButton: label => findAll(q('#state-filters'), e => e.tag === 'button' && e.textContent.startsWith(label))[0],
+    outline: () => findAll(q('#outline'), e => e.tag === 'button').map(e => e.textContent),
+    pageText: () => q('#page').textContent,
+    pageButton: text => findAll(q('#page'), e => e.tag === 'button' && e.textContent === text)[0],
+    folds: () => findAll(q('#page'), e => e.tag === 'summary').map(e => e.textContent),
   };
+  assert.equal(body.dataset.mode, 'read', 'the viewer opens in Read');
+  if (startMode !== 'read') q('#mode-spec').click();
   return view;
 }
 
@@ -435,4 +442,96 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   assert.equal(findAll(svg, e => cls(e) === 'cluster').length, 1);
 }
 
-console.log('PASS: viewer markdown, modes, state derivation, legacy payloads, area clusters');
+// --- Read mode: the spec as a document ---------------------------------------
+{
+  const spec = (id, title, type, areas, over) => node({ id, title, type, layer: 'spec', status: 'current', path: `${type}s/${id}.md`, areas, ...over });
+  const v = load({
+    title: 'Parcel Desk',
+    nodes: [
+      node({ id: 'idx', title: 'Index page', type: 'index', layer: 'nav', status: 'current', path: '00-index.md', areas: [] }),
+      node({ id: 'run1', title: 'Run one', type: 'run', layer: 'nav', status: 'current', path: 'runs/run1.md', areas: [] }),
+      spec('pickups', 'Pickups', 'area', [], { summary: 'How a pickup is cancelled.', body: '# Pickups\n\nArea map text.' }),
+      spec('access', 'Access', 'area', [], { summary: 'Who may change a pickup.' }),
+      spec('cancel', 'Cancelling a pickup', 'note', ['pickups'], {
+        summary: 'A customer can cancel a pickup until it is packed.', sources: ['src/pickups.py'], updated: '2026-11-14',
+        body: '# Cancelling a pickup\n\n`cancel_pickup` checks [[notes/owner|the owner]] first.',
+      }),
+      spec('responses', 'Responses', 'note', ['pickups'], { body: '# Responses\n\nErrors become status codes.' }),
+      spec('owner', 'Owner check', 'note', ['access'], { summary: 'Only the owner may change a pickup.' }),
+      spec('old', 'Old rule', 'note', ['pickups'], { status: 'superseded' }),
+      gap('g-open', 'Packed pickups', { state: 'needs-decision', areas: ['pickups'] }),
+      gap('g-done', 'Closed question', { state: 'done', decision: 'done', areas: ['pickups'] }),
+    ],
+    edges: [
+      { source: 'pickups', target: 'cancel' }, { source: 'pickups', target: 'responses' }, { source: 'access', target: 'owner' },
+      { source: 'cancel', target: 'owner' }, { source: 'g-open', target: 'cancel' }, { source: 'g-done', target: 'cancel' },
+      { source: 'run1', target: 'cancel' },
+    ],
+  }, 'read');
+  // chrome: Read is on, the map workspace is hidden
+  assert.equal(v.mode(), 'read');
+  assert.equal(v.q('#mode-read').attrs['aria-pressed'], 'true');
+  assert.equal(v.q('#reading').hidden, false);
+  assert.equal(v.q('.workspace').hidden, true);
+  // outline: project, then each area with its features; no index, runs, gaps or superseded notes
+  assert.deepEqual(v.outline(), ['Parcel Desk', 'Access', 'Owner check', 'Pickups', 'Cancelling a pickup', 'Responses']);
+  // overview: areas with summaries and features with their plain-language line; gaps only as a quiet count
+  const home = v.pageText();
+  for (const text of ['Parcel Desk', 'How a pickup is cancelled.', 'A customer can cancel a pickup until it is packed.', '1 open question'])
+    assert.ok(home.includes(text), 'overview shows: ' + text);
+  for (const text of ['cancel_pickup', 'src/pickups.py', 'Old rule', 'Run one', 'Index page', 'Packed pickups', 'current'])
+    assert.ok(!home.includes(text), 'overview hides: ' + text);
+  assert.deepEqual(v.folds(), []);
+  // a feature with a summary: the summary leads, code detail and questions are folded, no properties in the open text
+  v.pageButton('Cancelling a pickup').click();
+  assert.equal(v.mode(), 'read');
+  assert.deepEqual(v.folds(), ['How it works in the code', 'Open questions and planned changes (1)', 'Technical details']);
+  const page = v.q('#page');
+  const outside = findAll(page, e => e.tag === 'p' && cls(e) === 'lead').map(e => e.textContent);
+  assert.deepEqual(outside, ['A customer can cancel a pickup until it is packed.']);
+  const folded = findAll(page, e => e.tag === 'details');
+  assert.ok(folded[0].textContent.includes('cancel_pickup'));
+  assert.equal(findAll(folded[0], e => e.tag === 'h1').length, 0, 'the duplicate title heading is dropped');
+  assert.ok(folded[1].textContent.includes('Packed pickups') && !folded[1].textContent.includes('Closed question'));
+  assert.ok(folded[2].textContent.includes('src/pickups.py') && folded[2].textContent.includes('2026-11-14'));
+  assert.equal(findAll(page, e => e.tag === 'h1').map(e => e.textContent).join('|'), 'Cancelling a pickup');
+  assert.ok(findAll(page, e => cls(e) === 'crumbs')[0].textContent.includes('Pickups'));
+  // related pages are named, the own area and run pages are not
+  assert.deepEqual(findAll(page, e => cls(e) === 'chip').map(e => e.textContent), ['Owner check']);
+  // a link inside the text stays in Read
+  findAll(folded[0], e => cls(e) === 'wiki')[0].click();
+  assert.equal(v.mode(), 'read');
+  assert.equal(findAll(v.q('#page'), e => e.tag === 'h1')[0].textContent, 'Owner check');
+  // a feature without a summary shows its text directly
+  v.pageButton('Parcel Desk').click();
+  v.pageButton('Responses').click();
+  assert.deepEqual(v.folds(), ['Technical details']);
+  assert.ok(v.pageText().includes('Errors become status codes.'));
+  // an area page lists its features and folds its own text
+  findAll(v.q('#outline'), e => e.tag === 'button' && e.textContent === 'Pickups')[0].click();
+  assert.deepEqual(v.folds(), ['More about this area', 'Technical details']);
+  assert.ok(v.pageButton('Cancelling a pickup') && v.pageButton('Responses') && !v.pageButton('Old rule'));
+  // search narrows the outline
+  v.q('#read-search').value = 'owner';
+  v.q('#read-search').fire('input');
+  assert.deepEqual(v.outline(), ['Parcel Desk', 'Access', 'Owner check', 'Pickups', 'Cancelling a pickup']);
+  v.q('#read-search').value = '';
+  v.q('#read-search').fire('input');
+  // opening a question leaves Read for Gaps; Read comes back to the same kind of page
+  v.pageButton('Cancelling a pickup').click();
+  findAll(v.q('#page'), e => e.tag === 'button' && e.textContent === 'Packed pickups')[0].click();
+  assert.equal(v.mode(), 'gap');
+  assert.equal(v.q('#reading').hidden, true);
+  assert.equal(v.q('.workspace').hidden, false);
+  // Map keeps the page that was being read; Read returns to it
+  v.q('#mode-read').click();
+  v.pageButton('Parcel Desk').click();
+  v.pageButton('Owner check').click();
+  v.q('#mode-spec').click();
+  assert.equal(v.mode(), 'spec');
+  assert.ok(v.detailText().includes('Owner check'));
+  v.q('#mode-read').click();
+  assert.equal(findAll(v.q('#page'), e => e.tag === 'h1')[0].textContent, 'Owner check');
+}
+
+console.log('PASS: viewer markdown, modes, state derivation, legacy payloads, area clusters, read mode');

@@ -6,6 +6,7 @@ status: "current"
 areas: ["pickups"]
 sources: ["src/pickups.py", "tests/test_pickups.py"]
 tags: ["knowledge", "workflow"]
+summary: "A customer can cancel a pickup only while it is still requested. Once it is packed or picked up, the cancellation is refused and nothing changes."
 updated: "2026-11-14"
 ---
 
