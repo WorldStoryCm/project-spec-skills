@@ -5,7 +5,13 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import sys
 import unittest
+from unittest import mock
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import maintain  # noqa: E402
 
 SCRIPT = Path(__file__).with_name('maintain.py')
 
@@ -442,6 +448,210 @@ class MaintainTests(unittest.TestCase):
         self.cli('finish', '--plan', str(path), '--review', str(receipt), ok=False)
         (self.repo / 'source.txt').write_text('raced')
         self.cli('finish', '--plan', str(path), '--review', str(receipt), ok=False)
+
+
+    # scan performance, robustness and the receipt helper
+    def test_scan_resolves_each_path_once(self):
+        for i in range(30):
+            sources = []
+            for j in range(3):
+                name = f'src/file{i}_{j}.txt'
+                (self.repo / name).parent.mkdir(exist_ok=True)
+                (self.repo / name).write_text('x')
+                sources.append(name)
+            self.note(f'n{i}.md', f'n{i}', 'note', ['area'], sources)
+        self.git('add', '.')
+        self.git('commit', '-m', 'notes')
+        cursor = self.vault / '.knowledge/review.json'
+        cursor.write_text(json.dumps({'schema': 1, 'ref': 'refs/heads/main', 'reviewed_through': self.git('rev-parse', 'HEAD').strip(), 'coverage': 'partial'}))
+        self.git('add', '.')
+        self.git('commit', '-m', 'cursor')
+        for i in range(60):
+            (self.repo / f'changed{i}.txt').write_text('y')
+        (self.repo / 'src/file0_0.txt').write_text('changed')
+        self.git('add', '.')
+        self.git('commit', '-m', 'many')
+        calls = []
+        real = maintain.knowledge.safe_path
+        with mock.patch.object(maintain.knowledge, 'safe_path', lambda *a: calls.append(a) or real(*a)):
+            report = maintain.scan(self.repo.resolve(), self.vault.resolve(), None)
+        self.assertEqual(len(report['paths']), 61)
+        self.assertEqual([n for n in report['affected_notes'] if n.startswith('n') and n != 'note'], ['n0'])
+        sources, paths = 90 + 1, len(report['paths'])
+        # Quadratic matching would need sources * paths (several thousand) lookups; linear needs a few per path.
+        self.assertLess(len(calls), 12 * (sources + paths), len(calls))
+        evidence = maintain.Evidence(self.repo.resolve())
+        before = len(calls)
+        with mock.patch.object(maintain.knowledge, 'safe_path', lambda *a: calls.append(a) or real(*a)):
+            group = evidence.group(['source.txt', 'changed1.txt'])
+            for _ in range(50):
+                self.assertTrue(evidence.matches(group, 'SOURCE.txt'))
+                self.assertFalse(evidence.matches(group, 'other.txt'))
+        self.assertEqual(len(calls) - before, 4)  # two group paths plus two distinct probes; repeats are cached
+        self.assertTrue(maintain.same_evidence(self.repo.resolve(), 'Source.TXT', 'source.txt'))
+        self.assertFalse(maintain.same_evidence(self.repo.resolve(), '../x', 'source.txt'))
+
+    def test_non_utf8_path_in_range_does_not_crash_write_status(self):
+        def index_info(line):
+            subprocess.run(['git', '-C', str(self.repo), 'update-index', '--index-info'], input=line, check=True)
+        blob = subprocess.run(['git', '-C', str(self.repo), 'hash-object', '-w', '--stdin'], input=b'data', capture_output=True, check=True).stdout.strip()
+        index_info(b'100644 ' + blob + b'\tbad-\xff.txt\n')
+        self.git('commit', '-m', 'add undecodable path')
+        index_info(b'0 ' + b'0' * 40 + b'\tbad-\xff.txt\n')
+        self.git('commit', '-m', 'remove it')
+        planpath, plan = self.plan()
+        self.assertTrue(any('bad-' in p for p in plan['paths']))
+        self.assertIn('bad-', (self.vault / '.knowledge/sync-status.md').read_text())
+        self.assertIn('bad-', (self.vault / 'sync.html').read_text())
+        out = self.repo.parent / (self.repo.name + '-bad.json')
+        self.addCleanup(lambda: out.unlink(missing_ok=True))
+        self.cli('receipt', '--plan', str(planpath), '--out', str(out))
+        data = json.loads(out.read_text())
+        for entry in data['paths'].values():
+            entry.update(status='reviewed', reason='read')
+        out.write_text(json.dumps(data))
+        self.cli('finish', '--plan', str(planpath), '--review', str(out))
+
+    def receipt_cli(self, planpath, *extra, ok=True):
+        out = self.repo.parent / (self.repo.name + '-receipt.json')
+        self.addCleanup(lambda: out.unlink(missing_ok=True))
+        p = self.cli('receipt', '--plan', str(planpath), '--out', str(out), *extra, ok=ok)
+        return out, p
+
+    def test_receipt_fills_hashes_and_leaves_review_empty(self):
+        self.change()
+        planpath, plan = self.plan()
+        out, result = self.receipt_cli(planpath)
+        data = json.loads(out.read_text())
+        self.assertEqual(data['plan_sha256'], self.sha(planpath))
+        self.assertEqual(data['paths'], {'source.txt': {'status': '', 'reason': ''}})
+        self.assertEqual(data['notes'], {'note': {'status': '', 'expected_sha256': self.sha(self.vault / 'note.md')}})
+        self.assertEqual((data['run_path'], data['run_sha256']), ('runs/review.md', self.sha(self.vault / 'runs/review.md')))
+        self.assertIn('1 paths', result.stdout)
+        # finish still demands a real review
+        self.cli('finish', '--plan', str(planpath), '--review', str(out), ok=False)
+        data['paths']['source.txt'].update(status='reviewed', reason='   ')
+        data['notes']['note']['status'] = 'unchanged'
+        out.write_text(json.dumps(data))
+        self.cli('finish', '--plan', str(planpath), '--review', str(out), ok=False)
+        data['paths']['source.txt']['reason'] = 'read the diff'
+        out.write_text(json.dumps(data))
+        self.cli('finish', '--plan', str(planpath), '--review', str(out))
+        self.assertEqual(json.loads((self.vault / '.knowledge/review.json').read_text())['reviewed_through'], self.git('rev-parse', 'HEAD').strip())
+
+    def test_receipt_carries_over_only_what_was_reviewed(self):
+        self.change()
+        planpath, plan = self.plan()
+        out, _ = self.receipt_cli(planpath)
+        data = json.loads(out.read_text())
+        data['paths']['source.txt'].update(status='reviewed', reason='kept')
+        data['paths']['gone.txt'] = {'status': 'reviewed', 'reason': 'no longer applies'}
+        data['notes']['note']['status'] = 'updated'
+        data['notes']['gone'] = {'status': 'updated', 'expected_sha256': 'x'}
+        out.write_text(json.dumps(data))
+        # Same plan, same note bytes: dispositions stay, stale entries drop.
+        self.cli('receipt', '--plan', str(planpath), '--out', str(out))
+        fresh = json.loads(out.read_text())
+        self.assertEqual(fresh['paths'], {'source.txt': {'status': 'reviewed', 'reason': 'kept'}})
+        self.assertEqual(fresh['notes'], {'note': {'status': 'updated', 'expected_sha256': self.sha(self.vault / 'note.md')}})
+        # A receipt for another plan must not leave its path dispositions behind.
+        data = json.loads(out.read_text())
+        data['plan_sha256'] = '0' * 64
+        out.write_text(json.dumps(data))
+        self.cli('receipt', '--plan', str(planpath), '--out', str(out))
+        fresh = json.loads(out.read_text())
+        self.assertEqual(fresh['paths'], {'source.txt': {'status': '', 'reason': ''}})
+        self.assertEqual(fresh['notes']['note']['status'], 'updated')
+        # A note whose bytes changed since the entered disposition loses it; the hash is refreshed.
+        data = json.loads(out.read_text())
+        data['notes']['note']['expected_sha256'] = '1' * 64
+        out.write_text(json.dumps(data))
+        self.cli('receipt', '--plan', str(planpath), '--out', str(out))
+        fresh = json.loads(out.read_text())
+        self.assertEqual(fresh['notes']['note'], {'status': '', 'expected_sha256': self.sha(self.vault / 'note.md')})
+
+    def test_receipt_run_selection_and_empty_plan(self):
+        planpath, plan = self.plan()
+        self.assertEqual(plan['paths'], [])
+        out, _ = self.receipt_cli(planpath)
+        self.assertNotIn('run_path', json.loads(out.read_text()))
+        self.change()
+        planpath, plan = self.plan()
+        out, _ = self.receipt_cli(planpath, '--run', str(self.vault / 'runs/review.md'))
+        self.assertEqual(json.loads(out.read_text())['run_path'], 'runs/review.md')
+        out, _ = self.receipt_cli(planpath, '--run', 'runs/review.md')
+        self.assertEqual(json.loads(out.read_text())['run_path'], 'runs/review.md')
+        self.receipt_cli(planpath, '--run', 'runs/missing.md', ok=False)
+        self.receipt_cli(planpath, '--run', 'note.md', ok=False)
+        self.note('runs/other.md', 'other', 'run', [], [])
+        (self.vault / 'runs/other.md').write_text((self.vault / 'runs/review.md').read_text().replace('id: "review"', 'id: "other"'))
+        self.cli('scan', '--write-status')
+        planpath = self.vault / '.knowledge/sync-plan.json'
+        self.receipt_cli(planpath, ok=False)  # ambiguous: two run notes carry the range
+
+
+    def closed_gap_fixture(self, decision='done', plan=False):
+        sections = ''.join(f'## {n}\n\ntext\n\n' for n in ('Current behavior', 'Gap', 'Evidence', 'Recheck', 'Discussion', 'Decision'))
+        (self.vault / 'gaps').mkdir(exist_ok=True)
+        (self.repo / 'gone.txt').write_text('soon deleted')
+        extra = '' if decision == 'done' else 'decided_by: "Ann"\ndecided_on: "2026-11-15"\n'
+        gap = ('---\nid: "g"\ntitle: "g"\ntype: "gap"\nareas: ["area"]\nsources: ["gone.txt"]\nupdated: "2026-01-01"\n'
+               f'kind: "product-gap"\nrecheck: "not-checked"\ndecision: "{decision}"\n{extra}---\n{sections}')
+        (self.vault / 'gaps/g.md').write_text(gap)
+        if plan:
+            (self.vault / 'plans').mkdir(exist_ok=True)
+            (self.vault / 'plans/p.md').write_text('---\nid: "p"\ntitle: "p"\ntype: "plan"\nstatus: "planned"\nareas: ["area"]\nsources: ["gone.txt"]\nupdated: "2026-01-01"\ngap: "g"\n---\nplan')
+        self.git('add', '.')
+        self.git('commit', '-m', 'gap')
+        cursor = self.vault / '.knowledge/review.json'
+        cursor.write_text(json.dumps({'schema': 1, 'ref': 'refs/heads/main', 'reviewed_through': self.git('rev-parse', 'HEAD').strip(), 'coverage': 'partial'}))
+        self.git('add', '.')
+        self.git('commit', '-m', 'cursor')
+        self.git('rm', 'gone.txt')
+        self.git('commit', '-m', 'delete')
+
+    def finish_with_receipt(self, ok=True):
+        planpath, plan = self.plan()
+        out = self.repo.parent / (self.repo.name + '-closed.json')
+        self.addCleanup(lambda: out.unlink(missing_ok=True))
+        self.cli('receipt', '--plan', str(planpath), '--out', str(out))
+        data = json.loads(out.read_text())
+        for entry in data['paths'].values():
+            entry.update(status='reviewed', reason='read')
+        for entry in data['notes'].values():
+            entry['status'] = 'unchanged'
+        out.write_text(json.dumps(data))
+        return plan, self.cli('finish', '--plan', str(planpath), '--review', str(out), ok=ok)
+
+    def test_finish_with_closed_gap_whose_source_was_deleted(self):
+        self.closed_gap_fixture('done', plan=True)
+        plan, _ = self.finish_with_receipt()
+        self.assertIn('g', plan['affected_notes'])
+        self.assertIn('p', plan['affected_notes'])
+
+    def test_finish_with_live_gap_and_deleted_source_is_refused(self):
+        self.closed_gap_fixture('accepted')
+        planpath, plan = self.plan()
+        self.assertTrue(any('missing or not a file' in e for e in plan['errors']), plan['errors'])
+        _, result = self.finish_with_receipt(ok=False)
+        self.assertNotIn('KeyError', result.stderr)
+        self.assertIn('structural errors', result.stderr + result.stdout)
+
+    def test_finish_publishes_as_built_and_gaps(self):
+        self.closed_gap_fixture('done')
+        self.finish_with_receipt()
+        as_built = (self.vault / 'AS-BUILT.md').read_text()
+        gaps = (self.vault / 'GAPS.md').read_text()
+        self.assertTrue(as_built.startswith('> Generated by'))
+        self.assertIn('## done', gaps)
+        self.assertIn('[[gaps/g', gaps)
+
+
+    def test_relevant_folds_lookalike_credential_and_ignored_names(self):
+        for path in ('.\u017f\u017fh/id_r\u017fa', 'a/.GIT/config', 'x/NODE_MODULES/y.js', 'prod.tfvars', 'home/.kube/config'):
+            with self.subTest(path=path):
+                self.assertFalse(maintain.relevant(path, 'vault'))
+        self.assertTrue(maintain.relevant('src/app.py', 'vault'))
 
 
 if __name__ == '__main__':

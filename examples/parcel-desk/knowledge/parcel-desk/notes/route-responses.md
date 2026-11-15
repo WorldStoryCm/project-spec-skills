@@ -11,10 +11,8 @@ updated: "2026-11-14"
 
 # Cancellation exceptions become adapter statuses
 
-Area: [[areas/pickups|Pickup cancellation]].
+Areas: [[areas/pickups|Pickup cancellation]] and [[areas/access|Customer access]].
 
-The in-process `cancel_request` adapter calls `cancel_pickup`. It returns 403 for `PermissionError`, 409 for `ValueError`, and a 200 result containing the updated state on success. See [the adapter](../../../src/routes.py) and [the called service](../../../src/pickups.py).
+The in-process `cancel_request` adapter calls `cancel_pickup` and returns a dictionary: `{"status": 403, "error": "forbidden"}` for `PermissionError`, `{"status": 409, "error": "cancellation_conflict"}` for `ValueError`, and `{"status": 200, "state": <new state>}` on success. See [the adapter](../../../src/routes.py) and [the called service](../../../src/pickups.py).
 
-[[notes/ownership-check|Ownership]] determines forbidden responses; [[notes/cancellation-boundary|state eligibility]] determines conflicts. The packed scenario reaches the latter guard, which explains [[gaps/packed-cancellation|the requirement mismatch]].
-
-The [existing tests](../../../tests/test_pickups.py) exercise these three response branches with requested, other-customer and collected fixtures; the suite passed. These are dictionary status values, not observed network responses. Real HTTP mapping and authentication are [[gaps/deployment-evidence|outside the example]].
+[[notes/ownership-check|Ownership]] decides the 403 case and [[notes/cancellation-boundary|state eligibility]] decides the 409 case, so a `packed` pickup owned by the caller reaches the 409 branch. The [existing tests](../../../tests/test_pickups.py) exercise the three branches with a requested, an other-customer and a collected pickup, and passed in the example check. The values are dictionaries returned in-process, not observed HTTP responses.

@@ -1,5 +1,11 @@
 # Release validation
 
+## 2026-11-15: spec/gap split, not yet revalidated
+
+The vault format, validator, viewer and skill instructions changed to separate the as-built spec from a per-item gap layer (new `gap` properties, `plan` pages, generated `AS-BUILT.md` and `GAPS.md`, new `maintain.py receipt`, merge rules for gap pages). Every observation recorded below was made on the **previous** version. The agent smoke tests, the concurrent merge evaluation and the browser observations have **NOT been rerun** against the new format, and nothing below should be read as a result for it. The example vault's Markdown was migrated by hand and its generated artifacts are regenerated separately. Rerun `python3 scripts/verify.py` and the scenarios in [the evaluation guide](docs/evaluation.md) before relying on this release.
+
+## Observations on the previous version
+
 This file records observed checks for the toolkit and its concurrent-merge update. The fictional worked reports under `examples/parcel-desk/reports/` illustrate output shapes; they are not transcripts of these independent evaluations.
 
 ## Independent agent smoke tests

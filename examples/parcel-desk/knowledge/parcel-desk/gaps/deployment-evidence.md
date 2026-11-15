@@ -1,20 +1,40 @@
 ---
 id: "deployment-evidence"
-title: "The example cannot establish deployed behavior"
+title: "What do an allowed and a denied cancellation return through a real entrypoint?"
 type: "gap"
-status: "unverified"
+kind: "verification-gap"
 areas: ["access", "pickups"]
 sources: ["SPEC.md", "src/routes.py"]
-tags: ["verification-gap"]
+recheck: "not-checked"
+decision: "open"
+priority: "low"
+confidence: "medium"
 updated: "2026-11-14"
 ---
 
-# The example cannot establish deployed behavior
+# What do an allowed and a denied cancellation return through a real entrypoint?
 
-Areas: [[areas/access|Customer access]] and [[areas/pickups|Pickup cancellation]]. **Kind: verification gap; intentionally outside the example.**
+## Current behavior
 
-The [spec boundary](../../../SPEC.md) and [adapter module](../../../src/routes.py) identify an in-memory fixture without an HTTP server, identity provider or database. This map cannot establish a deployed application's authentication, HTTP responses, persistence or concurrency.
+Cancellation runs as in-process Python calls: `cancel_request` returns dictionaries and takes an already-authenticated customer string. See [[notes/route-responses|the response mapping]] and [[notes/ownership-check|the owner check]].
 
-No real deployment checks were run. The next action for an actual project would be to identify its real entrypoint and environment, then test a representative allowed and denied cancellation. For this example, leave the item open as a coverage boundary; do not build infrastructure just to make the graph green.
+## Gap
 
-The [[notes/route-responses|status mapping]] is supported locally. [[notes/ownership-check|The owner check]] is distinct from authentication. [[01-coverage|Coverage]] records what the local tests actually establish.
+The [requirements](../../../SPEC.md) describe an in-memory fixture with no network server, identity provider or database. Nothing here shows what a real deployment returns. When an allowed and a denied cancellation go through a deployed entrypoint, do they produce the same responses and state changes as the in-process calls?
+
+## Evidence
+
+- Documented boundary: the "Boundary" section of [SPEC.md](../../../SPEC.md) says the fixture has no network server, identity provider, database or provider integration; the module docstring of [routes.py](../../../src/routes.py) says the same of the adapter.
+- No deployment checks were run (NOT RUN). For this fictional example there is nothing to run.
+
+## Recheck
+
+Not checked yet.
+
+## Discussion
+
+- 2026-11-14 · agent: In an actual project the next step would be to name the real entrypoint and environment, then test one allowed and one denied cancellation. Authentication, persistence and concurrent cancellations would each be a separate gap. For this example the gap marks the limit of what the vault can claim.
+
+## Decision
+
+Open.

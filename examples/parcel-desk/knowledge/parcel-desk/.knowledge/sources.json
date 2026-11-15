@@ -2,12 +2,11 @@
   "access": {
     "src/pickups.py": "d7297d78851687f25de49285d8750e99a520570abd87f1ef82e12064d220e8c0",
     "src/routes.py": "7f9163ecdd41cf152ef643ae0b4a6c1f72e0076ed12ef0792abe49f21ec100d0",
-    "SPEC.md": "d694fad21c703c7e59f6734ee060eede806025fe1b214e4986df2ffb8909bebd",
     "tests/test_pickups.py": "cfc238687d9d5bf32ebd0ca1862511c74206f5fe5ee3a2e0abeefd099b9fe5e2"
   },
   "cancellation-boundary": {
     "src/pickups.py": "d7297d78851687f25de49285d8750e99a520570abd87f1ef82e12064d220e8c0",
-    "SPEC.md": "d694fad21c703c7e59f6734ee060eede806025fe1b214e4986df2ffb8909bebd"
+    "tests/test_pickups.py": "cfc238687d9d5bf32ebd0ca1862511c74206f5fe5ee3a2e0abeefd099b9fe5e2"
   },
   "coverage": {},
   "deployment-evidence": {
@@ -24,11 +23,15 @@
   "ownership-check": {
     "src/pickups.py": "d7297d78851687f25de49285d8750e99a520570abd87f1ef82e12064d220e8c0",
     "src/routes.py": "7f9163ecdd41cf152ef643ae0b4a6c1f72e0076ed12ef0792abe49f21ec100d0",
-    "tests/test_pickups.py": "cfc238687d9d5bf32ebd0ca1862511c74206f5fe5ee3a2e0abeefd099b9fe5e2",
-    "SPEC.md": "d694fad21c703c7e59f6734ee060eede806025fe1b214e4986df2ffb8909bebd"
+    "tests/test_pickups.py": "cfc238687d9d5bf32ebd0ca1862511c74206f5fe5ee3a2e0abeefd099b9fe5e2"
   },
   "packed-cancellation": {
     "SPEC.md": "d694fad21c703c7e59f6734ee060eede806025fe1b214e4986df2ffb8909bebd",
+    "src/pickups.py": "d7297d78851687f25de49285d8750e99a520570abd87f1ef82e12064d220e8c0",
+    "src/routes.py": "7f9163ecdd41cf152ef643ae0b4a6c1f72e0076ed12ef0792abe49f21ec100d0",
+    "tests/test_pickups.py": "cfc238687d9d5bf32ebd0ca1862511c74206f5fe5ee3a2e0abeefd099b9fe5e2"
+  },
+  "packed-cancellation-plan": {
     "src/pickups.py": "d7297d78851687f25de49285d8750e99a520570abd87f1ef82e12064d220e8c0",
     "src/routes.py": "7f9163ecdd41cf152ef643ae0b4a6c1f72e0076ed12ef0792abe49f21ec100d0",
     "tests/test_pickups.py": "cfc238687d9d5bf32ebd0ca1862511c74206f5fe5ee3a2e0abeefd099b9fe5e2"
@@ -40,7 +43,6 @@
   "pickups": {
     "src/pickups.py": "d7297d78851687f25de49285d8750e99a520570abd87f1ef82e12064d220e8c0",
     "src/routes.py": "7f9163ecdd41cf152ef643ae0b4a6c1f72e0076ed12ef0792abe49f21ec100d0",
-    "SPEC.md": "d694fad21c703c7e59f6734ee060eede806025fe1b214e4986df2ffb8909bebd",
     "tests/test_pickups.py": "cfc238687d9d5bf32ebd0ca1862511c74206f5fe5ee3a2e0abeefd099b9fe5e2"
   },
   "route-responses": {

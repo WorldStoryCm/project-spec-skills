@@ -18,8 +18,12 @@ For changes to source tracking, demonstrate that drift is detected without accep
 
 For viewer changes, open a generated example and check search, filters, internal navigation and narrow-screen layout. Use DOM text for note content; do not execute embedded HTML or load remote scripts, fonts or analytics.
 
+## One shared reference
+
+`skills/project-knowledge/references/gaps.md` is copied byte for byte to the other three skills so each is usable on its own. Edit the project-knowledge copy and re-copy it; compare with `cmp` before sending a change. Keep relative links out of it, since they would resolve from only one of the four places.
+
 ## Scope and publishing
 
 The skills produce evidence and documents. A report does not grant permission to change application code, create issues, send messages or deploy. Respect authorization already present in the user's request and the target repository's coordination rules.
 
-Knowledge is an interpretation of a bounded investigation. Keep missing evidence distinct from a missing feature, and keep proposed behavior distinct from today's behavior. Release notes should state actual checks and important limitations without presenting note counts as completeness scores.
+Knowledge is an interpretation of a bounded investigation. Keep missing evidence distinct from a missing feature, and keep proposed behavior distinct from today's behavior: the first belongs in spec pages only as what the code does, the second only in gap pages that a person decides. Release notes should state actual checks and important limitations without presenting note counts as completeness scores.

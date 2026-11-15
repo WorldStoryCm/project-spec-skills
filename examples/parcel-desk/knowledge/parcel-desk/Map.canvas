@@ -98,6 +98,15 @@
       "y": 640,
       "width": 300,
       "height": 200
+    },
+    {
+      "id": "packed-cancellation-plan",
+      "type": "file",
+      "file": "plans/packed-cancellation.md",
+      "x": 0,
+      "y": 880,
+      "width": 300,
+      "height": 200
     }
   ],
   "edges": [
@@ -139,82 +148,82 @@
     {
       "id": "e7",
       "fromNode": "cancellation-boundary",
-      "toNode": "packed-cancellation"
+      "toNode": "pickups"
     },
     {
       "id": "e8",
       "fromNode": "cancellation-boundary",
-      "toNode": "pickups"
+      "toNode": "route-responses"
     },
     {
       "id": "e9",
-      "fromNode": "cancellation-boundary",
-      "toNode": "route-responses"
+      "fromNode": "coverage",
+      "toNode": "access"
     },
     {
       "id": "e10",
       "fromNode": "coverage",
-      "toNode": "access"
+      "toNode": "deployment-evidence"
     },
     {
       "id": "e11",
       "fromNode": "coverage",
-      "toNode": "deployment-evidence"
+      "toNode": "index"
     },
     {
       "id": "e12",
       "fromNode": "coverage",
-      "toNode": "index"
+      "toNode": "packed-cancellation"
     },
     {
       "id": "e13",
       "fromNode": "coverage",
-      "toNode": "packed-cancellation"
-    },
-    {
-      "id": "e14",
-      "fromNode": "coverage",
       "toNode": "pickups"
     },
     {
-      "id": "e15",
-      "fromNode": "deployment-evidence",
-      "toNode": "access"
-    },
-    {
-      "id": "e16",
-      "fromNode": "deployment-evidence",
-      "toNode": "coverage"
-    },
-    {
-      "id": "e17",
+      "id": "e14",
       "fromNode": "deployment-evidence",
       "toNode": "ownership-check"
     },
     {
-      "id": "e18",
-      "fromNode": "deployment-evidence",
-      "toNode": "pickups"
-    },
-    {
-      "id": "e19",
+      "id": "e15",
       "fromNode": "deployment-evidence",
       "toNode": "route-responses"
     },
     {
-      "id": "e20",
+      "id": "e16",
       "fromNode": "example-survey",
       "toNode": "access"
     },
     {
-      "id": "e21",
+      "id": "e17",
       "fromNode": "example-survey",
       "toNode": "coverage"
     },
     {
-      "id": "e22",
+      "id": "e18",
+      "fromNode": "example-survey",
+      "toNode": "deployment-evidence"
+    },
+    {
+      "id": "e19",
       "fromNode": "example-survey",
       "toNode": "index"
+    },
+    {
+      "id": "e20",
+      "fromNode": "example-survey",
+      "toNode": "packed-cancellation"
+    },
+    {
+      "id": "e21",
+      "fromNode": "example-survey",
+      "toNode": "packed-cancellation-plan"
+    },
+    {
+      "id": "e22",
+      "fromNode": "example-survey",
+      "toNode": "partner-decision"
     },
     {
       "id": "e23",
@@ -259,140 +268,150 @@
     {
       "id": "e31",
       "fromNode": "index",
-      "toNode": "partner-decision"
+      "toNode": "packed-cancellation-plan"
     },
     {
       "id": "e32",
       "fromNode": "index",
-      "toNode": "pickups"
+      "toNode": "partner-decision"
     },
     {
       "id": "e33",
       "fromNode": "index",
-      "toNode": "route-responses"
+      "toNode": "pickups"
     },
     {
       "id": "e34",
-      "fromNode": "ownership-check",
-      "toNode": "access"
+      "fromNode": "index",
+      "toNode": "route-responses"
     },
     {
       "id": "e35",
       "fromNode": "ownership-check",
-      "toNode": "cancellation-boundary"
+      "toNode": "access"
     },
     {
       "id": "e36",
       "fromNode": "ownership-check",
-      "toNode": "deployment-evidence"
+      "toNode": "cancellation-boundary"
     },
     {
       "id": "e37",
       "fromNode": "ownership-check",
-      "toNode": "partner-decision"
+      "toNode": "pickups"
     },
     {
       "id": "e38",
-      "fromNode": "ownership-check",
-      "toNode": "pickups"
+      "fromNode": "packed-cancellation",
+      "toNode": "cancellation-boundary"
     },
     {
       "id": "e39",
       "fromNode": "packed-cancellation",
-      "toNode": "cancellation-boundary"
+      "toNode": "ownership-check"
     },
     {
       "id": "e40",
       "fromNode": "packed-cancellation",
-      "toNode": "partner-decision"
+      "toNode": "packed-cancellation-plan"
     },
     {
       "id": "e41",
       "fromNode": "packed-cancellation",
-      "toNode": "pickups"
-    },
-    {
-      "id": "e42",
-      "fromNode": "packed-cancellation",
       "toNode": "route-responses"
     },
     {
+      "id": "e42",
+      "fromNode": "packed-cancellation-plan",
+      "toNode": "cancellation-boundary"
+    },
+    {
       "id": "e43",
-      "fromNode": "partner-decision",
-      "toNode": "access"
+      "fromNode": "packed-cancellation-plan",
+      "toNode": "ownership-check"
     },
     {
       "id": "e44",
+      "fromNode": "packed-cancellation-plan",
+      "toNode": "packed-cancellation"
+    },
+    {
+      "id": "e45",
+      "fromNode": "packed-cancellation-plan",
+      "toNode": "partner-decision"
+    },
+    {
+      "id": "e46",
+      "fromNode": "packed-cancellation-plan",
+      "toNode": "route-responses"
+    },
+    {
+      "id": "e47",
       "fromNode": "partner-decision",
       "toNode": "ownership-check"
     },
     {
-      "id": "e45",
-      "fromNode": "partner-decision",
-      "toNode": "packed-cancellation"
-    },
-    {
-      "id": "e46",
-      "fromNode": "partner-decision",
-      "toNode": "pickups"
-    },
-    {
-      "id": "e47",
-      "fromNode": "pickups",
-      "toNode": "access"
-    },
-    {
       "id": "e48",
-      "fromNode": "pickups",
-      "toNode": "cancellation-boundary"
+      "fromNode": "partner-decision",
+      "toNode": "route-responses"
     },
     {
       "id": "e49",
       "fromNode": "pickups",
-      "toNode": "deployment-evidence"
+      "toNode": "access"
     },
     {
       "id": "e50",
       "fromNode": "pickups",
-      "toNode": "ownership-check"
+      "toNode": "cancellation-boundary"
     },
     {
       "id": "e51",
       "fromNode": "pickups",
-      "toNode": "packed-cancellation"
+      "toNode": "deployment-evidence"
     },
     {
       "id": "e52",
       "fromNode": "pickups",
-      "toNode": "partner-decision"
+      "toNode": "ownership-check"
     },
     {
       "id": "e53",
       "fromNode": "pickups",
-      "toNode": "route-responses"
+      "toNode": "packed-cancellation"
     },
     {
       "id": "e54",
-      "fromNode": "route-responses",
-      "toNode": "cancellation-boundary"
+      "fromNode": "pickups",
+      "toNode": "packed-cancellation-plan"
     },
     {
       "id": "e55",
-      "fromNode": "route-responses",
-      "toNode": "deployment-evidence"
+      "fromNode": "pickups",
+      "toNode": "partner-decision"
     },
     {
       "id": "e56",
-      "fromNode": "route-responses",
-      "toNode": "ownership-check"
+      "fromNode": "pickups",
+      "toNode": "route-responses"
     },
     {
       "id": "e57",
       "fromNode": "route-responses",
-      "toNode": "packed-cancellation"
+      "toNode": "access"
     },
     {
       "id": "e58",
+      "fromNode": "route-responses",
+      "toNode": "cancellation-boundary"
+    },
+    {
+      "id": "e59",
+      "fromNode": "route-responses",
+      "toNode": "ownership-check"
+    },
+    {
+      "id": "e60",
       "fromNode": "route-responses",
       "toNode": "pickups"
     }

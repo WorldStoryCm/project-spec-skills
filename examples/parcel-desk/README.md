@@ -4,13 +4,23 @@ The spec, Python source, tests and customer IDs are invented for this repository
 
 Open `knowledge/parcel-desk/graph.html` in a browser or `knowledge/parcel-desk` as an Obsidian vault. The Markdown claims cite the files alongside this README. The graph can be opened offline; source links outside the vault may need your editor.
 
+The vault shows the two layers the skills produce. The **as-built spec** (`areas/`, `notes/`, generated `AS-BUILT.md`) describes only what the code does. The **gap queue** (`gaps/`, `plans/`, generated `GAPS.md`) holds three questions, one per page, at different points of the lifecycle:
+
+| Gap | State | What it shows |
+| --- | --- | --- |
+| [deployment-evidence](knowledge/parcel-desk/gaps/deployment-evidence.md) | `needs-recheck` | Raised by an agent, not yet re-verified by anyone. |
+| [partner-decision](knowledge/parcel-desk/gaps/partner-decision.md) | `needs-decision` | Rechecked, now waiting for a person to decide; the options sit in `Discussion`. |
+| [packed-cancellation](knowledge/parcel-desk/gaps/packed-cancellation.md) | `accepted` | Rechecked and accepted by a (fictional) person, with [a plan](knowledge/parcel-desk/plans/packed-cancellation.md). |
+
+`AS-BUILT.md` and `GAPS.md` are written by `build`; they are not in a fresh checkout of the Markdown until you run it.
+
 ## Follow the example
 
 1. Read [the requirements](SPEC.md) and inspect [the route](src/routes.py) and [the service](src/pickups.py).
 2. Browse [the knowledge index](knowledge/parcel-desk/00-index.md).
-3. Compare the example [audit](reports/audit.md), [investigation](reports/investigation.md) and [plan](reports/plan.md).
+3. Compare the example [audit](reports/audit.md), [investigation](reports/investigation.md) and [plan](reports/plan.md), each in the report shape its skill defines.
 
-These reports are worked examples, not transcripts of an independent agent evaluation. They distinguish reading tests from running them. The release checks and fresh-agent evaluations are documented separately in the repository's validation record.
+These reports are worked examples, not transcripts of an independent agent evaluation. They distinguish reading tests from running them. In a vault the audit's findings become the gap pages, the investigation's result goes into a gap's `Recheck` section, and the plan becomes a `plans/` page for an accepted gap. The release checks and fresh-agent evaluations are documented separately in the repository's validation record.
 
 Run the fixture tests from this folder:
 

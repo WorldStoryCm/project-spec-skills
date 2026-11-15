@@ -1,26 +1,43 @@
 # Vault format and helper contract
 
-Plain Markdown, wikilinks and flat YAML properties. Use **JSON values inside YAML** so the stdlib-only helper needs no YAML dependency. Each value is a JSON string, array, boolean or number on one line; no nested YAML/block scalars. This is valid Obsidian YAML. Put complex evidence in prose.
+A vault has two layers. The **spec layer** (`areas/`, `notes/`) is an as-built specification: what the source code does now, and nothing else. The **gap layer** (`gaps/`, `plans/`) holds everything that is missing, doubtful, contradictory or proposed, one question per page, each with its own recheck and human decision. Chat agreements, intentions and plans are not spec. See [gaps.md](gaps.md) for how to write the gap layer.
+
+Plain Markdown, wikilinks and flat YAML properties. Use **JSON values inside YAML** so the stdlib-only helper needs no YAML dependency. Each value is a JSON string, array, boolean or number on one line; no nested YAML or block scalars. This is valid Obsidian YAML. Put complex evidence in prose.
 
 ## Layout
 
 ```text
-00-index.md
-01-coverage.md
-02-gaps.md
-areas/<area-slug>.md
-notes/<claim-slug>.md
-gaps/<question-slug>.md
-runs/<date>-<run-slug>.md
-Map.canvas                     generated
-graph.html                     generated
-.knowledge/sources.json         reviewed source fingerprints
-.knowledge/graph.json           generated view data
+knowledge/<project>/
+  00-index.md           start here
+  01-coverage.md        depth reached per area and next actions
+  AS-BUILT.md           generated: the as-built specification in one document
+  GAPS.md               generated: the gap queue by state
+  areas/                maps of related capabilities (spec)
+  notes/                source-backed behaviors and rules (spec)
+  gaps/                 one question per page (gap)
+  plans/                one plan per accepted gap (gap)
+  runs/                 review history and evidence limits
+  Map.canvas            generated Obsidian card map
+  graph.html            generated offline browser view
+  .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint), graph.json (generated view data)
 ```
+
+`AS-BUILT.md` and `GAPS.md` start with a line saying they are generated. They have no frontmatter and are not notes; never edit them, rebuild instead. An older vault may still have a hand-written `02-gaps.md` index page; it stays valid but `GAPS.md` replaces it.
 
 Wikilinks are vault-relative without `.md`; use full paths to avoid ambiguity. Filenames avoid `# | ^ :` and brackets. Code links are relative to the note location, URL-encoded as necessary. Source metadata paths are relative to the **repository**, not the vault.
 
-Markdown beneath any `.obsidian`, `.trash`, or `.knowledge` path component is excluded from note discovery and validation. Deleted notes and plugin documentation must not become graph nodes.
+Markdown beneath any `.obsidian`, `.trash`, or `.knowledge` path component is excluded from note discovery and validation, as are the two generated files by name. A hand-written root page named like a generated file (`AS-BUILT.md`, `GAPS.md`, `graph.html`, `Map.canvas`), ignoring case, is an error and is never overwritten. Deleted notes and plugin documentation must not become graph nodes.
+
+## Page types
+
+| Layer | `type` | Folder | Meaning |
+| --- | --- | --- | --- |
+| Spec | `area` | `areas/` | Map of one capability area as implemented. |
+| Spec | `note` | `notes/` | One implemented behavior, rule or workflow, backed by source. |
+| Gap | `gap` | `gaps/` | One question about something missing, unverified, contradictory or proposed. |
+| Gap | `plan` | `plans/` | Implementation plan for exactly one accepted gap. |
+| Navigation | `index` | vault root | Hand-written entry pages. |
+| History | `run` | `runs/` | Record of one research, sync, audit or investigation pass. |
 
 ## Properties
 
@@ -38,50 +55,58 @@ updated: "2026-11-14"
 ---
 ```
 
-Required: `id`, `title`, `type`, `status`, `areas`, `sources`, `updated`.
+Required on every page: `id`, `title`, `type`, `areas`, `sources`, `updated`. `status` is also required on `area`, `note`, `index`, `run` and `plan`, and is an error on `gap`.
 
 - `id`: unique stable ASCII slug (`[a-z0-9-]+`).
-- `type`: `index`, `area`, `note`, `gap`, `run`.
-- `status`: `current`, `partial`, `planned`, `unverified`, `conflict`, `stale`, `superseded`.
-- `areas`: existing **area IDs**. Each `note`/`gap` needs at least one. Area pages may list themselves or leave empty; index/run pages may be empty.
-- `sources`: existing files read as evidence, repository-relative; no directories, credentials, absolute paths or paths escaping the repo. A `current` note needs evidence. Gaps/maps may have none if their text explains why.
+- `status` on `area` and `note`: `current`, `partial`, `stale`, `superseded`. On `index`, `run` and `plan` additionally `planned`.
+  - `current`: supported by inspected current sources. This is not a runtime test or a deployment claim; say in prose which version and environment you checked.
+  - `partial`: sampled; some of the area or behavior was not read.
+  - `stale`: its sources changed or disappeared and it has not been re-read.
+  - `superseded`: replaced by another page, kept as a pointer.
+  - `planned` (index, run, plan): describes intent not yet carried out.
+  - Doubt about a claim is not a status. If you cannot support a statement, leave it out of the spec note and open a gap.
+- `areas`: existing **area IDs**. Each `note`, `gap` and `plan` needs at least one. Area pages may list themselves or leave empty; index and run pages may be empty.
+- `sources`: existing files read as evidence, repository-relative; no directories, credentials, absolute paths or paths escaping the repo. A `current` note needs evidence; gaps, plans and maps may have none.
 - `updated`: last substantive review date (`YYYY-MM-DD`).
-- Optional `tags`, `aliases`, `task_ids`: string arrays. Optional `summary`, `verification`: strings.
+- Optional `tags`, `aliases`, `task_ids`: string arrays. Optional `summary` (a line used as the area's introduction in `AS-BUILT.md`) and `verification`: strings.
 
-`current` means supported by inspected current sources, **not runtime-tested or deployed**. `partial` means sampled; `unverified` lacks required evidence; `planned` is intent. State checked version/environment in prose.
+Gap-only properties are errors on any other page type, `gap` is an error on a page that is not a plan, and `priority` and `confidence` are allowed only on gap and plan pages. String properties (and strings inside arrays) may not contain control characters, including line separators. Gap-only properties (`kind`, `recheck`, `rechecked_by`, `rechecked_on`, `decision`, `decided_by`, `decided_on`, `duplicate_of`, optional `priority`, `confidence`) and the plan-only `gap` property are defined in [gaps.md](gaps.md), with the rules for who may set each. Gap state (`needs-recheck`, `needs-decision`, or the decision value) is derived from them and never written into Markdown. `recheck: "outdated"` means the cited sources changed after the last recorded recheck; `rechecked_by` and `rechecked_on` stay, the `Recheck` section must have text, and an open gap with it is `needs-recheck`.
 
 ## Body
 
-Usually 150–350 words per behavior; be shorter when sufficient. Do not pad/split to quotas. Include:
+Spec pages state facts about the code. Include for a note, usually 150-350 words and shorter when sufficient:
 
 - A precise title and `Area: [[areas/collections|Collections]]`.
 - When the note is useful; behavior and boundaries; explicit labels on inference.
 - Evidence links and symbols, e.g. `[service.ts](../../../src/server/cases/service.ts#L40)`, `createPeriod`, with what each demonstrates.
 - An existing verification command and actual PASS/FAIL/NOT RUN.
-- Semantic links with reasons, e.g. depends on `[[notes/another-rule|rule]]` because …
+- Semantic links to other spec pages with reasons, e.g. depends on `[[notes/another-rule|rule]]` because ...
 
-All sample paths/symbols here are illustrative; verify and replace them. Area pages list reviewed/discovered/deferred scope. Index links all areas. Coverage uses depth and next actions, not invented completeness percentages. Gaps state kind, evidence, impact and next check, plus related existing tasks. Runs record revision, dirty scope, bounds and outcomes.
+All sample paths and symbols are illustrative. Area pages list reviewed, discovered and deferred scope. The index links all areas and mentions the generated files. Coverage uses depth and next actions, not invented completeness percentages. Runs record revision, dirty scope, bounds and outcomes.
 
-## Gap triage
+The validator enforces these body rules:
 
-Red or flagged nodes are review items. Use tags to explain why each item is open:
-
-- `product-gap`: a traced source path omits or diverges from a stated product requirement. Cite the requirement and the current behavior; state whether the effect was observed at runtime.
-- `verification-gap`: behavior exists or is plausible, but the required scenario, revision or environment lacks evidence. Record any earlier successful checks with their scope before asking for a rerun.
-- `product-plan`: proposed capability or contract decision. Say what exists today, what would be added, and which decisions block it.
-- `conflict`, `knowledge-gap`, `deferred`: conflicting accounts, missing research, or work excluded with a reason. Distinguish outdated documentation from a product failure.
-
-An item can have more than one aspect. Name each separately with its evidence and next action, or split the note if the actions have different owners. Check existing tasks and results when available, since a source note can be newer than a draft and a historic test can be newer than a gap note's assumptions. Order work by observed impact, urgency and dependencies. Give specific acceptance checks, reuse existing owners and do not turn every red node into a feature task.
+1. An `area` or `note` page may not reference the gap layer in any form: a wikilink, an embed (`![[...]]`) or a Markdown link to a `gap` or `plan` page, a Markdown link to `GAPS.md`, or any link inside its `title` or `summary`. Link from the gap to the note instead. Links from gaps, plans, index and run pages to anything are fine.
+2. A gap has six `##` sections with exactly these headings, each once: `Current behavior`, `Gap`, `Evidence`, `Recheck`, `Discussion`, `Decision`. Headings inside code fences do not count.
+3. When `decision` is not `open`, `Decision` needs text; when `recheck` is not `not-checked`, `Recheck` needs text.
 
 ## Helper
 
+Three scripts in `$SKILL_DIR/scripts/`; see [SKILL.md](../SKILL.md) for the variables.
+
 `knowledge.py {check,build,snapshot} --repo PATH --vault PATH`
 
-- `check`: read-only, exit 1 for structural errors; freshness warnings normally leave exit status 0. Add `--strict` to also fail on warnings. Missing source files are errors except on explicitly `stale`/`superseded` notes (warnings). Changed or unbaselined evidence warns; no auto-status rewrites. Strict mode is available only for `check`, never for accepting fingerprints.
-- `snapshot --notes ID...` or `--all`: explicitly accept SHA-256 fingerprints of selected notes' sources into `.knowledge/sources.json`; preserve other baselines. No unrelated source content reads. No-change snapshots keep stable state.
-- `build`: validate first, fail on errors, generate view artifacts. Never accept evidence fingerprints or rewrite canonical notes.
+- `check`: read-only, exit 1 for structural errors; freshness warnings normally leave exit status 0. Add `--strict` to also fail on warnings. Missing source files are errors except on explicitly `stale` or `superseded` notes (warnings). Changed or unbaselined evidence warns. A source that differs from its baseline only by line endings (typically a Windows checkout) warns "line endings differ in source X"; do not snapshot on that checkout, because it would record the converted bytes. Nothing is rewritten.
+- `snapshot --notes ID...` or `--all`: explicitly accept raw-byte SHA-256 fingerprints of selected pages' sources into `.knowledge/sources.json`; preserve other baselines.
+- `build`: validate first, fail on errors, then write `graph.html`, `Map.canvas`, `.knowledge/graph.json`, `AS-BUILT.md` and `GAPS.md`. It never accepts fingerprints or rewrites canonical notes. `AS-BUILT.md` and `GAPS.md` are deterministic; `graph.html` and `.knowledge/graph.json` carry a `generatedAt` time.
 
-Data contract for the included HTML template:
+Rules the validator applies beyond the basics: `decided_by: "agent"` is rejected in every decision state; `decided_by` and `decided_on` are validated but optional on `done` and `duplicate`; a missing source file cited by a gap is an error while its decision is `open`, `accepted` or `deferred` and a warning once it is `done`, `rejected` or `duplicate`, and a plan follows its gap (a warning when the gap is `done`).
+
+`maintain.py {scan,receipt,finish}` supports [sync](sync.md); `merge.py inspect` supports [merge](merge.md).
+
+`AS-BUILT.md` starts with a "generated, do not edit" line and `# {index title}: as-built specification`. It has one `##` per area (sorted by title) with the area `summary`; each note whose first listed area it is appears as a `###` with a line of id, status, updated and sources, and its own headings demoted to levels 4-6. Notes also listed under other areas appear there as "See also" lines; superseded notes are omitted. No gap or plan content appears. `GAPS.md` starts with the same line and `# {index title}: gap queue`, then one `## {state}` per non-empty state in the order `needs-recheck`, `needs-decision`, `accepted`, `deferred`, `rejected`, `done`, `duplicate`, each a table with columns `Gap | Kind | Areas | Recheck | Decision | Priority | Plan`. A Recheck cell ends with ` · sources changed since` when `recheck` is `confirmed` or `not-reproduced` and a cited source's current bytes differ from its accepted fingerprint (line-ending-only differences do not count). `Map.canvas` does not color by state.
+
+## Data contract for the HTML view
 
 ```json
 {
@@ -90,18 +115,23 @@ Data contract for the included HTML template:
     "id": "collection-periods", "title": "A rule", "type": "note",
     "status": "current", "areas": ["collections"], "tags": ["knowledge"],
     "path": "notes/collection-periods.md", "body": "Markdown without frontmatter",
-    "sources": ["src/service.ts"], "summary": "", "updated": "2026-11-14", "stale": false
+    "sources": ["src/service.ts"], "summary": "", "updated": "2026-11-14", "stale": false,
+    "kind": "", "recheck": "", "recheckedBy": "", "recheckedOn": "",
+    "decision": "", "decidedBy": "", "decidedOn": "", "state": "",
+    "gap": "", "layer": "spec", "recheckOutdated": false, "priority": "", "confidence": "", "duplicateOf": ""
   }],
   "edges": [{"source": "collections", "target": "collection-periods"}],
   "warnings": []
 }
 ```
 
-Extract prose wikilinks, excluding inline/fenced code examples. Resolve full vault paths and unique basenames; reject missing/ambiguous notes. Strip aliases and heading/block fragments when checking file existence; no claim to validate headings. Area membership also adds navigation edges. Label this as a knowledge/coverage map, not a runtime dependency graph.
+The added fields are empty strings when they do not apply. `recheckOutdated` is true when `recheck` is `outdated` or the automatic marker applies. `priority`, `confidence` and `duplicateOf` are gap properties, empty when absent. `layer` is `spec` for areas and notes, `gap` for gaps and plans, `nav` for index and run pages. For a gap node `status` is `""` and `gap` stays empty; for a plan node `gap` holds the gap id. The viewer treats missing fields as empty, so older data still opens.
 
-Canonical Markdown must not contain raw merge conflicts. Validation rejects complete Git groups with a labeled opening marker, matching marker widths (including configured widths), and an optional diff3 base section, even inside code fences. Unlabeled/custom conflict formats are outside this detector; also inspect unresolved Git index entries. A deliberate `status: "conflict"` note containing attributed claims and next actions is valid; that status does not itself resolve the claims or authorize accepting their fingerprints. See [concurrent merges](merge.md).
+Extract prose wikilinks, excluding inline and fenced code examples. Resolve full vault paths and unique basenames; reject missing or ambiguous notes. Strip aliases and heading or block fragments when checking file existence; headings are not validated. Area membership also adds navigation edges. Label the result as a knowledge and coverage map, not a runtime dependency graph.
 
-`assets/viewer.html` has exactly one `__KNOWLEDGE_DATA__` placeholder for script-safe JSON. Treat contents as untrusted text: no raw Markdown HTML execution, unsafe URL schemes, external scripts/fonts/analytics/fetches. Render readable basic Markdown and wikilinks; leave unsupported syntax as text. Canvas uses valid JSON Canvas 1.0 file nodes (vault-relative paths) and edges. Generated filenames are reserved; preserve manual changes separately before rebuilding.
+Canonical Markdown must not contain raw merge conflicts. Validation rejects complete Git groups with a labeled opening marker, matching marker widths (including configured widths), and an optional diff3 base section, even inside code fences. Unlabeled or custom conflict formats are outside this detector; also inspect unresolved Git index entries. A `conflict` gap that records attributed claims and a next check is valid; it does not resolve them. See [concurrent merges](merge.md).
+
+`assets/viewer.html` has exactly one `__KNOWLEDGE_DATA__` placeholder for script-safe JSON. Treat contents as untrusted text: no raw Markdown HTML execution, unsafe URL schemes, external scripts, fonts, analytics or fetches. Render readable basic Markdown and wikilinks; leave unsupported syntax as text. Canvas uses valid JSON Canvas 1.0 file nodes (vault-relative paths) and edges. Generated filenames are reserved; preserve manual changes separately before rebuilding.
 
 ## Format references
 

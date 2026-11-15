@@ -1,86 +1,139 @@
 {
   "title": "Parcel Desk knowledge",
-  "generatedAt": "2026-11-14T19:14:28.474990+00:00",
+  "generatedAt": "2026-11-15T10:33:11.396697+00:00",
   "nodes": [
     {
       "id": "index",
       "title": "Parcel Desk knowledge",
       "type": "index",
-      "status": "current",
       "areas": [],
       "sources": [],
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
+      "status": "current",
       "tags": [
         "knowledge"
       ],
       "path": "00-index.md",
-      "body": "# Parcel Desk knowledge\n\nA small **fictional** pickup service. This map records inspected source, intended behavior and questions. It is a worked example, not a production readiness assessment.\n\n## Areas\n\n- **[[areas/pickups|Pickup cancellation]]** explains the state transition and response boundary.\n- [[areas/access|Customer access]] explains whose pickup can be changed.\n\n## Where to begin\n\nFollow [[notes/cancellation-boundary|the cancellation boundary]], then [[notes/route-responses|the route response mapping]]. The ownership rule in [[notes/ownership-check|Customer ownership]] runs first.\n\nThere is one confirmed source/spec mismatch: [[gaps/packed-cancellation|Packed cancellation]]. [[gaps/partner-decision|Partner cancellation]] is an open product decision. [[gaps/deployment-evidence|Deployment evidence]] is outside this fixture's verification scope.\n\nSee [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. Open `graph.html` in a browser or `Map.canvas` in Obsidian. A flagged node does not by itself mean a missing feature.\n",
+      "body": "# Parcel Desk knowledge\n\nA small **fictional** pickup service. The vault has two layers. The **as-built spec** says what the code does today and is derived only from source. The **gap queue** holds every question about what is missing, doubtful or proposed; people re-check and decide each one. This is a worked example, not a production readiness assessment.\n\n## The spec\n\nRead it as one document in [AS-BUILT](AS-BUILT.md) (generated), or page by page:\n\n- **[[areas/pickups|Pickup cancellation]]** covers the state transition and the response mapping.\n- [[areas/access|Customer access]] covers whose pickup can be changed.\n\nStart with [[notes/cancellation-boundary|the cancellation boundary]], then [[notes/route-responses|the route response mapping]]. The rule in [[notes/ownership-check|Customer ownership]] runs first.\n\n## The gap queue\n\n[GAPS](GAPS.md) (generated) lists every gap by state. In this example:\n\n- [[gaps/packed-cancellation|Packed cancellation]] is accepted, with [[plans/packed-cancellation|a plan]].\n- [[gaps/partner-decision|Partner cancellation]] has been rechecked and awaits a person's decision.\n- [[gaps/deployment-evidence|Deployment evidence]] has not been rechecked yet.\n\nSee [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. `AS-BUILT.md` and `GAPS.md` appear after `build`; open `graph.html` in a browser or `Map.canvas` in Obsidian for the map.\n",
       "summary": "",
-      "stale": false
+      "stale": false,
+      "kind": "",
+      "recheck": "",
+      "recheckedBy": "",
+      "recheckedOn": "",
+      "decision": "",
+      "decidedBy": "",
+      "decidedOn": "",
+      "priority": "",
+      "confidence": "",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "",
+      "gap": "",
+      "layer": "nav"
     },
     {
       "id": "coverage",
       "title": "Coverage and evidence limits",
       "type": "index",
-      "status": "partial",
       "areas": [],
       "sources": [],
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
+      "status": "partial",
       "tags": [
         "coverage"
       ],
       "path": "01-coverage.md",
-      "body": "# Coverage and evidence limits\n\nReturn to [[00-index|the index]].\n\n## Pickup coverage\n\nIn [[areas/pickups|Pickups]], the service, adapter, CAN-1/CAN-3 and all three tests were inspected. Three existing unit tests passed; they omit the packed success case. Real HTTP responses, concurrent writes and persistent state are outside the fixture.\n\n## Access coverage\n\nIn [[areas/access|Access]], the owner guard, CAN-2, DEC-1 and denied-action test were inspected. The test verified that another customer's requested pickup is denied without mutation. Authentication, partner identities and deployed authorization are outside the fixture.\n\nThe release check ran `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. This does not prove CAN-1 is satisfied. Static inspection finds the packed mismatch recorded in [[gaps/packed-cancellation|the product gap]].\n\nThe source fingerprints describe this shipped fixture. There is no reviewed Git checkpoint embedded in the example because it is a subdirectory of the toolkit, not an independent application repository. Copy the fixture into a temporary Git project before trying incremental commit sync.\n\nNo real service, logs or customer data were inspected. The example does not imply those systems are missing from an actual product. [[gaps/deployment-evidence|Deployment evidence]] records that boundary.\n",
+      "body": "# Coverage and evidence limits\n\nReturn to [[00-index|the index]].\n\n## Pickup coverage\n\nIn [[areas/pickups|Pickups]], the service, adapter and all three tests were read. Three existing unit tests passed; none uses a `packed` pickup. Real HTTP responses, concurrent writes and persistent state are outside the fixture.\n\n## Access coverage\n\nIn [[areas/access|Access]], the owner guard and the denied-action test were read. The test shows another customer's requested pickup is refused without a state change. Authentication, partner identities and deployed authorization are outside the fixture.\n\nThe release check ran `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. That result says nothing about packed pickups; the open question is [[gaps/packed-cancellation|packed cancellation]].\n\n## Limits\n\nThe source fingerprints describe this shipped fixture. There is no reviewed Git checkpoint embedded in the example because it is a subdirectory of the toolkit, not an independent application repository. Copy the fixture into a temporary Git project before trying incremental commit sync.\n\nNo real service, logs or customer data were inspected. That does not imply those systems are missing from an actual product; [[gaps/deployment-evidence|deployment evidence]] records the boundary as a gap.\n",
       "summary": "",
-      "stale": false
+      "stale": false,
+      "kind": "",
+      "recheck": "",
+      "recheckedBy": "",
+      "recheckedOn": "",
+      "decision": "",
+      "decidedBy": "",
+      "decidedOn": "",
+      "priority": "",
+      "confidence": "",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "",
+      "gap": "",
+      "layer": "nav"
     },
     {
       "id": "access",
       "title": "Customer access",
       "type": "area",
-      "status": "partial",
       "areas": [],
       "sources": [
         "src/pickups.py",
         "src/routes.py",
-        "SPEC.md",
         "tests/test_pickups.py"
       ],
       "updated": "2026-11-14",
+      "status": "partial",
       "tags": [
         "area"
       ],
       "path": "areas/access.md",
-      "body": "# Customer access\n\nThe adapter accepts a customer identifier supplied by its caller. The service compares it with the pickup owner before inspecting state. This fixture demonstrates a policy check; it does not authenticate a network request.\n\n- [[notes/ownership-check|Ownership rule]] constrains [[areas/pickups|pickup cancellation]].\n- [[gaps/partner-decision|Partner cancellation]] is an undecided extension, not an accepted missing feature.\n- [[gaps/deployment-evidence|Deployment evidence]] limits conclusions about real identity handling.\n\nInspected [service](../../../src/pickups.py), [adapter](../../../src/routes.py), [spec](../../../SPEC.md) and [tests](../../../tests/test_pickups.py). The other-customer unit test passed. External identity and real user sessions are outside the fixture.\n",
-      "summary": "",
-      "stale": false
+      "body": "# Customer access\n\nThe adapter accepts a customer identifier supplied by its caller, and the service compares it with the pickup's owner before looking at state. This is a policy check on a supplied value; nothing in the fixture authenticates a request.\n\n- [[notes/ownership-check|Ownership rule]] constrains [[areas/pickups|pickup cancellation]].\n- [[notes/route-responses|Route responses]] shows how a refusal is reported as status 403.\n\nRead: [service](../../../src/pickups.py), [adapter](../../../src/routes.py), and [tests](../../../tests/test_pickups.py). The other-customer test passed in the example check. Identity providers, sessions and any partner identity are not present in the fixture.\n",
+      "summary": "Whose pickup a caller may change: the owner comparison in the service and how the adapter reports a refusal.",
+      "stale": false,
+      "kind": "",
+      "recheck": "",
+      "recheckedBy": "",
+      "recheckedOn": "",
+      "decision": "",
+      "decidedBy": "",
+      "decidedOn": "",
+      "priority": "",
+      "confidence": "",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "",
+      "gap": "",
+      "layer": "spec"
     },
     {
       "id": "pickups",
       "title": "Pickup cancellation",
       "type": "area",
-      "status": "partial",
       "areas": [],
       "sources": [
         "src/pickups.py",
         "src/routes.py",
-        "SPEC.md",
         "tests/test_pickups.py"
       ],
       "updated": "2026-11-14",
+      "status": "partial",
       "tags": [
         "area"
       ],
       "path": "areas/pickups.md",
-      "body": "# Pickup cancellation\n\nThis area covers the in-memory transition and its adapter response. It depends on [[areas/access|customer access]] before state changes are considered.\n\n- [[notes/cancellation-boundary|Cancellation boundary]]: the service currently accepts only `requested`.\n- [[notes/route-responses|Route responses]]: service exceptions become status values.\n- [[gaps/packed-cancellation|Packed cancellation]]: the accepted requirement includes a state the implementation rejects.\n- [[gaps/partner-decision|Partner cancellation]]: proposed actor variation awaiting a decision.\n\nEvidence: [service](../../../src/pickups.py), [adapter](../../../src/routes.py), [requirements](../../../SPEC.md), [tests](../../../tests/test_pickups.py). All four files were inspected. Three existing tests passed during the example check. Real transport, persistence and deployment are not modeled; see [[gaps/deployment-evidence|verification limits]].\n",
-      "summary": "",
-      "stale": false
+      "body": "# Pickup cancellation\n\nThis area covers the in-memory cancellation transition and the adapter response built from it. It depends on [[areas/access|customer access]], whose owner check runs before any state is considered.\n\n- [[notes/cancellation-boundary|Cancellation boundary]]: the service cancels only pickups whose state is `requested`.\n- [[notes/route-responses|Route responses]]: service exceptions become status values.\n\nRead: [service](../../../src/pickups.py), [adapter](../../../src/routes.py) and [tests](../../../tests/test_pickups.py). The three existing tests passed in the example check. Not modeled: real transport, persistence, concurrent requests and deployment.\n",
+      "summary": "How a customer's pickup is cancelled in the in-memory service and how the adapter reports the outcome.",
+      "stale": false,
+      "kind": "",
+      "recheck": "",
+      "recheckedBy": "",
+      "recheckedOn": "",
+      "decision": "",
+      "decidedBy": "",
+      "decidedOn": "",
+      "priority": "",
+      "confidence": "",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "",
+      "gap": "",
+      "layer": "spec"
     },
     {
       "id": "deployment-evidence",
-      "title": "The example cannot establish deployed behavior",
+      "title": "What do an allowed and a denied cancellation return through a real entrypoint?",
       "type": "gap",
-      "status": "unverified",
       "areas": [
         "access",
         "pickups"
@@ -90,19 +143,31 @@
         "src/routes.py"
       ],
       "updated": "2026-11-14",
-      "tags": [
-        "verification-gap"
-      ],
+      "status": "",
+      "tags": [],
       "path": "gaps/deployment-evidence.md",
-      "body": "# The example cannot establish deployed behavior\n\nAreas: [[areas/access|Customer access]] and [[areas/pickups|Pickup cancellation]]. **Kind: verification gap; intentionally outside the example.**\n\nThe [spec boundary](../../../SPEC.md) and [adapter module](../../../src/routes.py) identify an in-memory fixture without an HTTP server, identity provider or database. This map cannot establish a deployed application's authentication, HTTP responses, persistence or concurrency.\n\nNo real deployment checks were run. The next action for an actual project would be to identify its real entrypoint and environment, then test a representative allowed and denied cancellation. For this example, leave the item open as a coverage boundary; do not build infrastructure just to make the graph green.\n\nThe [[notes/route-responses|status mapping]] is supported locally. [[notes/ownership-check|The owner check]] is distinct from authentication. [[01-coverage|Coverage]] records what the local tests actually establish.\n",
+      "body": "# What do an allowed and a denied cancellation return through a real entrypoint?\n\n## Current behavior\n\nCancellation runs as in-process Python calls: `cancel_request` returns dictionaries and takes an already-authenticated customer string. See [[notes/route-responses|the response mapping]] and [[notes/ownership-check|the owner check]].\n\n## Gap\n\nThe [requirements](../../../SPEC.md) describe an in-memory fixture with no network server, identity provider or database. Nothing here shows what a real deployment returns. When an allowed and a denied cancellation go through a deployed entrypoint, do they produce the same responses and state changes as the in-process calls?\n\n## Evidence\n\n- Documented boundary: the \"Boundary\" section of [SPEC.md](../../../SPEC.md) says the fixture has no network server, identity provider, database or provider integration; the module docstring of [routes.py](../../../src/routes.py) says the same of the adapter.\n- No deployment checks were run (NOT RUN). For this fictional example there is nothing to run.\n\n## Recheck\n\nNot checked yet.\n\n## Discussion\n\n- 2026-11-14 · agent: In an actual project the next step would be to name the real entrypoint and environment, then test one allowed and one denied cancellation. Authentication, persistence and concurrent cancellations would each be a separate gap. For this example the gap marks the limit of what the vault can claim.\n\n## Decision\n\nOpen.\n",
       "summary": "",
-      "stale": false
+      "stale": false,
+      "kind": "verification-gap",
+      "recheck": "not-checked",
+      "recheckedBy": "",
+      "recheckedOn": "",
+      "decision": "open",
+      "decidedBy": "",
+      "decidedOn": "",
+      "priority": "low",
+      "confidence": "medium",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "needs-recheck",
+      "gap": "",
+      "layer": "gap"
     },
     {
       "id": "packed-cancellation",
-      "title": "Packed pickup cancellation contradicts CAN-1",
+      "title": "Should a customer be able to cancel their own packed pickup?",
       "type": "gap",
-      "status": "conflict",
       "areas": [
         "pickups"
       ],
@@ -112,21 +177,32 @@
         "src/routes.py",
         "tests/test_pickups.py"
       ],
-      "updated": "2026-11-14",
-      "tags": [
-        "product-gap",
-        "conflict"
-      ],
+      "updated": "2026-11-15",
+      "status": "",
+      "tags": [],
       "path": "gaps/packed-cancellation.md",
-      "body": "# Packed pickup cancellation contradicts CAN-1\n\nArea: [[areas/pickups|Pickup cancellation]]. **Kind: product gap; specification conflict.**\n\nCAN-1 in [the accepted spec](../../../SPEC.md) permits a customer to cancel their own `packed` pickup before collection. The state guard in [cancel_pickup](../../../src/pickups.py) permits only `requested`. [cancel_request](../../../src/routes.py) maps the resulting `ValueError` to status 409.\n\nThis is a concrete mismatch in the inspected path. The existing three [tests](../../../tests/test_pickups.py) pass while omitting the packed acceptance case. Passing them is not proof of CAN-1 compliance. The shipped worked report uses static evidence; independent release checks are recorded outside this vault in `VALIDATION.md`.\n\n**Priority:** first within this fixture's accepted cancellation scope. **Next action:** keep CAN-1 or explicitly revise it; if retained, add a failing packed-case regression test before changing the allowlist. Acceptance: the owner can cancel both requested and packed pickups; another customer still receives 403; collected pickups still receive 409; rejected calls preserve state.\n\nSee [[notes/cancellation-boundary|current behavior]] and [[notes/route-responses|response mapping]]. [[gaps/partner-decision|Partner support]] is a different decision and does not block this correction.\n",
+      "body": "# Should a customer be able to cancel their own packed pickup?\n\n## Current behavior\n\nThe service cancels only `requested` pickups and rejects every other state, including `packed`, after the owner check; the adapter reports that as status 409. See [[notes/cancellation-boundary|the cancellation boundary]], [[notes/ownership-check|the owner check]] and [[notes/route-responses|the response mapping]].\n\n## Gap\n\nCAN-1 in [the requirements](../../../SPEC.md) says a customer can cancel their own pickup before collection, \"including when its state is `requested` or `packed`\". The code does not do that for `packed`. Should the service change so the owner can cancel a packed pickup?\n\n## Evidence\n\n- Documented intent: CAN-1 in [SPEC.md](../../../SPEC.md).\n- Static reading: the state guard in [cancel_pickup](../../../src/pickups.py) permits only `requested`; [cancel_request](../../../src/routes.py) maps the resulting `ValueError` to 409.\n- The three existing [tests](../../../tests/test_pickups.py) pass and none uses a `packed` pickup, so they neither show nor contradict the mismatch.\n\n## Recheck\n\n2026-11-15, Tomas Brandt: ran `cancel_request(Pickup(\"example\", \"customer-a\", \"packed\"), \"customer-a\")` in the fixture. Result: `{'status': 409, 'error': 'cancellation_conflict'}` and the state stays `packed`. The same call with `customer-b` returns 403 and also leaves the state unchanged. Confirmed against the current files; this is a local in-process call, not a request to a deployed service.\n\n## Discussion\n\n- 2026-11-14 · agent: Found while mapping the cancellation flow. The alternative to changing the code is revising CAN-1 to say `requested` only.\n- 2026-11-15 · Priya Nair: CAN-1 stays as written; support has had packed-pickup complaints. The partner question is separate and does not block this.\n\n## Decision\n\nAccepted on 2026-11-15 by Priya Nair: keep CAN-1 and change the service. Planned in [[plans/packed-cancellation|the implementation plan]].\n",
       "summary": "",
-      "stale": false
+      "stale": false,
+      "kind": "product-gap",
+      "recheck": "confirmed",
+      "recheckedBy": "Tomas Brandt",
+      "recheckedOn": "2026-11-15",
+      "decision": "accepted",
+      "decidedBy": "Priya Nair",
+      "decidedOn": "2026-11-15",
+      "priority": "high",
+      "confidence": "high",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "accepted",
+      "gap": "",
+      "layer": "gap"
     },
     {
       "id": "partner-decision",
-      "title": "Partner cancellation needs a product decision",
+      "title": "Should a delivery partner be able to cancel on a customer's behalf?",
       "type": "gap",
-      "status": "planned",
       "areas": [
         "access",
         "pickups"
@@ -135,42 +211,68 @@
         "SPEC.md",
         "src/routes.py"
       ],
-      "updated": "2026-11-14",
-      "tags": [
-        "product-plan"
-      ],
+      "updated": "2026-11-15",
+      "status": "",
+      "tags": [],
       "path": "gaps/partner-decision.md",
-      "body": "# Partner cancellation needs a product decision\n\nAreas: [[areas/access|Customer access]] and [[areas/pickups|Pickup cancellation]]. **Kind: product plan.**\n\nDEC-1 in [the spec](../../../SPEC.md) explicitly leaves partner cancellation undecided and outside accepted scope. The [adapter](../../../src/routes.py) accepts a customer identity; it provides no separate partner contract.\n\nAbsence of that contract is not evidence of a missing accepted feature. Decide who may act on whose behalf, which identity evidence is required and which states are allowed before making an implementation task. Those choices gate partner work only.\n\n[[gaps/packed-cancellation|The accepted customer requirement]] can be addressed independently. [[notes/ownership-check|Today's owner guard]] must remain intact until any replacement contract is explicitly accepted. No partner runtime checks were run because this fixture defines no partner behavior.\n",
+      "body": "# Should a delivery partner be able to cancel on a customer's behalf?\n\n## Current behavior\n\nOnly the pickup's owner can cancel: the service compares the supplied customer ID with the owner, and the adapter takes a customer identity and nothing else. See [[notes/ownership-check|the owner check]] and [[notes/route-responses|the response mapping]].\n\n## Gap\n\nDEC-1 in [the requirements](../../../SPEC.md) leaves partner cancellation undecided and outside the accepted scope. Does the product want it? If so, who may act for whom, what identity evidence is required, and in which states?\n\n## Evidence\n\n- Documented intent: DEC-1 in [SPEC.md](../../../SPEC.md) says permissions, identity checks and allowed states \"have not been decided\".\n- Static reading: [cancel_request](../../../src/routes.py) has no partner parameter, role or contract.\n- Nothing was run: the fixture defines no partner behavior to run.\n\n## Recheck\n\n2026-11-15, agent: re-read [SPEC.md](../../../SPEC.md) and [routes.py](../../../src/routes.py) (static only). DEC-1 is still undecided in the requirements and the adapter still has no partner path, so the description above holds. No command was run.\n\n## Discussion\n\n- 2026-11-14 · agent: Absence of a partner path is not a missing accepted feature. Options for a decider: (a) reject for now, (b) defer until a partner integration exists, (c) accept and define permissions, identity checks and states first.\n\n## Decision\n\nOpen.\n",
       "summary": "",
-      "stale": false
+      "stale": false,
+      "kind": "product-plan",
+      "recheck": "confirmed",
+      "recheckedBy": "agent",
+      "recheckedOn": "2026-11-15",
+      "decision": "open",
+      "decidedBy": "",
+      "decidedOn": "",
+      "priority": "low",
+      "confidence": "high",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "needs-decision",
+      "gap": "",
+      "layer": "gap"
     },
     {
       "id": "cancellation-boundary",
       "title": "Only requested pickups are currently cancellable",
       "type": "note",
-      "status": "current",
       "areas": [
         "pickups"
       ],
       "sources": [
         "src/pickups.py",
-        "SPEC.md"
+        "tests/test_pickups.py"
       ],
       "updated": "2026-11-14",
+      "status": "current",
       "tags": [
         "knowledge",
         "workflow"
       ],
       "path": "notes/cancellation-boundary.md",
-      "body": "# Only requested pickups are currently cancellable\n\nArea: [[areas/pickups|Pickup cancellation]]. Use this note when changing allowed states or explaining a rejected cancellation.\n\n**Implementation:** `cancel_pickup` checks ownership, then requires `pickup.state == \"requested\"`. Accepted calls set state to `cancelled`. Any other state raises `ValueError` before the mutation. The [service](../../../src/pickups.py) establishes this behavior; it is not inferred from the graph.\n\n**Intent:** CAN-1 in the [spec](../../../SPEC.md) includes both `requested` and `packed` before collection. The difference is tracked by [[gaps/packed-cancellation|the packed cancellation gap]]. This current note describes code, not agreement with the requirement.\n\nThe [[notes/ownership-check|ownership guard]] runs first. The [[notes/route-responses|adapter]] converts state rejection to status 409. Existing tests verify requested and collected cases; they do not cover packed success. See [[01-coverage|coverage]] for the executed test command. A focused packed-case assertion remains a proposed regression test.\n",
+      "body": "# Only requested pickups are currently cancellable\n\nArea: [[areas/pickups|Pickup cancellation]]. Use this note when changing allowed states or explaining a rejected cancellation.\n\n`cancel_pickup` first runs the [[notes/ownership-check|ownership check]]. It then requires `pickup.state == \"requested\"`; any other value, including `picked_up` and `packed`, raises `ValueError(\"Only requested pickups can be cancelled\")` before anything is changed. A pickup that passes both checks gets state `cancelled` and is returned. The [service](../../../src/pickups.py) establishes this; the code has no list of states and treats every value except `requested` the same way. The service refers to no other state name.\n\nThe [[notes/route-responses|adapter]] turns the `ValueError` into status 409. The existing [tests](../../../tests/test_pickups.py) cover a `requested` pickup (cancelled) and a `picked_up` pickup (409, unchanged); none uses `packed`. The three-test suite passed during the example check (`python3 -m unittest discover -s tests -v`, see [[01-coverage|coverage]]).\n",
       "summary": "",
-      "stale": false
+      "stale": false,
+      "kind": "",
+      "recheck": "",
+      "recheckedBy": "",
+      "recheckedOn": "",
+      "decision": "",
+      "decidedBy": "",
+      "decidedOn": "",
+      "priority": "",
+      "confidence": "",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "",
+      "gap": "",
+      "layer": "spec"
     },
     {
       "id": "ownership-check",
       "title": "The owner check runs before the state check",
       "type": "note",
-      "status": "current",
       "areas": [
         "access",
         "pickups"
@@ -178,24 +280,37 @@
       "sources": [
         "src/pickups.py",
         "src/routes.py",
-        "tests/test_pickups.py",
-        "SPEC.md"
+        "tests/test_pickups.py"
       ],
       "updated": "2026-11-14",
+      "status": "current",
       "tags": [
         "knowledge",
         "rule"
       ],
       "path": "notes/ownership-check.md",
-      "body": "# The owner check runs before the state check\n\nAreas: [[areas/access|Customer access]] and [[areas/pickups|Pickup cancellation]].\n\n`cancel_pickup` compares `pickup.customer_id` with the supplied customer ID before checking the state. Mismatch raises `PermissionError`; no mutation occurs. The adapter maps this to status 403. See [the service](../../../src/pickups.py) and [the adapter](../../../src/routes.py).\n\nThis supports CAN-2 in [the spec](../../../SPEC.md). `test_other_customer_cannot_cancel` in [the tests](../../../tests/test_pickups.py) checks a requested pickup, the 403 status and unchanged state. The three-test suite passed during this example's verification; the test does not establish a real authentication boundary.\n\n[[notes/cancellation-boundary|State eligibility]] applies only after the owner check. [[gaps/partner-decision|Partner cancellation]] cannot be inferred from this customer-only contract. Deployed identity remains [[gaps/deployment-evidence|unverified]].\n",
+      "body": "# The owner check runs before the state check\n\nAreas: [[areas/access|Customer access]] and [[areas/pickups|Pickup cancellation]].\n\n`cancel_pickup` compares `pickup.customer_id` with the supplied customer ID before it looks at the state. A mismatch raises `PermissionError` and nothing is changed; the adapter maps it to status 403 ([service](../../../src/pickups.py), [adapter](../../../src/routes.py)). The only caller identity in the code is that supplied string: the adapter's docstring says the caller has already authenticated the customer, and no partner or staff identity exists.\n\n`test_other_customer_cannot_cancel` in the [tests](../../../tests/test_pickups.py) uses a `requested` pickup and checks status 403 and unchanged state; it passed in the example check. [[notes/cancellation-boundary|State eligibility]] applies only after this check passes.\n",
       "summary": "",
-      "stale": false
+      "stale": false,
+      "kind": "",
+      "recheck": "",
+      "recheckedBy": "",
+      "recheckedOn": "",
+      "decision": "",
+      "decidedBy": "",
+      "decidedOn": "",
+      "priority": "",
+      "confidence": "",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "",
+      "gap": "",
+      "layer": "spec"
     },
     {
       "id": "route-responses",
       "title": "Cancellation exceptions become adapter statuses",
       "type": "note",
-      "status": "current",
       "areas": [
         "pickups",
         "access"
@@ -206,20 +321,68 @@
         "tests/test_pickups.py"
       ],
       "updated": "2026-11-14",
+      "status": "current",
       "tags": [
         "knowledge",
         "contract"
       ],
       "path": "notes/route-responses.md",
-      "body": "# Cancellation exceptions become adapter statuses\n\nArea: [[areas/pickups|Pickup cancellation]].\n\nThe in-process `cancel_request` adapter calls `cancel_pickup`. It returns 403 for `PermissionError`, 409 for `ValueError`, and a 200 result containing the updated state on success. See [the adapter](../../../src/routes.py) and [the called service](../../../src/pickups.py).\n\n[[notes/ownership-check|Ownership]] determines forbidden responses; [[notes/cancellation-boundary|state eligibility]] determines conflicts. The packed scenario reaches the latter guard, which explains [[gaps/packed-cancellation|the requirement mismatch]].\n\nThe [existing tests](../../../tests/test_pickups.py) exercise these three response branches with requested, other-customer and collected fixtures; the suite passed. These are dictionary status values, not observed network responses. Real HTTP mapping and authentication are [[gaps/deployment-evidence|outside the example]].\n",
+      "body": "# Cancellation exceptions become adapter statuses\n\nAreas: [[areas/pickups|Pickup cancellation]] and [[areas/access|Customer access]].\n\nThe in-process `cancel_request` adapter calls `cancel_pickup` and returns a dictionary: `{\"status\": 403, \"error\": \"forbidden\"}` for `PermissionError`, `{\"status\": 409, \"error\": \"cancellation_conflict\"}` for `ValueError`, and `{\"status\": 200, \"state\": <new state>}` on success. See [the adapter](../../../src/routes.py) and [the called service](../../../src/pickups.py).\n\n[[notes/ownership-check|Ownership]] decides the 403 case and [[notes/cancellation-boundary|state eligibility]] decides the 409 case, so a `packed` pickup owned by the caller reaches the 409 branch. The [existing tests](../../../tests/test_pickups.py) exercise the three branches with a requested, an other-customer and a collected pickup, and passed in the example check. The values are dictionaries returned in-process, not observed HTTP responses.\n",
       "summary": "",
-      "stale": false
+      "stale": false,
+      "kind": "",
+      "recheck": "",
+      "recheckedBy": "",
+      "recheckedOn": "",
+      "decision": "",
+      "decidedBy": "",
+      "decidedOn": "",
+      "priority": "",
+      "confidence": "",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "",
+      "gap": "",
+      "layer": "spec"
+    },
+    {
+      "id": "packed-cancellation-plan",
+      "title": "Plan: allow the owner to cancel a packed pickup",
+      "type": "plan",
+      "areas": [
+        "pickups"
+      ],
+      "sources": [
+        "src/pickups.py",
+        "src/routes.py",
+        "tests/test_pickups.py"
+      ],
+      "updated": "2026-11-15",
+      "status": "planned",
+      "tags": [],
+      "path": "plans/packed-cancellation.md",
+      "body": "# Plan: allow the owner to cancel a packed pickup\n\nImplements [[gaps/packed-cancellation|the accepted gap]]. This is a plan only; nothing here has been implemented or run.\n\n## Current behavior\n\n`cancel_pickup` permits only `requested` ([[notes/cancellation-boundary|cancellation boundary]]), after the [[notes/ownership-check|owner check]], and the adapter reports a refusal as 409 ([[notes/route-responses|response mapping]]).\n\n## Steps\n\n1. In [tests/test_pickups.py](../../../tests/test_pickups.py), add a packed-pickup check through `cancel_request` expecting status 200 and state `cancelled`. Run it first and confirm it fails with the current 409.\n2. In [src/pickups.py](../../../src/pickups.py), accept `requested` and `packed` and keep the owner check before any state change. Keep every other state rejected.\n3. Add regression cases: a packed pickup with the wrong customer returns 403 and stays `packed`; a `picked_up` pickup returns 409 and stays `picked_up`. Keep the existing requested case.\n4. Run `python3 -m unittest discover -s tests -v` from the fixture root. After the new behavior is verified, update the cancellation notes from the code and mark the gap `done` with the location of the change.\n\n## Acceptance\n\n- The owner can cancel `requested` and `packed` pickups: status 200, state `cancelled`.\n- Another customer receives 403 and the state is unchanged.\n- A `picked_up` pickup receives 409 and the state is unchanged.\n\nAll of these are proposed checks: **NOT RUN**.\n\n## Out of scope\n\nPartner cancellation (see [[gaps/partner-decision|its gap]], still undecided), persistence, HTTP integration, and the behavior of cancelling an already cancelled pickup.\n",
+      "summary": "",
+      "stale": false,
+      "kind": "",
+      "recheck": "",
+      "recheckedBy": "",
+      "recheckedOn": "",
+      "decision": "",
+      "decidedBy": "",
+      "decidedOn": "",
+      "priority": "",
+      "confidence": "",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "",
+      "gap": "packed-cancellation",
+      "layer": "gap"
     },
     {
       "id": "example-survey",
       "title": "Fictional project survey",
       "type": "run",
-      "status": "current",
       "areas": [],
       "sources": [
         "SPEC.md",
@@ -227,14 +390,29 @@
         "src/routes.py",
         "tests/test_pickups.py"
       ],
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
+      "status": "current",
       "tags": [
         "run"
       ],
       "path": "runs/example-survey.md",
-      "body": "# Fictional project survey\n\nThis authored example surveys all four fixture source/spec/test files. It is not a transcript of an independent agent run. The fixture has no independent application revision: it is shipped inside the toolkit repository, whose Git commit identifies the exact version.\n\nCreated [[areas/pickups|pickup]] and [[areas/access|access]] maps, three behavior notes and three questions with different next actions. The accepted packed cancellation requirement diverges from code. Partner behavior is undecided. Deployment evidence is deliberately absent.\n\nExecuted `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. Reviewed source fingerprints were then accepted for the example; view generation does not make application claims true. Release checks, separate agent evaluations and browser observations are reported in the toolkit's `VALIDATION.md`.\n\nSee [[00-index|the index]] and [[01-coverage|coverage]]. No external system was queried and no real product behavior is implied.\n",
+      "body": "# Fictional project survey\n\nThis authored example surveys the four fixture source, requirements and test files. It is not a transcript of an independent agent run. The fixture has no independent application revision: it ships inside the toolkit repository, whose Git commit identifies the exact version.\n\n## 2026-11-14: survey\n\nWrote the [[areas/pickups|pickup]] and [[areas/access|access]] maps and three behavior notes from the code. Raised three gaps, each with `decision: \"open\"`: [[gaps/packed-cancellation|packed cancellation]] (the code rejects a state the requirements allow), [[gaps/partner-decision|partner cancellation]] (the requirements leave it undecided) and [[gaps/deployment-evidence|deployment evidence]] (not checkable in this fixture). Ran `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. Reviewed source fingerprints were then accepted; view generation does not make claims true.\n\n## 2026-11-15: gap queue\n\nTomas Brandt rechecked packed cancellation by running the fixture; Priya Nair accepted it and [[plans/packed-cancellation|a plan]] was written. The agent rechecked partner cancellation by reading the code and left the decision open. Deployment evidence has not been rechecked. No spec note changed.\n\nSee [[00-index|the index]] and [[01-coverage|coverage]]. No external system was queried and no real product behavior is implied. Release checks and browser observations are in the toolkit's `VALIDATION.md`.\n",
       "summary": "",
-      "stale": false
+      "stale": false,
+      "kind": "",
+      "recheck": "",
+      "recheckedBy": "",
+      "recheckedOn": "",
+      "decision": "",
+      "decidedBy": "",
+      "decidedOn": "",
+      "priority": "",
+      "confidence": "",
+      "duplicateOf": "",
+      "recheckOutdated": false,
+      "state": "",
+      "gap": "",
+      "layer": "nav"
     }
   ],
   "edges": [
@@ -268,10 +446,6 @@
     },
     {
       "source": "cancellation-boundary",
-      "target": "packed-cancellation"
-    },
-    {
-      "source": "cancellation-boundary",
       "target": "pickups"
     },
     {
@@ -300,19 +474,7 @@
     },
     {
       "source": "deployment-evidence",
-      "target": "access"
-    },
-    {
-      "source": "deployment-evidence",
-      "target": "coverage"
-    },
-    {
-      "source": "deployment-evidence",
       "target": "ownership-check"
-    },
-    {
-      "source": "deployment-evidence",
-      "target": "pickups"
     },
     {
       "source": "deployment-evidence",
@@ -328,7 +490,23 @@
     },
     {
       "source": "example-survey",
+      "target": "deployment-evidence"
+    },
+    {
+      "source": "example-survey",
       "target": "index"
+    },
+    {
+      "source": "example-survey",
+      "target": "packed-cancellation"
+    },
+    {
+      "source": "example-survey",
+      "target": "packed-cancellation-plan"
+    },
+    {
+      "source": "example-survey",
+      "target": "partner-decision"
     },
     {
       "source": "example-survey",
@@ -364,6 +542,10 @@
     },
     {
       "source": "index",
+      "target": "packed-cancellation-plan"
+    },
+    {
+      "source": "index",
       "target": "partner-decision"
     },
     {
@@ -384,14 +566,6 @@
     },
     {
       "source": "ownership-check",
-      "target": "deployment-evidence"
-    },
-    {
-      "source": "ownership-check",
-      "target": "partner-decision"
-    },
-    {
-      "source": "ownership-check",
       "target": "pickups"
     },
     {
@@ -400,19 +574,35 @@
     },
     {
       "source": "packed-cancellation",
-      "target": "partner-decision"
+      "target": "ownership-check"
     },
     {
       "source": "packed-cancellation",
-      "target": "pickups"
+      "target": "packed-cancellation-plan"
     },
     {
       "source": "packed-cancellation",
       "target": "route-responses"
     },
     {
-      "source": "partner-decision",
-      "target": "access"
+      "source": "packed-cancellation-plan",
+      "target": "cancellation-boundary"
+    },
+    {
+      "source": "packed-cancellation-plan",
+      "target": "ownership-check"
+    },
+    {
+      "source": "packed-cancellation-plan",
+      "target": "packed-cancellation"
+    },
+    {
+      "source": "packed-cancellation-plan",
+      "target": "partner-decision"
+    },
+    {
+      "source": "packed-cancellation-plan",
+      "target": "route-responses"
     },
     {
       "source": "partner-decision",
@@ -420,11 +610,7 @@
     },
     {
       "source": "partner-decision",
-      "target": "packed-cancellation"
-    },
-    {
-      "source": "partner-decision",
-      "target": "pickups"
+      "target": "route-responses"
     },
     {
       "source": "pickups",
@@ -445,6 +631,10 @@
     {
       "source": "pickups",
       "target": "packed-cancellation"
+    },
+    {
+      "source": "pickups",
+      "target": "packed-cancellation-plan"
     },
     {
       "source": "pickups",
@@ -456,19 +646,15 @@
     },
     {
       "source": "route-responses",
+      "target": "access"
+    },
+    {
+      "source": "route-responses",
       "target": "cancellation-boundary"
     },
     {
       "source": "route-responses",
-      "target": "deployment-evidence"
-    },
-    {
-      "source": "route-responses",
       "target": "ownership-check"
-    },
-    {
-      "source": "route-responses",
-      "target": "packed-cancellation"
     },
     {
       "source": "route-responses",

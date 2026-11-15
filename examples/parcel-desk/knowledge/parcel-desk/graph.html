@@ -92,7 +92,7 @@
       .workspace {
         display: grid;
         grid-template-columns: 270px minmax(340px, 1fr) 360px;
-        height: calc(100vh - 70px);
+        height: calc(100vh - 70px - 48px);
         min-height: 0;
         grid-template-rows: minmax(0, 1fr);
       }
@@ -208,7 +208,7 @@
         background: var(--teal);
         margin-right: 7px;
       }
-      .dot.gap {
+      .dot.pending {
         background: #be8230;
       }
       .dot.conflict {
@@ -216,6 +216,166 @@
       }
       .dot.stale {
         background: #826b9a;
+      }
+      .dot.st-needs-recheck {
+        background: #ee8a00;
+        box-shadow: 0 0 0 2px #fde3b8;
+      }
+      .dot.st-needs-decision {
+        background: #5a3fc8;
+        box-shadow: 0 0 0 2px #dcd5f6;
+      }
+      .dot.st-accepted {
+        background: #5fa88f;
+      }
+      .dot.st-deferred {
+        background: #b4b4a2;
+      }
+      .dot.st-rejected {
+        background: #fff;
+        border: 2px solid #a04740;
+      }
+      .dot.st-done {
+        background: #fff;
+        border: 2px solid #286e60;
+      }
+      .dot.st-duplicate {
+        background: #d9d9d9;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .modebar {
+        height: 48px;
+        display: flex;
+        align-items: stretch;
+        gap: 8px;
+        padding: 7px 28px;
+        background: #fff;
+        border-bottom: 3px solid var(--teal);
+      }
+      body[data-mode="gaps"] .modebar {
+        border-bottom-color: #5a3fc8;
+      }
+      .modebar button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #cedbd2;
+        background: #fff;
+        border-radius: 7px;
+        padding: 0 14px;
+        font-weight: 650;
+        color: var(--muted);
+      }
+      .modebar button[aria-pressed="true"] {
+        background: var(--teal);
+        border-color: var(--teal);
+        color: #fff;
+      }
+      body[data-mode="gaps"] .modebar button[aria-pressed="true"] {
+        background: #5a3fc8;
+        border-color: #5a3fc8;
+      }
+      .modebar .hint {
+        align-self: center;
+        margin-left: 6px;
+        font-size: 13px;
+        color: var(--muted);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .pill {
+        background: #ee8a00;
+        color: #1d1200;
+        border-radius: 10px;
+        padding: 0 7px;
+        font-size: 12px;
+        line-height: 18px;
+      }
+      .state-filters button {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .state-filters .n {
+        margin-left: 4px;
+        font-variant-numeric: tabular-nums;
+        opacity: 0.8;
+      }
+      .filters button[aria-pressed="true"] {
+        outline: 1px solid #b6d3c3;
+      }
+      .item .row2 {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 3px;
+      }
+      .item .facts-line {
+        display: block;
+        margin-top: 3px;
+        font-size: 12px;
+      }
+      .section-label.sub {
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .gap-facts {
+        margin: 0 0 18px;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-left: 5px solid #b4b4a2;
+        border-radius: 6px;
+        background: #fafcf9;
+        font-size: 13px;
+      }
+      .gap-facts.st-needs-recheck {
+        border-left-color: #ee8a00;
+      }
+      .gap-facts.st-needs-decision {
+        border-left-color: #5a3fc8;
+      }
+      .gap-facts dl {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 4px 12px;
+        margin: 0;
+      }
+      .gap-facts dt {
+        color: var(--muted);
+      }
+      .gap-facts dd {
+        margin: 0;
+        min-width: 0;
+      }
+      .link-list {
+        list-style: none;
+        margin: 0 0 18px;
+        padding: 0;
+        display: grid;
+        gap: 4px;
+      }
+      .link-list li {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .link-block {
+        margin: 0 0 18px;
+      }
+      .link-block h2 {
+        font-size: 13px;
+        margin: 0 0 6px;
+        color: var(--muted);
+      }
+      .hintline {
+        font-size: 12px;
+        margin: 12px 0 0;
       }
       .map {
         padding: 26px;
@@ -286,10 +446,15 @@
         stroke: #fff;
         stroke-width: 3;
       }
+      .graph-node rect {
+        fill: #b6d3c3;
+        stroke: #fff;
+        stroke-width: 3;
+      }
       .graph-node.area circle {
         fill: #327969;
       }
-      .graph-node.gap circle {
+      .graph-node.pending circle {
         fill: #d3a05b;
       }
       .graph-node.conflict circle {
@@ -298,9 +463,54 @@
       .graph-node.stale circle {
         stroke: #826b9a;
       }
-      .graph-node.selected circle {
-        stroke: #1f594e;
+      .graph-node.plan-node rect {
+        fill: #cfe3f2;
+        stroke: #3d6f95;
+      }
+      .graph-node.context circle {
+        fill: #f7f8f3;
+        stroke: #7d9a8c;
+        stroke-width: 2;
+        stroke-dasharray: 4 3;
+      }
+      .graph-node.context.area circle {
+        fill: #dcebe3;
+      }
+      .graph-node.context text {
+        fill: #5d7468;
+      }
+      .graph-node.st-needs-recheck circle {
+        fill: #ee8a00;
+        stroke: #7a4300;
         stroke-width: 4;
+      }
+      .graph-node.st-needs-decision circle {
+        fill: #5a3fc8;
+        stroke: #2c1d80;
+        stroke-width: 4;
+      }
+      .graph-node.st-accepted circle {
+        fill: #5fa88f;
+      }
+      .graph-node.st-deferred circle {
+        fill: #c9c9b8;
+      }
+      .graph-node.st-rejected circle {
+        fill: #f1dedb;
+        stroke: #a04740;
+      }
+      .graph-node.st-done circle {
+        fill: #e3f1e6;
+        stroke: #286e60;
+      }
+      .graph-node.st-duplicate circle {
+        fill: #e6e6e6;
+        stroke: #999;
+      }
+      .graph-node.selected circle,
+      .graph-node.selected rect {
+        stroke: #14352e;
+        stroke-width: 5;
       }
       .graph-node text {
         font-size: 12px;
@@ -344,9 +554,43 @@
         font-size: 12px;
         font-weight: 650;
       }
-      .badge.gap {
+      .badge.pending {
         background: #fbefd9;
         color: #815314;
+      }
+      .badge.outdated {
+        background: #fff;
+        color: #7a4300;
+        border: 1px dashed #b86a00;
+        padding: 3px 7px;
+      }
+      .badge.st-needs-recheck {
+        background: #ee8a00;
+        color: #1d1200;
+      }
+      .badge.st-needs-decision {
+        background: #5a3fc8;
+        color: #fff;
+      }
+      .badge.st-accepted {
+        background: #d6ecdf;
+        color: #1f5a43;
+      }
+      .badge.st-deferred {
+        background: #ececdf;
+        color: #55553f;
+      }
+      .badge.st-rejected {
+        background: #f4e0dd;
+        color: #8a342d;
+      }
+      .badge.st-done {
+        background: #e3f1e6;
+        color: #2d6a3a;
+      }
+      .badge.st-duplicate {
+        background: #ececec;
+        color: #555;
       }
       .badge.conflict {
         background: #f8e5e2;
@@ -449,6 +693,16 @@
           min-height: 64px;
           padding: 12px 16px;
         }
+        .modebar {
+          padding: 7px 16px;
+        }
+        .modebar .hint {
+          display: none;
+        }
+        .modebar button {
+          flex: 1;
+          justify-content: center;
+        }
         .header-note {
           display: none;
         }
@@ -506,6 +760,8 @@
         }
         .counts {
           margin-bottom: 16px;
+          flex-wrap: wrap;
+          gap: 10px 20px;
         }
       }
       @media (prefers-reduced-motion: reduce) {
@@ -529,9 +785,16 @@
         </div>
       </div>
       <div class="header-note">
-        Knowledge and open questions<br />Generated locally
+        As-built spec and gaps<br />Generated locally
       </div>
     </header>
+    <div class="modebar" role="group" aria-label="Layer">
+      <button type="button" id="mode-spec" aria-pressed="true">Spec</button
+      ><button type="button" id="mode-gaps" aria-pressed="false">
+        Gaps<span class="pill" id="mode-wait" hidden></span>
+      </button>
+      <span class="hint" id="mode-hint"></span>
+    </div>
     <nav class="mobile-tabs" aria-label="Sections">
       <button data-view="list" aria-selected="false">List</button
       ><button data-view="map" aria-selected="true">Map</button
@@ -539,7 +802,7 @@
     </nav>
     <main class="workspace" data-view="map">
       <aside>
-        <h2>Navigation</h2>
+        <h2 id="nav-title">Spec pages</h2>
         <input
           class="search"
           id="search"
@@ -551,30 +814,33 @@
         <select id="area" aria-label="Area">
           <option value="">All areas</option>
         </select>
-        <div class="section-label">Show</div>
-        <div class="filters" aria-label="Filter notes">
-          <button data-filter="all" aria-pressed="true">All</button
-          ><button data-filter="note" aria-pressed="false">Notes</button
-          ><button data-filter="gap" aria-pressed="false">Gaps</button>
+        <div id="panel-spec">
+          <div class="section-label">Show</div>
+          <div class="filters" id="spec-filters" role="group" aria-label="Filter spec pages"></div>
+        </div>
+        <div id="panel-gaps" hidden>
+          <div class="section-label">State</div>
+          <div class="filters state-filters" id="state-filters" role="group" aria-label="Filter gaps by state"></div>
+          <div class="section-label">Kind</div>
+          <select id="kind" aria-label="Kind">
+            <option value="">All kinds</option>
+          </select>
         </div>
         <div class="section-label" id="list-label">Materials</div>
         <div class="list" id="list"></div>
+        <div id="nav-block" hidden>
+          <div class="section-label sub" id="nav-label">Overview and runs</div>
+          <div class="list" id="nav-list"></div>
+        </div>
       </aside>
       <section class="map" aria-labelledby="map-title">
         <div class="map-head">
           <div>
-            <h1 id="map-title">Knowledge map</h1>
-            <p>
-              This map shows researched knowledge and open questions. It is not a
-              complete feature audit or a system dependency graph.
-            </p>
+            <h1 id="map-title">Spec map</h1>
+            <p id="map-desc"></p>
           </div>
         </div>
-        <div class="counts">
-          <button data-count="all"><b id="count-all">0</b>materials</button
-          ><button data-count="note"><b id="count-note">0</b>notes</button
-          ><button data-count="gap"><b id="count-gap">0</b>gaps</button>
-        </div>
+        <div class="counts" id="counts"></div>
         <div class="graph-wrap">
           <svg
             id="graph"
@@ -587,10 +853,7 @@
             ><button id="reset" aria-label="Reset view">↺</button>
           </div>
         </div>
-        <p class="subtle" style="font-size: 12px; margin: 12px 0 0">
-          Drag to pan the map. Select a node to open its
-          content.
-        </p>
+        <p class="subtle hintline" id="graph-hint"></p>
       </section>
       <article class="reader" aria-live="polite">
         <div class="reader-top">
@@ -605,7 +868,7 @@
       </article>
     </main>
     <script id="knowledge-data" type="application/json">
-      {"title": "Parcel Desk knowledge", "generatedAt": "2026-11-14T19:14:28.474990+00:00", "nodes": [{"id": "index", "title": "Parcel Desk knowledge", "type": "index", "status": "current", "areas": [], "sources": [], "updated": "2026-11-14", "tags": ["knowledge"], "path": "00-index.md", "body": "# Parcel Desk knowledge\n\nA small **fictional** pickup service. This map records inspected source, intended behavior and questions. It is a worked example, not a production readiness assessment.\n\n## Areas\n\n- **[[areas/pickups|Pickup cancellation]]** explains the state transition and response boundary.\n- [[areas/access|Customer access]] explains whose pickup can be changed.\n\n## Where to begin\n\nFollow [[notes/cancellation-boundary|the cancellation boundary]], then [[notes/route-responses|the route response mapping]]. The ownership rule in [[notes/ownership-check|Customer ownership]] runs first.\n\nThere is one confirmed source/spec mismatch: [[gaps/packed-cancellation|Packed cancellation]]. [[gaps/partner-decision|Partner cancellation]] is an open product decision. [[gaps/deployment-evidence|Deployment evidence]] is outside this fixture's verification scope.\n\nSee [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. Open `graph.html` in a browser or `Map.canvas` in Obsidian. A flagged node does not by itself mean a missing feature.\n", "summary": "", "stale": false}, {"id": "coverage", "title": "Coverage and evidence limits", "type": "index", "status": "partial", "areas": [], "sources": [], "updated": "2026-11-14", "tags": ["coverage"], "path": "01-coverage.md", "body": "# Coverage and evidence limits\n\nReturn to [[00-index|the index]].\n\n## Pickup coverage\n\nIn [[areas/pickups|Pickups]], the service, adapter, CAN-1/CAN-3 and all three tests were inspected. Three existing unit tests passed; they omit the packed success case. Real HTTP responses, concurrent writes and persistent state are outside the fixture.\n\n## Access coverage\n\nIn [[areas/access|Access]], the owner guard, CAN-2, DEC-1 and denied-action test were inspected. The test verified that another customer's requested pickup is denied without mutation. Authentication, partner identities and deployed authorization are outside the fixture.\n\nThe release check ran `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. This does not prove CAN-1 is satisfied. Static inspection finds the packed mismatch recorded in [[gaps/packed-cancellation|the product gap]].\n\nThe source fingerprints describe this shipped fixture. There is no reviewed Git checkpoint embedded in the example because it is a subdirectory of the toolkit, not an independent application repository. Copy the fixture into a temporary Git project before trying incremental commit sync.\n\nNo real service, logs or customer data were inspected. The example does not imply those systems are missing from an actual product. [[gaps/deployment-evidence|Deployment evidence]] records that boundary.\n", "summary": "", "stale": false}, {"id": "access", "title": "Customer access", "type": "area", "status": "partial", "areas": [], "sources": ["src/pickups.py", "src/routes.py", "SPEC.md", "tests/test_pickups.py"], "updated": "2026-11-14", "tags": ["area"], "path": "areas/access.md", "body": "# Customer access\n\nThe adapter accepts a customer identifier supplied by its caller. The service compares it with the pickup owner before inspecting state. This fixture demonstrates a policy check; it does not authenticate a network request.\n\n- [[notes/ownership-check|Ownership rule]] constrains [[areas/pickups|pickup cancellation]].\n- [[gaps/partner-decision|Partner cancellation]] is an undecided extension, not an accepted missing feature.\n- [[gaps/deployment-evidence|Deployment evidence]] limits conclusions about real identity handling.\n\nInspected [service](../../../src/pickups.py), [adapter](../../../src/routes.py), [spec](../../../SPEC.md) and [tests](../../../tests/test_pickups.py). The other-customer unit test passed. External identity and real user sessions are outside the fixture.\n", "summary": "", "stale": false}, {"id": "pickups", "title": "Pickup cancellation", "type": "area", "status": "partial", "areas": [], "sources": ["src/pickups.py", "src/routes.py", "SPEC.md", "tests/test_pickups.py"], "updated": "2026-11-14", "tags": ["area"], "path": "areas/pickups.md", "body": "# Pickup cancellation\n\nThis area covers the in-memory transition and its adapter response. It depends on [[areas/access|customer access]] before state changes are considered.\n\n- [[notes/cancellation-boundary|Cancellation boundary]]: the service currently accepts only `requested`.\n- [[notes/route-responses|Route responses]]: service exceptions become status values.\n- [[gaps/packed-cancellation|Packed cancellation]]: the accepted requirement includes a state the implementation rejects.\n- [[gaps/partner-decision|Partner cancellation]]: proposed actor variation awaiting a decision.\n\nEvidence: [service](../../../src/pickups.py), [adapter](../../../src/routes.py), [requirements](../../../SPEC.md), [tests](../../../tests/test_pickups.py). All four files were inspected. Three existing tests passed during the example check. Real transport, persistence and deployment are not modeled; see [[gaps/deployment-evidence|verification limits]].\n", "summary": "", "stale": false}, {"id": "deployment-evidence", "title": "The example cannot establish deployed behavior", "type": "gap", "status": "unverified", "areas": ["access", "pickups"], "sources": ["SPEC.md", "src/routes.py"], "updated": "2026-11-14", "tags": ["verification-gap"], "path": "gaps/deployment-evidence.md", "body": "# The example cannot establish deployed behavior\n\nAreas: [[areas/access|Customer access]] and [[areas/pickups|Pickup cancellation]]. **Kind: verification gap; intentionally outside the example.**\n\nThe [spec boundary](../../../SPEC.md) and [adapter module](../../../src/routes.py) identify an in-memory fixture without an HTTP server, identity provider or database. This map cannot establish a deployed application's authentication, HTTP responses, persistence or concurrency.\n\nNo real deployment checks were run. The next action for an actual project would be to identify its real entrypoint and environment, then test a representative allowed and denied cancellation. For this example, leave the item open as a coverage boundary; do not build infrastructure just to make the graph green.\n\nThe [[notes/route-responses|status mapping]] is supported locally. [[notes/ownership-check|The owner check]] is distinct from authentication. [[01-coverage|Coverage]] records what the local tests actually establish.\n", "summary": "", "stale": false}, {"id": "packed-cancellation", "title": "Packed pickup cancellation contradicts CAN-1", "type": "gap", "status": "conflict", "areas": ["pickups"], "sources": ["SPEC.md", "src/pickups.py", "src/routes.py", "tests/test_pickups.py"], "updated": "2026-11-14", "tags": ["product-gap", "conflict"], "path": "gaps/packed-cancellation.md", "body": "# Packed pickup cancellation contradicts CAN-1\n\nArea: [[areas/pickups|Pickup cancellation]]. **Kind: product gap; specification conflict.**\n\nCAN-1 in [the accepted spec](../../../SPEC.md) permits a customer to cancel their own `packed` pickup before collection. The state guard in [cancel_pickup](../../../src/pickups.py) permits only `requested`. [cancel_request](../../../src/routes.py) maps the resulting `ValueError` to status 409.\n\nThis is a concrete mismatch in the inspected path. The existing three [tests](../../../tests/test_pickups.py) pass while omitting the packed acceptance case. Passing them is not proof of CAN-1 compliance. The shipped worked report uses static evidence; independent release checks are recorded outside this vault in `VALIDATION.md`.\n\n**Priority:** first within this fixture's accepted cancellation scope. **Next action:** keep CAN-1 or explicitly revise it; if retained, add a failing packed-case regression test before changing the allowlist. Acceptance: the owner can cancel both requested and packed pickups; another customer still receives 403; collected pickups still receive 409; rejected calls preserve state.\n\nSee [[notes/cancellation-boundary|current behavior]] and [[notes/route-responses|response mapping]]. [[gaps/partner-decision|Partner support]] is a different decision and does not block this correction.\n", "summary": "", "stale": false}, {"id": "partner-decision", "title": "Partner cancellation needs a product decision", "type": "gap", "status": "planned", "areas": ["access", "pickups"], "sources": ["SPEC.md", "src/routes.py"], "updated": "2026-11-14", "tags": ["product-plan"], "path": "gaps/partner-decision.md", "body": "# Partner cancellation needs a product decision\n\nAreas: [[areas/access|Customer access]] and [[areas/pickups|Pickup cancellation]]. **Kind: product plan.**\n\nDEC-1 in [the spec](../../../SPEC.md) explicitly leaves partner cancellation undecided and outside accepted scope. The [adapter](../../../src/routes.py) accepts a customer identity; it provides no separate partner contract.\n\nAbsence of that contract is not evidence of a missing accepted feature. Decide who may act on whose behalf, which identity evidence is required and which states are allowed before making an implementation task. Those choices gate partner work only.\n\n[[gaps/packed-cancellation|The accepted customer requirement]] can be addressed independently. [[notes/ownership-check|Today's owner guard]] must remain intact until any replacement contract is explicitly accepted. No partner runtime checks were run because this fixture defines no partner behavior.\n", "summary": "", "stale": false}, {"id": "cancellation-boundary", "title": "Only requested pickups are currently cancellable", "type": "note", "status": "current", "areas": ["pickups"], "sources": ["src/pickups.py", "SPEC.md"], "updated": "2026-11-14", "tags": ["knowledge", "workflow"], "path": "notes/cancellation-boundary.md", "body": "# Only requested pickups are currently cancellable\n\nArea: [[areas/pickups|Pickup cancellation]]. Use this note when changing allowed states or explaining a rejected cancellation.\n\n**Implementation:** `cancel_pickup` checks ownership, then requires `pickup.state == \"requested\"`. Accepted calls set state to `cancelled`. Any other state raises `ValueError` before the mutation. The [service](../../../src/pickups.py) establishes this behavior; it is not inferred from the graph.\n\n**Intent:** CAN-1 in the [spec](../../../SPEC.md) includes both `requested` and `packed` before collection. The difference is tracked by [[gaps/packed-cancellation|the packed cancellation gap]]. This current note describes code, not agreement with the requirement.\n\nThe [[notes/ownership-check|ownership guard]] runs first. The [[notes/route-responses|adapter]] converts state rejection to status 409. Existing tests verify requested and collected cases; they do not cover packed success. See [[01-coverage|coverage]] for the executed test command. A focused packed-case assertion remains a proposed regression test.\n", "summary": "", "stale": false}, {"id": "ownership-check", "title": "The owner check runs before the state check", "type": "note", "status": "current", "areas": ["access", "pickups"], "sources": ["src/pickups.py", "src/routes.py", "tests/test_pickups.py", "SPEC.md"], "updated": "2026-11-14", "tags": ["knowledge", "rule"], "path": "notes/ownership-check.md", "body": "# The owner check runs before the state check\n\nAreas: [[areas/access|Customer access]] and [[areas/pickups|Pickup cancellation]].\n\n`cancel_pickup` compares `pickup.customer_id` with the supplied customer ID before checking the state. Mismatch raises `PermissionError`; no mutation occurs. The adapter maps this to status 403. See [the service](../../../src/pickups.py) and [the adapter](../../../src/routes.py).\n\nThis supports CAN-2 in [the spec](../../../SPEC.md). `test_other_customer_cannot_cancel` in [the tests](../../../tests/test_pickups.py) checks a requested pickup, the 403 status and unchanged state. The three-test suite passed during this example's verification; the test does not establish a real authentication boundary.\n\n[[notes/cancellation-boundary|State eligibility]] applies only after the owner check. [[gaps/partner-decision|Partner cancellation]] cannot be inferred from this customer-only contract. Deployed identity remains [[gaps/deployment-evidence|unverified]].\n", "summary": "", "stale": false}, {"id": "route-responses", "title": "Cancellation exceptions become adapter statuses", "type": "note", "status": "current", "areas": ["pickups", "access"], "sources": ["src/routes.py", "src/pickups.py", "tests/test_pickups.py"], "updated": "2026-11-14", "tags": ["knowledge", "contract"], "path": "notes/route-responses.md", "body": "# Cancellation exceptions become adapter statuses\n\nArea: [[areas/pickups|Pickup cancellation]].\n\nThe in-process `cancel_request` adapter calls `cancel_pickup`. It returns 403 for `PermissionError`, 409 for `ValueError`, and a 200 result containing the updated state on success. See [the adapter](../../../src/routes.py) and [the called service](../../../src/pickups.py).\n\n[[notes/ownership-check|Ownership]] determines forbidden responses; [[notes/cancellation-boundary|state eligibility]] determines conflicts. The packed scenario reaches the latter guard, which explains [[gaps/packed-cancellation|the requirement mismatch]].\n\nThe [existing tests](../../../tests/test_pickups.py) exercise these three response branches with requested, other-customer and collected fixtures; the suite passed. These are dictionary status values, not observed network responses. Real HTTP mapping and authentication are [[gaps/deployment-evidence|outside the example]].\n", "summary": "", "stale": false}, {"id": "example-survey", "title": "Fictional project survey", "type": "run", "status": "current", "areas": [], "sources": ["SPEC.md", "src/pickups.py", "src/routes.py", "tests/test_pickups.py"], "updated": "2026-11-14", "tags": ["run"], "path": "runs/example-survey.md", "body": "# Fictional project survey\n\nThis authored example surveys all four fixture source/spec/test files. It is not a transcript of an independent agent run. The fixture has no independent application revision: it is shipped inside the toolkit repository, whose Git commit identifies the exact version.\n\nCreated [[areas/pickups|pickup]] and [[areas/access|access]] maps, three behavior notes and three questions with different next actions. The accepted packed cancellation requirement diverges from code. Partner behavior is undecided. Deployment evidence is deliberately absent.\n\nExecuted `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. Reviewed source fingerprints were then accepted for the example; view generation does not make application claims true. Release checks, separate agent evaluations and browser observations are reported in the toolkit's `VALIDATION.md`.\n\nSee [[00-index|the index]] and [[01-coverage|coverage]]. No external system was queried and no real product behavior is implied.\n", "summary": "", "stale": false}], "edges": [{"source": "access", "target": "deployment-evidence"}, {"source": "access", "target": "ownership-check"}, {"source": "access", "target": "partner-decision"}, {"source": "access", "target": "pickups"}, {"source": "access", "target": "route-responses"}, {"source": "cancellation-boundary", "target": "coverage"}, {"source": "cancellation-boundary", "target": "ownership-check"}, {"source": "cancellation-boundary", "target": "packed-cancellation"}, {"source": "cancellation-boundary", "target": "pickups"}, {"source": "cancellation-boundary", "target": "route-responses"}, {"source": "coverage", "target": "access"}, {"source": "coverage", "target": "deployment-evidence"}, {"source": "coverage", "target": "index"}, {"source": "coverage", "target": "packed-cancellation"}, {"source": "coverage", "target": "pickups"}, {"source": "deployment-evidence", "target": "access"}, {"source": "deployment-evidence", "target": "coverage"}, {"source": "deployment-evidence", "target": "ownership-check"}, {"source": "deployment-evidence", "target": "pickups"}, {"source": "deployment-evidence", "target": "route-responses"}, {"source": "example-survey", "target": "access"}, {"source": "example-survey", "target": "coverage"}, {"source": "example-survey", "target": "index"}, {"source": "example-survey", "target": "pickups"}, {"source": "index", "target": "access"}, {"source": "index", "target": "cancellation-boundary"}, {"source": "index", "target": "coverage"}, {"source": "index", "target": "deployment-evidence"}, {"source": "index", "target": "example-survey"}, {"source": "index", "target": "ownership-check"}, {"source": "index", "target": "packed-cancellation"}, {"source": "index", "target": "partner-decision"}, {"source": "index", "target": "pickups"}, {"source": "index", "target": "route-responses"}, {"source": "ownership-check", "target": "access"}, {"source": "ownership-check", "target": "cancellation-boundary"}, {"source": "ownership-check", "target": "deployment-evidence"}, {"source": "ownership-check", "target": "partner-decision"}, {"source": "ownership-check", "target": "pickups"}, {"source": "packed-cancellation", "target": "cancellation-boundary"}, {"source": "packed-cancellation", "target": "partner-decision"}, {"source": "packed-cancellation", "target": "pickups"}, {"source": "packed-cancellation", "target": "route-responses"}, {"source": "partner-decision", "target": "access"}, {"source": "partner-decision", "target": "ownership-check"}, {"source": "partner-decision", "target": "packed-cancellation"}, {"source": "partner-decision", "target": "pickups"}, {"source": "pickups", "target": "access"}, {"source": "pickups", "target": "cancellation-boundary"}, {"source": "pickups", "target": "deployment-evidence"}, {"source": "pickups", "target": "ownership-check"}, {"source": "pickups", "target": "packed-cancellation"}, {"source": "pickups", "target": "partner-decision"}, {"source": "pickups", "target": "route-responses"}, {"source": "route-responses", "target": "cancellation-boundary"}, {"source": "route-responses", "target": "deployment-evidence"}, {"source": "route-responses", "target": "ownership-check"}, {"source": "route-responses", "target": "packed-cancellation"}, {"source": "route-responses", "target": "pickups"}], "warnings": []}
+      {"title": "Parcel Desk knowledge", "generatedAt": "2026-11-15T10:33:11.396697+00:00", "nodes": [{"id": "index", "title": "Parcel Desk knowledge", "type": "index", "areas": [], "sources": [], "updated": "2026-11-15", "status": "current", "tags": ["knowledge"], "path": "00-index.md", "body": "# Parcel Desk knowledge\n\nA small **fictional** pickup service. The vault has two layers. The **as-built spec** says what the code does today and is derived only from source. The **gap queue** holds every question about what is missing, doubtful or proposed; people re-check and decide each one. This is a worked example, not a production readiness assessment.\n\n## The spec\n\nRead it as one document in [AS-BUILT](AS-BUILT.md) (generated), or page by page:\n\n- **[[areas/pickups|Pickup cancellation]]** covers the state transition and the response mapping.\n- [[areas/access|Customer access]] covers whose pickup can be changed.\n\nStart with [[notes/cancellation-boundary|the cancellation boundary]], then [[notes/route-responses|the route response mapping]]. The rule in [[notes/ownership-check|Customer ownership]] runs first.\n\n## The gap queue\n\n[GAPS](GAPS.md) (generated) lists every gap by state. In this example:\n\n- [[gaps/packed-cancellation|Packed cancellation]] is accepted, with [[plans/packed-cancellation|a plan]].\n- [[gaps/partner-decision|Partner cancellation]] has been rechecked and awaits a person's decision.\n- [[gaps/deployment-evidence|Deployment evidence]] has not been rechecked yet.\n\nSee [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. `AS-BUILT.md` and `GAPS.md` appear after `build`; open `graph.html` in a browser or `Map.canvas` in Obsidian for the map.\n", "summary": "", "stale": false, "kind": "", "recheck": "", "recheckedBy": "", "recheckedOn": "", "decision": "", "decidedBy": "", "decidedOn": "", "priority": "", "confidence": "", "duplicateOf": "", "recheckOutdated": false, "state": "", "gap": "", "layer": "nav"}, {"id": "coverage", "title": "Coverage and evidence limits", "type": "index", "areas": [], "sources": [], "updated": "2026-11-15", "status": "partial", "tags": ["coverage"], "path": "01-coverage.md", "body": "# Coverage and evidence limits\n\nReturn to [[00-index|the index]].\n\n## Pickup coverage\n\nIn [[areas/pickups|Pickups]], the service, adapter and all three tests were read. Three existing unit tests passed; none uses a `packed` pickup. Real HTTP responses, concurrent writes and persistent state are outside the fixture.\n\n## Access coverage\n\nIn [[areas/access|Access]], the owner guard and the denied-action test were read. The test shows another customer's requested pickup is refused without a state change. Authentication, partner identities and deployed authorization are outside the fixture.\n\nThe release check ran `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. That result says nothing about packed pickups; the open question is [[gaps/packed-cancellation|packed cancellation]].\n\n## Limits\n\nThe source fingerprints describe this shipped fixture. There is no reviewed Git checkpoint embedded in the example because it is a subdirectory of the toolkit, not an independent application repository. Copy the fixture into a temporary Git project before trying incremental commit sync.\n\nNo real service, logs or customer data were inspected. That does not imply those systems are missing from an actual product; [[gaps/deployment-evidence|deployment evidence]] records the boundary as a gap.\n", "summary": "", "stale": false, "kind": "", "recheck": "", "recheckedBy": "", "recheckedOn": "", "decision": "", "decidedBy": "", "decidedOn": "", "priority": "", "confidence": "", "duplicateOf": "", "recheckOutdated": false, "state": "", "gap": "", "layer": "nav"}, {"id": "access", "title": "Customer access", "type": "area", "areas": [], "sources": ["src/pickups.py", "src/routes.py", "tests/test_pickups.py"], "updated": "2026-11-14", "status": "partial", "tags": ["area"], "path": "areas/access.md", "body": "# Customer access\n\nThe adapter accepts a customer identifier supplied by its caller, and the service compares it with the pickup's owner before looking at state. This is a policy check on a supplied value; nothing in the fixture authenticates a request.\n\n- [[notes/ownership-check|Ownership rule]] constrains [[areas/pickups|pickup cancellation]].\n- [[notes/route-responses|Route responses]] shows how a refusal is reported as status 403.\n\nRead: [service](../../../src/pickups.py), [adapter](../../../src/routes.py), and [tests](../../../tests/test_pickups.py). The other-customer test passed in the example check. Identity providers, sessions and any partner identity are not present in the fixture.\n", "summary": "Whose pickup a caller may change: the owner comparison in the service and how the adapter reports a refusal.", "stale": false, "kind": "", "recheck": "", "recheckedBy": "", "recheckedOn": "", "decision": "", "decidedBy": "", "decidedOn": "", "priority": "", "confidence": "", "duplicateOf": "", "recheckOutdated": false, "state": "", "gap": "", "layer": "spec"}, {"id": "pickups", "title": "Pickup cancellation", "type": "area", "areas": [], "sources": ["src/pickups.py", "src/routes.py", "tests/test_pickups.py"], "updated": "2026-11-14", "status": "partial", "tags": ["area"], "path": "areas/pickups.md", "body": "# Pickup cancellation\n\nThis area covers the in-memory cancellation transition and the adapter response built from it. It depends on [[areas/access|customer access]], whose owner check runs before any state is considered.\n\n- [[notes/cancellation-boundary|Cancellation boundary]]: the service cancels only pickups whose state is `requested`.\n- [[notes/route-responses|Route responses]]: service exceptions become status values.\n\nRead: [service](../../../src/pickups.py), [adapter](../../../src/routes.py) and [tests](../../../tests/test_pickups.py). The three existing tests passed in the example check. Not modeled: real transport, persistence, concurrent requests and deployment.\n", "summary": "How a customer's pickup is cancelled in the in-memory service and how the adapter reports the outcome.", "stale": false, "kind": "", "recheck": "", "recheckedBy": "", "recheckedOn": "", "decision": "", "decidedBy": "", "decidedOn": "", "priority": "", "confidence": "", "duplicateOf": "", "recheckOutdated": false, "state": "", "gap": "", "layer": "spec"}, {"id": "deployment-evidence", "title": "What do an allowed and a denied cancellation return through a real entrypoint?", "type": "gap", "areas": ["access", "pickups"], "sources": ["SPEC.md", "src/routes.py"], "updated": "2026-11-14", "status": "", "tags": [], "path": "gaps/deployment-evidence.md", "body": "# What do an allowed and a denied cancellation return through a real entrypoint?\n\n## Current behavior\n\nCancellation runs as in-process Python calls: `cancel_request` returns dictionaries and takes an already-authenticated customer string. See [[notes/route-responses|the response mapping]] and [[notes/ownership-check|the owner check]].\n\n## Gap\n\nThe [requirements](../../../SPEC.md) describe an in-memory fixture with no network server, identity provider or database. Nothing here shows what a real deployment returns. When an allowed and a denied cancellation go through a deployed entrypoint, do they produce the same responses and state changes as the in-process calls?\n\n## Evidence\n\n- Documented boundary: the \"Boundary\" section of [SPEC.md](../../../SPEC.md) says the fixture has no network server, identity provider, database or provider integration; the module docstring of [routes.py](../../../src/routes.py) says the same of the adapter.\n- No deployment checks were run (NOT RUN). For this fictional example there is nothing to run.\n\n## Recheck\n\nNot checked yet.\n\n## Discussion\n\n- 2026-11-14 · agent: In an actual project the next step would be to name the real entrypoint and environment, then test one allowed and one denied cancellation. Authentication, persistence and concurrent cancellations would each be a separate gap. For this example the gap marks the limit of what the vault can claim.\n\n## Decision\n\nOpen.\n", "summary": "", "stale": false, "kind": "verification-gap", "recheck": "not-checked", "recheckedBy": "", "recheckedOn": "", "decision": "open", "decidedBy": "", "decidedOn": "", "priority": "low", "confidence": "medium", "duplicateOf": "", "recheckOutdated": false, "state": "needs-recheck", "gap": "", "layer": "gap"}, {"id": "packed-cancellation", "title": "Should a customer be able to cancel their own packed pickup?", "type": "gap", "areas": ["pickups"], "sources": ["SPEC.md", "src/pickups.py", "src/routes.py", "tests/test_pickups.py"], "updated": "2026-11-15", "status": "", "tags": [], "path": "gaps/packed-cancellation.md", "body": "# Should a customer be able to cancel their own packed pickup?\n\n## Current behavior\n\nThe service cancels only `requested` pickups and rejects every other state, including `packed`, after the owner check; the adapter reports that as status 409. See [[notes/cancellation-boundary|the cancellation boundary]], [[notes/ownership-check|the owner check]] and [[notes/route-responses|the response mapping]].\n\n## Gap\n\nCAN-1 in [the requirements](../../../SPEC.md) says a customer can cancel their own pickup before collection, \"including when its state is `requested` or `packed`\". The code does not do that for `packed`. Should the service change so the owner can cancel a packed pickup?\n\n## Evidence\n\n- Documented intent: CAN-1 in [SPEC.md](../../../SPEC.md).\n- Static reading: the state guard in [cancel_pickup](../../../src/pickups.py) permits only `requested`; [cancel_request](../../../src/routes.py) maps the resulting `ValueError` to 409.\n- The three existing [tests](../../../tests/test_pickups.py) pass and none uses a `packed` pickup, so they neither show nor contradict the mismatch.\n\n## Recheck\n\n2026-11-15, Tomas Brandt: ran `cancel_request(Pickup(\"example\", \"customer-a\", \"packed\"), \"customer-a\")` in the fixture. Result: `{'status': 409, 'error': 'cancellation_conflict'}` and the state stays `packed`. The same call with `customer-b` returns 403 and also leaves the state unchanged. Confirmed against the current files; this is a local in-process call, not a request to a deployed service.\n\n## Discussion\n\n- 2026-11-14 · agent: Found while mapping the cancellation flow. The alternative to changing the code is revising CAN-1 to say `requested` only.\n- 2026-11-15 · Priya Nair: CAN-1 stays as written; support has had packed-pickup complaints. The partner question is separate and does not block this.\n\n## Decision\n\nAccepted on 2026-11-15 by Priya Nair: keep CAN-1 and change the service. Planned in [[plans/packed-cancellation|the implementation plan]].\n", "summary": "", "stale": false, "kind": "product-gap", "recheck": "confirmed", "recheckedBy": "Tomas Brandt", "recheckedOn": "2026-11-15", "decision": "accepted", "decidedBy": "Priya Nair", "decidedOn": "2026-11-15", "priority": "high", "confidence": "high", "duplicateOf": "", "recheckOutdated": false, "state": "accepted", "gap": "", "layer": "gap"}, {"id": "partner-decision", "title": "Should a delivery partner be able to cancel on a customer's behalf?", "type": "gap", "areas": ["access", "pickups"], "sources": ["SPEC.md", "src/routes.py"], "updated": "2026-11-15", "status": "", "tags": [], "path": "gaps/partner-decision.md", "body": "# Should a delivery partner be able to cancel on a customer's behalf?\n\n## Current behavior\n\nOnly the pickup's owner can cancel: the service compares the supplied customer ID with the owner, and the adapter takes a customer identity and nothing else. See [[notes/ownership-check|the owner check]] and [[notes/route-responses|the response mapping]].\n\n## Gap\n\nDEC-1 in [the requirements](../../../SPEC.md) leaves partner cancellation undecided and outside the accepted scope. Does the product want it? If so, who may act for whom, what identity evidence is required, and in which states?\n\n## Evidence\n\n- Documented intent: DEC-1 in [SPEC.md](../../../SPEC.md) says permissions, identity checks and allowed states \"have not been decided\".\n- Static reading: [cancel_request](../../../src/routes.py) has no partner parameter, role or contract.\n- Nothing was run: the fixture defines no partner behavior to run.\n\n## Recheck\n\n2026-11-15, agent: re-read [SPEC.md](../../../SPEC.md) and [routes.py](../../../src/routes.py) (static only). DEC-1 is still undecided in the requirements and the adapter still has no partner path, so the description above holds. No command was run.\n\n## Discussion\n\n- 2026-11-14 · agent: Absence of a partner path is not a missing accepted feature. Options for a decider: (a) reject for now, (b) defer until a partner integration exists, (c) accept and define permissions, identity checks and states first.\n\n## Decision\n\nOpen.\n", "summary": "", "stale": false, "kind": "product-plan", "recheck": "confirmed", "recheckedBy": "agent", "recheckedOn": "2026-11-15", "decision": "open", "decidedBy": "", "decidedOn": "", "priority": "low", "confidence": "high", "duplicateOf": "", "recheckOutdated": false, "state": "needs-decision", "gap": "", "layer": "gap"}, {"id": "cancellation-boundary", "title": "Only requested pickups are currently cancellable", "type": "note", "areas": ["pickups"], "sources": ["src/pickups.py", "tests/test_pickups.py"], "updated": "2026-11-14", "status": "current", "tags": ["knowledge", "workflow"], "path": "notes/cancellation-boundary.md", "body": "# Only requested pickups are currently cancellable\n\nArea: [[areas/pickups|Pickup cancellation]]. Use this note when changing allowed states or explaining a rejected cancellation.\n\n`cancel_pickup` first runs the [[notes/ownership-check|ownership check]]. It then requires `pickup.state == \"requested\"`; any other value, including `picked_up` and `packed`, raises `ValueError(\"Only requested pickups can be cancelled\")` before anything is changed. A pickup that passes both checks gets state `cancelled` and is returned. The [service](../../../src/pickups.py) establishes this; the code has no list of states and treats every value except `requested` the same way. The service refers to no other state name.\n\nThe [[notes/route-responses|adapter]] turns the `ValueError` into status 409. The existing [tests](../../../tests/test_pickups.py) cover a `requested` pickup (cancelled) and a `picked_up` pickup (409, unchanged); none uses `packed`. The three-test suite passed during the example check (`python3 -m unittest discover -s tests -v`, see [[01-coverage|coverage]]).\n", "summary": "", "stale": false, "kind": "", "recheck": "", "recheckedBy": "", "recheckedOn": "", "decision": "", "decidedBy": "", "decidedOn": "", "priority": "", "confidence": "", "duplicateOf": "", "recheckOutdated": false, "state": "", "gap": "", "layer": "spec"}, {"id": "ownership-check", "title": "The owner check runs before the state check", "type": "note", "areas": ["access", "pickups"], "sources": ["src/pickups.py", "src/routes.py", "tests/test_pickups.py"], "updated": "2026-11-14", "status": "current", "tags": ["knowledge", "rule"], "path": "notes/ownership-check.md", "body": "# The owner check runs before the state check\n\nAreas: [[areas/access|Customer access]] and [[areas/pickups|Pickup cancellation]].\n\n`cancel_pickup` compares `pickup.customer_id` with the supplied customer ID before it looks at the state. A mismatch raises `PermissionError` and nothing is changed; the adapter maps it to status 403 ([service](../../../src/pickups.py), [adapter](../../../src/routes.py)). The only caller identity in the code is that supplied string: the adapter's docstring says the caller has already authenticated the customer, and no partner or staff identity exists.\n\n`test_other_customer_cannot_cancel` in the [tests](../../../tests/test_pickups.py) uses a `requested` pickup and checks status 403 and unchanged state; it passed in the example check. [[notes/cancellation-boundary|State eligibility]] applies only after this check passes.\n", "summary": "", "stale": false, "kind": "", "recheck": "", "recheckedBy": "", "recheckedOn": "", "decision": "", "decidedBy": "", "decidedOn": "", "priority": "", "confidence": "", "duplicateOf": "", "recheckOutdated": false, "state": "", "gap": "", "layer": "spec"}, {"id": "route-responses", "title": "Cancellation exceptions become adapter statuses", "type": "note", "areas": ["pickups", "access"], "sources": ["src/routes.py", "src/pickups.py", "tests/test_pickups.py"], "updated": "2026-11-14", "status": "current", "tags": ["knowledge", "contract"], "path": "notes/route-responses.md", "body": "# Cancellation exceptions become adapter statuses\n\nAreas: [[areas/pickups|Pickup cancellation]] and [[areas/access|Customer access]].\n\nThe in-process `cancel_request` adapter calls `cancel_pickup` and returns a dictionary: `{\"status\": 403, \"error\": \"forbidden\"}` for `PermissionError`, `{\"status\": 409, \"error\": \"cancellation_conflict\"}` for `ValueError`, and `{\"status\": 200, \"state\": \u003cnew state\u003e}` on success. See [the adapter](../../../src/routes.py) and [the called service](../../../src/pickups.py).\n\n[[notes/ownership-check|Ownership]] decides the 403 case and [[notes/cancellation-boundary|state eligibility]] decides the 409 case, so a `packed` pickup owned by the caller reaches the 409 branch. The [existing tests](../../../tests/test_pickups.py) exercise the three branches with a requested, an other-customer and a collected pickup, and passed in the example check. The values are dictionaries returned in-process, not observed HTTP responses.\n", "summary": "", "stale": false, "kind": "", "recheck": "", "recheckedBy": "", "recheckedOn": "", "decision": "", "decidedBy": "", "decidedOn": "", "priority": "", "confidence": "", "duplicateOf": "", "recheckOutdated": false, "state": "", "gap": "", "layer": "spec"}, {"id": "packed-cancellation-plan", "title": "Plan: allow the owner to cancel a packed pickup", "type": "plan", "areas": ["pickups"], "sources": ["src/pickups.py", "src/routes.py", "tests/test_pickups.py"], "updated": "2026-11-15", "status": "planned", "tags": [], "path": "plans/packed-cancellation.md", "body": "# Plan: allow the owner to cancel a packed pickup\n\nImplements [[gaps/packed-cancellation|the accepted gap]]. This is a plan only; nothing here has been implemented or run.\n\n## Current behavior\n\n`cancel_pickup` permits only `requested` ([[notes/cancellation-boundary|cancellation boundary]]), after the [[notes/ownership-check|owner check]], and the adapter reports a refusal as 409 ([[notes/route-responses|response mapping]]).\n\n## Steps\n\n1. In [tests/test_pickups.py](../../../tests/test_pickups.py), add a packed-pickup check through `cancel_request` expecting status 200 and state `cancelled`. Run it first and confirm it fails with the current 409.\n2. In [src/pickups.py](../../../src/pickups.py), accept `requested` and `packed` and keep the owner check before any state change. Keep every other state rejected.\n3. Add regression cases: a packed pickup with the wrong customer returns 403 and stays `packed`; a `picked_up` pickup returns 409 and stays `picked_up`. Keep the existing requested case.\n4. Run `python3 -m unittest discover -s tests -v` from the fixture root. After the new behavior is verified, update the cancellation notes from the code and mark the gap `done` with the location of the change.\n\n## Acceptance\n\n- The owner can cancel `requested` and `packed` pickups: status 200, state `cancelled`.\n- Another customer receives 403 and the state is unchanged.\n- A `picked_up` pickup receives 409 and the state is unchanged.\n\nAll of these are proposed checks: **NOT RUN**.\n\n## Out of scope\n\nPartner cancellation (see [[gaps/partner-decision|its gap]], still undecided), persistence, HTTP integration, and the behavior of cancelling an already cancelled pickup.\n", "summary": "", "stale": false, "kind": "", "recheck": "", "recheckedBy": "", "recheckedOn": "", "decision": "", "decidedBy": "", "decidedOn": "", "priority": "", "confidence": "", "duplicateOf": "", "recheckOutdated": false, "state": "", "gap": "packed-cancellation", "layer": "gap"}, {"id": "example-survey", "title": "Fictional project survey", "type": "run", "areas": [], "sources": ["SPEC.md", "src/pickups.py", "src/routes.py", "tests/test_pickups.py"], "updated": "2026-11-15", "status": "current", "tags": ["run"], "path": "runs/example-survey.md", "body": "# Fictional project survey\n\nThis authored example surveys the four fixture source, requirements and test files. It is not a transcript of an independent agent run. The fixture has no independent application revision: it ships inside the toolkit repository, whose Git commit identifies the exact version.\n\n## 2026-11-14: survey\n\nWrote the [[areas/pickups|pickup]] and [[areas/access|access]] maps and three behavior notes from the code. Raised three gaps, each with `decision: \"open\"`: [[gaps/packed-cancellation|packed cancellation]] (the code rejects a state the requirements allow), [[gaps/partner-decision|partner cancellation]] (the requirements leave it undecided) and [[gaps/deployment-evidence|deployment evidence]] (not checkable in this fixture). Ran `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. Reviewed source fingerprints were then accepted; view generation does not make claims true.\n\n## 2026-11-15: gap queue\n\nTomas Brandt rechecked packed cancellation by running the fixture; Priya Nair accepted it and [[plans/packed-cancellation|a plan]] was written. The agent rechecked partner cancellation by reading the code and left the decision open. Deployment evidence has not been rechecked. No spec note changed.\n\nSee [[00-index|the index]] and [[01-coverage|coverage]]. No external system was queried and no real product behavior is implied. Release checks and browser observations are in the toolkit's `VALIDATION.md`.\n", "summary": "", "stale": false, "kind": "", "recheck": "", "recheckedBy": "", "recheckedOn": "", "decision": "", "decidedBy": "", "decidedOn": "", "priority": "", "confidence": "", "duplicateOf": "", "recheckOutdated": false, "state": "", "gap": "", "layer": "nav"}], "edges": [{"source": "access", "target": "deployment-evidence"}, {"source": "access", "target": "ownership-check"}, {"source": "access", "target": "partner-decision"}, {"source": "access", "target": "pickups"}, {"source": "access", "target": "route-responses"}, {"source": "cancellation-boundary", "target": "coverage"}, {"source": "cancellation-boundary", "target": "ownership-check"}, {"source": "cancellation-boundary", "target": "pickups"}, {"source": "cancellation-boundary", "target": "route-responses"}, {"source": "coverage", "target": "access"}, {"source": "coverage", "target": "deployment-evidence"}, {"source": "coverage", "target": "index"}, {"source": "coverage", "target": "packed-cancellation"}, {"source": "coverage", "target": "pickups"}, {"source": "deployment-evidence", "target": "ownership-check"}, {"source": "deployment-evidence", "target": "route-responses"}, {"source": "example-survey", "target": "access"}, {"source": "example-survey", "target": "coverage"}, {"source": "example-survey", "target": "deployment-evidence"}, {"source": "example-survey", "target": "index"}, {"source": "example-survey", "target": "packed-cancellation"}, {"source": "example-survey", "target": "packed-cancellation-plan"}, {"source": "example-survey", "target": "partner-decision"}, {"source": "example-survey", "target": "pickups"}, {"source": "index", "target": "access"}, {"source": "index", "target": "cancellation-boundary"}, {"source": "index", "target": "coverage"}, {"source": "index", "target": "deployment-evidence"}, {"source": "index", "target": "example-survey"}, {"source": "index", "target": "ownership-check"}, {"source": "index", "target": "packed-cancellation"}, {"source": "index", "target": "packed-cancellation-plan"}, {"source": "index", "target": "partner-decision"}, {"source": "index", "target": "pickups"}, {"source": "index", "target": "route-responses"}, {"source": "ownership-check", "target": "access"}, {"source": "ownership-check", "target": "cancellation-boundary"}, {"source": "ownership-check", "target": "pickups"}, {"source": "packed-cancellation", "target": "cancellation-boundary"}, {"source": "packed-cancellation", "target": "ownership-check"}, {"source": "packed-cancellation", "target": "packed-cancellation-plan"}, {"source": "packed-cancellation", "target": "route-responses"}, {"source": "packed-cancellation-plan", "target": "cancellation-boundary"}, {"source": "packed-cancellation-plan", "target": "ownership-check"}, {"source": "packed-cancellation-plan", "target": "packed-cancellation"}, {"source": "packed-cancellation-plan", "target": "partner-decision"}, {"source": "packed-cancellation-plan", "target": "route-responses"}, {"source": "partner-decision", "target": "ownership-check"}, {"source": "partner-decision", "target": "route-responses"}, {"source": "pickups", "target": "access"}, {"source": "pickups", "target": "cancellation-boundary"}, {"source": "pickups", "target": "deployment-evidence"}, {"source": "pickups", "target": "ownership-check"}, {"source": "pickups", "target": "packed-cancellation"}, {"source": "pickups", "target": "packed-cancellation-plan"}, {"source": "pickups", "target": "partner-decision"}, {"source": "pickups", "target": "route-responses"}, {"source": "route-responses", "target": "access"}, {"source": "route-responses", "target": "cancellation-boundary"}, {"source": "route-responses", "target": "ownership-check"}, {"source": "route-responses", "target": "pickups"}], "warnings": []}
     </script>
     <script>
       (() => {
@@ -613,7 +876,9 @@
         const data = JSON.parse(
           document.getElementById("knowledge-data").textContent,
         );
-        const nodes = Array.isArray(data.nodes) ? data.nodes : [],
+        const nodes = (Array.isArray(data.nodes) ? data.nodes : []).filter(
+            (n) => n && typeof n === "object",
+          ),
           edges = Array.isArray(data.edges) ? data.edges : [];
         const byId = new Map(nodes.map((n) => [n.id, n])),
           byPath = new Map(
@@ -625,7 +890,9 @@
           list = $("#list"),
           graph = $("#graph"),
           detail = $("#detail");
-        let filter = "all",
+        let mode = "spec",
+          filter = "all",
+          gapState = "all",
           selected = null,
           box = { x: 0, y: 0, w: 1000, h: 700 },
           initialBox = { ...box };
@@ -643,17 +910,84 @@
           area: "Area",
           note: "Note",
           gap: "Gap",
+          plan: "Plan",
           run: "Research run",
         };
+        const kindLabels = {
+          "product-gap": "Product gap",
+          "verification-gap": "Verification gap",
+          "product-plan": "Product plan",
+          conflict: "Conflict",
+          "knowledge-gap": "Knowledge gap",
+        };
+        const STATES = [
+          "needs-recheck",
+          "needs-decision",
+          "accepted",
+          "deferred",
+          "rejected",
+          "done",
+          "duplicate",
+        ];
+        const stateLabels = {
+          "needs-recheck": "Needs recheck",
+          "needs-decision": "Needs decision",
+          accepted: "Accepted",
+          deferred: "Deferred",
+          rejected: "Rejected",
+          done: "Done",
+          duplicate: "Duplicate",
+        };
+        const recheckLabels = {
+          "not-checked": "Not checked",
+          confirmed: "Confirmed",
+          "not-reproduced": "Not reproduced",
+          outdated: "Outdated",
+        };
+        // model:start
+        const str = (v) => (typeof v === "string" ? v : "");
         const isGap = (n) => n.type === "gap";
-        const stateClass = (n) =>
-          n.stale || n.status === "stale"
-            ? "stale"
-            : n.status === "conflict"
-              ? "conflict"
-              : isGap(n) || ["planned", "unverified"].includes(n.status)
+        const isPlan = (n) => n.type === "plan";
+        const layerOf = (n) =>
+          ["spec", "gap", "nav"].includes(n.layer)
+            ? n.layer
+            : n.type === "area" || n.type === "note"
+              ? "spec"
+              : isGap(n) || isPlan(n)
                 ? "gap"
-                : "";
+                : "nav";
+        const stateOf = (n) => {
+          if (!isGap(n)) return "";
+          if (STATES.includes(n.state)) return n.state;
+          const decision = str(n.decision) || "open",
+            recheck = str(n.recheck);
+          if (decision === "open")
+            return recheck === "confirmed" || recheck === "not-reproduced"
+              ? "needs-decision"
+              : "needs-recheck";
+          return STATES.includes(decision) ? decision : "needs-recheck";
+        };
+        const recheckOutdated = (n) =>
+          isGap(n) && (n.recheckOutdated === true || n.recheck === "outdated");
+        const stateRank = (n) => {
+          const i = STATES.indexOf(stateOf(n));
+          return i < 0 ? STATES.length : i;
+        };
+        const stateClass = (n) =>
+          isGap(n)
+            ? "st-" + stateOf(n)
+            : n.stale || n.status === "stale"
+              ? "stale"
+              : n.status === "conflict"
+                ? "conflict"
+                : ["planned", "unverified"].includes(n.status)
+                  ? "pending"
+                  : "";
+        const inArea = (n, area) =>
+          !area || n.id === area || (n.areas || []).includes(area);
+        const byTitle = (a, b) =>
+          String(a.title || "").localeCompare(String(b.title || ""), "ru");
+        // model:end
         const el = (tag, text, cls) => {
           const e = document.createElement(tag);
           if (text != null) e.textContent = text;
@@ -682,54 +1016,150 @@
         document.title = (data.title || "Knowledge map") + " — navigator";
         const areas = nodes
           .filter((n) => n.type === "area")
-          .sort((a, b) => a.title.localeCompare(b.title, "ru"));
+          .sort(byTitle);
         areas.forEach((n) => {
           const o = el("option", n.title);
           o.value = n.id;
           $("#area").append(o);
         });
-        function setFilter(f) {
-          filter = f;
-          document
-            .querySelectorAll("[data-filter]")
-            .forEach((b) =>
-              b.setAttribute("aria-pressed", String(b.dataset.filter === f)),
-            );
-          render();
-        }
-        document
-          .querySelectorAll("[data-filter]")
-          .forEach((b) =>
-            b.addEventListener("click", () => setFilter(b.dataset.filter)),
-          );
-        document.querySelectorAll("[data-count]").forEach((b) =>
+        const kindSet = Object.keys(kindLabels);
+        nodes.forEach((n) => {
+          if (isGap(n) && str(n.kind) && !kindSet.includes(n.kind))
+            kindSet.push(n.kind);
+        });
+        kindSet.forEach((k) => {
+          const o = el("option", kindLabels[k] || k);
+          o.value = k;
+          $("#kind").append(o);
+        });
+
+        // Controls are built once and updated in place so keyboard focus is kept.
+        const modeButtons = { spec: $("#mode-spec"), gap: $("#mode-gaps") };
+        const specFilters = [
+          ["all", "All"],
+          ["area", "Areas"],
+          ["note", "Notes"],
+        ].map(([f, text]) => {
+          const b = el("button", text);
+          b.type = "button";
+          b.setAttribute("aria-pressed", "false");
           b.addEventListener("click", () => {
-            setFilter(b.dataset.count);
-            switchView("list");
+            filter = f;
+            render();
+          });
+          $("#spec-filters").append(b);
+          return [f, b];
+        });
+        const stateButtons = ["all", ...STATES].map((s) => {
+          const b = el("button");
+          b.type = "button";
+          b.setAttribute("aria-pressed", "false");
+          if (s !== "all") b.append(el("span", null, "dot st-" + s));
+          b.append(
+            document.createTextNode(s === "all" ? "All" : stateLabels[s]),
+          );
+          const n = el("span", "0", "n");
+          b.append(n);
+          b.addEventListener("click", () => setGapState(s));
+          $("#state-filters").append(b);
+          return [s, b, n];
+        });
+        const countDefs = {
+          spec: [
+            ["all", "materials", () => nodes.filter((n) => layerOf(n) !== "gap").length],
+            ["note", "notes", () => nodes.filter((n) => n.type === "note").length],
+            ["area", "areas", () => nodes.filter((n) => n.type === "area").length],
+          ],
+          gap: [
+            ["needs-recheck", "need recheck", () => nodes.filter((n) => stateOf(n) === "needs-recheck").length],
+            ["needs-decision", "need a decision", () => nodes.filter((n) => stateOf(n) === "needs-decision").length],
+            ["all", "gaps", () => nodes.filter(isGap).length],
+          ],
+        };
+        const countButtons = [];
+        Object.entries(countDefs).forEach(([m, defs]) =>
+          defs.forEach(([key, text, fn]) => {
+            const b = el("button"),
+              num = el("b", "0");
+            b.type = "button";
+            b.append(num, document.createTextNode(text));
+            b.addEventListener("click", () => {
+              if (m === "spec") filter = key;
+              else gapState = key;
+              render();
+              switchView("list");
+            });
+            $("#counts").append(b);
+            countButtons.push({ mode: m, button: b, num, fn });
           }),
         );
+        function setGapState(s) {
+          gapState = s;
+          render();
+        }
+        function resetGapFilters() {
+          gapState = "all";
+          $("#kind").value = "";
+          $("#search").value = "";
+          $("#area").value = "";
+        }
+        function setMode(m) {
+          if (m === mode) return;
+          mode = m;
+          render(false);
+        }
+        modeButtons.spec.addEventListener("click", () => setMode("spec"));
+        modeButtons.gap.addEventListener("click", () => setMode("gap"));
         $("#search").addEventListener("input", () => render());
         $("#area").addEventListener("change", () => render());
-        function visible() {
-          const q = $("#search").value.trim().toLocaleLowerCase(),
-            area = $("#area").value;
-          return nodes.filter(
-            (n) =>
-              (!area || n.id === area || (n.areas || []).includes(area)) &&
-              (filter === "all" || n.type === filter) &&
-              (!q ||
-                (n.title + " " + (n.body || ""))
-                  .toLocaleLowerCase()
-                  .includes(q)),
+        $("#kind").addEventListener("change", () => render());
+
+        function matchesQuery(n) {
+          const q = $("#search").value.trim().toLocaleLowerCase();
+          return (
+            !q ||
+            (str(n.title) + " " + str(n.body)).toLocaleLowerCase().includes(q)
           );
         }
+        // Gaps that pass area, kind and search (not state).
+        function gapPool() {
+          const area = $("#area").value,
+            kind = $("#kind").value;
+          return nodes.filter(
+            (n) =>
+              isGap(n) &&
+              inArea(n, area) &&
+              (!kind || n.kind === kind) &&
+              matchesQuery(n),
+          );
+        }
+        function visible() {
+          if (mode === "gap")
+            return gapPool()
+              .filter((n) => gapState === "all" || stateOf(n) === gapState)
+              .sort((a, b) => stateRank(a) - stateRank(b) || byTitle(a, b));
+          const area = $("#area").value;
+          return nodes.filter(
+            (n) =>
+              layerOf(n) !== "gap" &&
+              inArea(n, area) &&
+              (filter === "all" || n.type === filter) &&
+              matchesQuery(n),
+          );
+        }
+        function splitWiki(raw) {
+          const parts = String(raw).replace(/\\\|/g, "|").split("|");
+          return {
+            target: parts[0]
+              .split("#")[0]
+              .split("^")[0]
+              .trim()
+              .replace(/\.md$/i, ""),
+            label: (parts[1] || "").trim() || parts[0].trim(),
+          };
+        }
         function resolveWiki(raw) {
-          const target = raw
-            .split("|")[0]
-            .split("#")[0]
-            .split("^")[0]
-            .trim()
-            .replace(/\.md$/i, "");
+          const target = splitWiki(raw).target;
           if (!target) return selected;
           if (target.includes("/")) return byPath.get(target) || null;
           const matches = nodes.filter(
@@ -768,7 +1198,7 @@
             if (token.startsWith("[[")) {
               const raw = token.slice(2, -2),
                 target = resolveWiki(raw),
-                label = raw.split("|")[1] || raw.split("|")[0];
+                label = splitWiki(raw).label;
               if (target) {
                 const b = el("button", label, "wiki");
                 b.type = "button";
@@ -809,22 +1239,32 @@
             }
             listEl = null;
           }
+          function emitCode() {
+            const pre = el("pre"),
+              c = el("code", code.lines.join("\n"));
+            pre.append(c);
+            container.append(pre);
+            code = null;
+          }
           for (const line of lines) {
-            if (/^\s*```/.test(line)) {
-              if (code) {
-                const pre = el("pre"),
-                  c = el("code", code.join("\n"));
-                pre.append(c);
-                container.append(pre);
-                code = null;
-              } else {
-                flush();
-                code = [];
-              }
+            if (code) {
+              // CommonMark: a closing fence uses the same character, is at
+              // least as long as the opener and has no info string.
+              const close = line.match(/^\s*(`{3,}|~{3,})\s*$/);
+              if (
+                close &&
+                close[1][0] === code.ch &&
+                close[1].length >= code.len
+              )
+                emitCode();
+              else code.lines.push(line);
               continue;
             }
-            if (code) {
-              code.push(line);
+            const open = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
+            // A backtick fence's info string cannot contain a backtick.
+            if (open && !(open[1][0] === "`" && open[2].includes("`"))) {
+              flush();
+              code = { ch: open[1][0], len: open[1].length, lines: [] };
               continue;
             }
             if (!line.trim()) {
@@ -854,31 +1294,189 @@
             }
           }
           flush();
-          if (code) {
-            const pre = el("pre"),
-              c = el("code", code.join("\n"));
-            pre.append(c);
-            container.append(pre);
-          }
+          if (code) emitCode();
           return container;
         }
+        const outdatedBadge = () =>
+          el("span", "Recheck outdated", "badge outdated");
+        function stateBadge(n) {
+          return el("span", stateLabels[stateOf(n)], "badge " + stateClass(n));
+        }
+        function neighbours(n, layer) {
+          const out = new Map();
+          edges.forEach((e) => {
+            const other =
+              e.source === n.id
+                ? byId.get(e.target)
+                : e.target === n.id
+                  ? byId.get(e.source)
+                  : null;
+            if (other && other.id !== n.id && layerOf(other) === layer)
+              out.set(other.id, other);
+          });
+          return [...out.values()].sort(byTitle);
+        }
+        function gapsAbout(n) {
+          const out = new Map();
+          edges.forEach((e) => {
+            // Gaps link to spec pages; older vaults also had the reverse edge.
+            const g =
+              e.target === n.id
+                ? byId.get(e.source)
+                : e.source === n.id
+                  ? byId.get(e.target)
+                  : null;
+            if (g && isGap(g)) out.set(g.id, g);
+          });
+          return [...out.values()].sort(
+            (a, b) => stateRank(a) - stateRank(b) || byTitle(a, b),
+          );
+        }
+        const planOf = (g) => nodes.find((p) => isPlan(p) && p.gap === g.id);
+        const byWhom = (who, on) =>
+          (who ? " by " + who : "") + (on ? " on " + on : "");
+        function factsLine(n) {
+          const parts = [];
+          if (str(n.recheckedBy) || str(n.recheckedOn))
+            parts.push(
+              "Rechecked" + byWhom(str(n.recheckedBy), str(n.recheckedOn)),
+            );
+          if (str(n.decidedBy) || str(n.decidedOn))
+            parts.push(
+              "Decided" + byWhom(str(n.decidedBy), str(n.decidedOn)),
+            );
+          if (str(n.priority)) parts.push("Priority " + n.priority);
+          return parts.join(" · ");
+        }
+        function nodeButton(target, text) {
+          const b = el("button", text == null ? target.title : text, "wiki");
+          b.type = "button";
+          b.addEventListener("click", () => openNode(target));
+          return b;
+        }
+        function linkBlock(title, items) {
+          const block = el("div", null, "link-block"),
+            ul = el("ul", null, "link-list");
+          block.append(el("h2", title), ul);
+          items.forEach((fn) => {
+            const li = el("li");
+            fn(li);
+            ul.append(li);
+          });
+          return block;
+        }
+        function gapHeader(n) {
+          const box = el("div", null, "gap-facts " + stateClass(n)),
+            dl = el("dl");
+          const row = (k, v) => {
+            const dd = el("dd");
+            if (typeof v === "string") dd.textContent = v;
+            else dd.append(v);
+            dl.append(el("dt", k), dd);
+          };
+          row("State", stateBadge(n));
+          if (str(n.kind)) row("Kind", kindLabels[n.kind] || n.kind);
+          const recheck = str(n.recheck) || "not-checked",
+            who = byWhom(str(n.recheckedBy), str(n.recheckedOn)),
+            rcell = el("span");
+          rcell.append(
+            document.createTextNode(
+              recheck === "outdated"
+                ? "Outdated" + (who ? " (last" + who + ")" : "")
+                : (recheckLabels[recheck] || recheck) + who,
+            ),
+          );
+          if (recheckOutdated(n)) {
+            rcell.append(document.createTextNode(" "), outdatedBadge());
+          }
+          row("Recheck", rcell);
+          const decision = str(n.decision) || "open";
+          row(
+            "Decision",
+            decision.charAt(0).toUpperCase() +
+              decision.slice(1) +
+              byWhom(str(n.decidedBy), str(n.decidedOn)),
+          );
+          if (str(n.priority)) row("Priority", n.priority);
+          if (str(n.confidence)) row("Confidence", n.confidence);
+          box.append(dl);
+          return box;
+        }
         function openNode(n) {
+          const layer = layerOf(n);
+          if (layer !== "nav") mode = layer;
+          // Jumping to a gap must not leave it hidden by stale filters.
+          if (mode === "gap" && isGap(n) && !visible().includes(n))
+            resetGapFilters();
           selected = n;
           detail.replaceChildren();
-          const badge = el(
-            "span",
-            labels[n.status] || n.status || types[n.type] || "Item",
-            "badge " + stateClass(n),
-          );
+          const badge = isGap(n)
+            ? stateBadge(n)
+            : el(
+                "span",
+                labels[n.status] || n.status || types[n.type] || "Item",
+                "badge " + stateClass(n),
+              );
           detail.append(badge, el("h1", n.title));
           detail.lastChild.style.marginTop = "15px";
-          const meta = el(
-            "div",
-            `${types[n.type] || n.type}${n.updated ? " · Updated " + n.updated : ""}`,
-            "meta",
+          detail.append(
+            el(
+              "div",
+              `${types[n.type] || n.type}${n.updated ? " · Updated " + n.updated : ""}`,
+              "meta",
+            ),
           );
-          detail.append(meta);
-          if (n.stale && n.status !== "stale")
+          if (isGap(n)) {
+            detail.append(gapHeader(n));
+            const refs = neighbours(n, "spec"),
+              plan = planOf(n);
+            if (refs.length)
+              detail.append(
+                linkBlock(
+                  "Refers to (spec)",
+                  refs.map((r) => (li) => {
+                    li.append(nodeButton(r));
+                    li.append(el("span", types[r.type] || r.type, "subtle"));
+                  }),
+                ),
+              );
+            if (plan)
+              detail.append(
+                linkBlock("Plan", [
+                  (li) => {
+                    li.append(nodeButton(plan));
+                    if (plan.status)
+                      li.append(
+                        el("span", labels[plan.status] || plan.status, "subtle"),
+                      );
+                  },
+                ]),
+              );
+          } else if (isPlan(n)) {
+            const g = byId.get(n.gap);
+            if (g)
+              detail.append(
+                linkBlock("Plan for gap", [
+                  (li) => {
+                    li.append(nodeButton(g));
+                    if (isGap(g)) li.append(stateBadge(g));
+                  },
+                ]),
+              );
+          } else if (layerOf(n) === "spec") {
+            const about = gapsAbout(n);
+            if (about.length)
+              detail.append(
+                linkBlock(
+                  "Gaps about this (" + about.length + ")",
+                  about.map((g) => (li) => {
+                    li.append(nodeButton(g), stateBadge(g));
+                    if (recheckOutdated(g)) li.append(outdatedBadge());
+                  }),
+                ),
+              );
+          }
+          if (!isGap(n) && n.stale && n.status !== "stale")
             detail.append(
               el(
                 "div",
@@ -886,65 +1484,138 @@
                 "stale-note",
               ),
             );
-          const categoryLabels = {
-            "product-gap": "Product gap",
-            "verification-gap": "Verification gap",
-            "product-plan": "Product plan",
-            conflict: "Conflict",
-            "knowledge-gap": "Knowledge gap",
-            deferred: "Deferred",
-          };
-          for (const tag of n.tags || []) {
-            if (categoryLabels[tag])
-              detail.append(el("div", categoryLabels[tag], "stale-note"));
-          }
+          // Legacy data: gap category lived in tags.
+          if (!str(n.kind))
+            for (const tag of Array.isArray(n.tags) ? n.tags : []) {
+              const text = kindLabels[tag] || (tag === "deferred" ? "Deferred" : "");
+              if (text) detail.append(el("div", text, "stale-note"));
+            }
           detail.append(markdown(n.body, n));
           $("#reader-updated").textContent = n.path || "";
           render(true);
           switchView("reader");
         }
-        function render(preserveView = false) {
-          const shown = visible(),
-            ids = new Set(shown.map((n) => n.id));
-          $("#count-all").textContent = nodes.length;
-          $("#count-note").textContent = nodes.filter(
-            (n) => n.type === "note",
+        function updateChrome() {
+          document.body.dataset.mode = mode;
+          const gaps = mode === "gap";
+          modeButtons.spec.setAttribute("aria-pressed", String(!gaps));
+          modeButtons.gap.setAttribute("aria-pressed", String(gaps));
+          const wait = nodes.filter((n) =>
+            ["needs-recheck", "needs-decision"].includes(stateOf(n)),
           ).length;
-          $("#count-gap").textContent = nodes.filter(isGap).length;
-          $("#list-label").textContent = "Materials · " + shown.length;
-          list.replaceChildren();
-          shown.forEach((n) => {
-            const b = el("button", null, "item");
-            b.type = "button";
-            b.setAttribute("aria-current", String(selected?.id === n.id));
-            const title = el("strong");
-            title.append(
-              el("span", null, "dot " + stateClass(n)),
-              document.createTextNode(n.title),
+          const pill = $("#mode-wait");
+          pill.hidden = !wait;
+          pill.textContent = wait + " waiting";
+          $("#mode-hint").textContent = gaps
+            ? "Questions about what is missing or could be added. Each one is rechecked and decided by a person."
+            : "How the code is implemented now.";
+          $("#panel-spec").hidden = gaps;
+          $("#panel-gaps").hidden = !gaps;
+          $("#nav-title").textContent = gaps ? "Gap queue" : "Spec pages";
+          $("#map-title").textContent = gaps ? "Gap map" : "Spec map";
+          $("#map-desc").textContent = gaps
+            ? "Gaps and their plans, with the spec pages they refer to. Gaps are questions, not facts about the code."
+            : "Areas and notes describing how the code works now. Gaps live in the Gaps view.";
+          $("#graph-hint").textContent = gaps
+            ? "Colored circles are gaps (label shows the state), squares are plans, dashed outlines are spec pages the gaps refer to. Drag to pan; select a node to open it."
+            : "Drag to pan the map. Select a node to open its content.";
+          specFilters.forEach(([f, b]) =>
+            b.setAttribute("aria-pressed", String(filter === f)),
+          );
+          const pool = gapPool();
+          stateButtons.forEach(([s, b, n]) => {
+            b.setAttribute("aria-pressed", String(gapState === s));
+            n.textContent =
+              s === "all"
+                ? pool.length
+                : pool.filter((g) => stateOf(g) === s).length;
+          });
+          countButtons.forEach((c) => {
+            c.button.hidden = c.mode !== mode;
+            c.num.textContent = c.fn();
+          });
+        }
+        function row(n) {
+          const b = el("button", null, "item");
+          b.type = "button";
+          b.setAttribute("aria-current", String(selected?.id === n.id));
+          const title = el("strong");
+          title.append(
+            el("span", null, "dot " + stateClass(n)),
+            document.createTextNode(n.title),
+          );
+          b.append(title);
+          if (isGap(n)) {
+            const r2 = el("span", null, "row2");
+            r2.append(
+              el("small", kindLabels[n.kind] || str(n.kind) || "Gap"),
+              stateBadge(n),
             );
+            if (recheckOutdated(n)) r2.append(outdatedBadge());
+            b.append(r2);
+            const facts = factsLine(n);
+            if (facts) b.append(el("small", facts, "facts-line"));
+          } else
             b.append(
-              title,
               el(
                 "small",
                 (types[n.type] || n.type) +
-                  " · " +
-                  (labels[n.status] || n.status),
+                  (n.status ? " · " + (labels[n.status] || n.status) : ""),
               ),
             );
-            b.addEventListener("click", () => openNode(n));
-            list.append(b);
-          });
+          b.addEventListener("click", () => openNode(n));
+          return b;
+        }
+        function render(preserveView = false) {
+          updateChrome();
+          const shown = visible();
+          $("#list-label").textContent =
+            (mode === "gap" ? "Gaps" : "Materials") + " · " + shown.length;
+          list.replaceChildren();
+          shown.forEach((n) => list.append(row(n)));
           if (!shown.length)
             list.append(
-              el(
-                "p",
-                "No results. Try changing the filters.",
-                "empty",
-              ),
+              el("p", "No results. Try changing the filters.", "empty"),
             );
-          draw(shown, ids, preserveView);
+          // Index and run pages stay reachable while the Gaps view is open.
+          const navList = $("#nav-list"),
+            navNodes =
+              mode === "gap"
+                ? nodes.filter((n) => layerOf(n) === "nav" && matchesQuery(n))
+                : [];
+          navList.replaceChildren();
+          navNodes.forEach((n) => navList.append(row(n)));
+          $("#nav-block").hidden = !navNodes.length;
+          draw(graphModel(shown), preserveView);
         }
-        function draw(shown, ids, preserveView) {
+        function graphModel(shown) {
+          if (mode !== "gap")
+            return { items: shown, links: edges, context: new Set() };
+          const core = new Map(shown.map((n) => [n.id, n]));
+          const plans = nodes.filter((p) => isPlan(p) && core.has(p.gap));
+          plans.forEach((p) => core.set(p.id, p));
+          const context = new Map();
+          edges.forEach((e) =>
+            [
+              [e.source, e.target],
+              [e.target, e.source],
+            ].forEach(([a, b]) => {
+              const o = byId.get(b);
+              if (core.has(a) && o && layerOf(o) === "spec")
+                context.set(o.id, o);
+            }),
+          );
+          return {
+            items: [...core.values(), ...context.values()],
+            links: edges.concat(
+              plans.map((p) => ({ source: p.id, target: p.gap })),
+            ),
+            context: new Set(context.keys()),
+          };
+        }
+        function draw(model, preserveView) {
+          const shown = model.items,
+            ids = new Set(shown.map((n) => n.id));
           graph.replaceChildren();
           const groups = new Map();
           shown.forEach((n) => {
@@ -957,14 +1628,18 @@
           let y = 80,
             maxWidth = 700;
           [...groups.entries()]
-            .sort(([a], [b]) => a.localeCompare(b))
+            .sort(([a], [b]) => String(a).localeCompare(String(b)))
             .forEach(([key, group]) => {
               group.sort((a, b) =>
                 a.type === "area"
                   ? -1
                   : b.type === "area"
                     ? 1
-                    : a.title.localeCompare(b.title, "ru"),
+                    : model.context.has(a.id) !== model.context.has(b.id)
+                      ? model.context.has(a.id)
+                        ? 1
+                        : -1
+                      : stateRank(a) - stateRank(b) || byTitle(a, b),
               );
               const cols = Math.min(4, Math.max(1, group.length));
               group.forEach((n, i) =>
@@ -986,7 +1661,7 @@
           applyBox();
           const layer = sv("g", {});
           graph.append(layer);
-          edges.forEach((e) => {
+          model.links.forEach((e) => {
             if (ids.has(e.source) && ids.has(e.target)) {
               const a = positions.get(e.source),
                 b = positions.get(e.target);
@@ -998,21 +1673,43 @@
           });
           shown.forEach((n) => {
             const p = positions.get(n.id),
+              state = stateOf(n),
               g = sv("g", {
                 class:
                   "graph-node " +
                   (n.type === "area" ? "area " : "") +
+                  (isPlan(n) ? "plan-node " : "") +
+                  (model.context.has(n.id) ? "context " : "") +
                   stateClass(n) +
                   (selected?.id === n.id ? " selected" : ""),
                 transform: `translate(${p.x} ${p.y})`,
                 tabindex: "0",
                 role: "button",
-                "aria-label": n.title,
+                "aria-label":
+                  n.title +
+                  (state
+                    ? " (" + stateLabels[state] + ")" +
+                      (recheckOutdated(n) ? ", recheck outdated" : "")
+                    : isPlan(n)
+                      ? " (Plan)"
+                      : ""),
               });
-            g.append(sv("circle", { r: n.type === "area" ? 18 : 13 }));
+            if (isPlan(n))
+              g.append(sv("rect", { x: -12, y: -12, width: 24, height: 24, rx: 4 }));
+            else
+              g.append(
+                sv("circle", {
+                  r:
+                    n.type === "area"
+                      ? 18
+                      : ["needs-recheck", "needs-decision"].includes(state)
+                        ? 16
+                        : 13,
+                }),
+              );
             const t = sv("text", { x: 0, y: 32, "text-anchor": "middle" });
-            t.textContent =
-              n.title.length > 28 ? n.title.slice(0, 27) + "…" : n.title;
+            const title = String(n.title || "");
+            t.textContent = title.length > 28 ? title.slice(0, 27) + "…" : title;
             g.append(t);
             g.addEventListener("click", () => openNode(n));
             g.addEventListener("keydown", (e) => {

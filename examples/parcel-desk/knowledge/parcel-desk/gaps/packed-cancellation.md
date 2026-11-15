@@ -1,22 +1,46 @@
 ---
 id: "packed-cancellation"
-title: "Packed pickup cancellation contradicts CAN-1"
+title: "Should a customer be able to cancel their own packed pickup?"
 type: "gap"
-status: "conflict"
+kind: "product-gap"
 areas: ["pickups"]
 sources: ["SPEC.md", "src/pickups.py", "src/routes.py", "tests/test_pickups.py"]
-tags: ["product-gap", "conflict"]
-updated: "2026-11-14"
+recheck: "confirmed"
+rechecked_by: "Tomas Brandt"
+rechecked_on: "2026-11-15"
+decision: "accepted"
+decided_by: "Priya Nair"
+decided_on: "2026-11-15"
+priority: "high"
+confidence: "high"
+updated: "2026-11-15"
 ---
 
-# Packed pickup cancellation contradicts CAN-1
+# Should a customer be able to cancel their own packed pickup?
 
-Area: [[areas/pickups|Pickup cancellation]]. **Kind: product gap; specification conflict.**
+## Current behavior
 
-CAN-1 in [the accepted spec](../../../SPEC.md) permits a customer to cancel their own `packed` pickup before collection. The state guard in [cancel_pickup](../../../src/pickups.py) permits only `requested`. [cancel_request](../../../src/routes.py) maps the resulting `ValueError` to status 409.
+The service cancels only `requested` pickups and rejects every other state, including `packed`, after the owner check; the adapter reports that as status 409. See [[notes/cancellation-boundary|the cancellation boundary]], [[notes/ownership-check|the owner check]] and [[notes/route-responses|the response mapping]].
 
-This is a concrete mismatch in the inspected path. The existing three [tests](../../../tests/test_pickups.py) pass while omitting the packed acceptance case. Passing them is not proof of CAN-1 compliance. The shipped worked report uses static evidence; independent release checks are recorded outside this vault in `VALIDATION.md`.
+## Gap
 
-**Priority:** first within this fixture's accepted cancellation scope. **Next action:** keep CAN-1 or explicitly revise it; if retained, add a failing packed-case regression test before changing the allowlist. Acceptance: the owner can cancel both requested and packed pickups; another customer still receives 403; collected pickups still receive 409; rejected calls preserve state.
+CAN-1 in [the requirements](../../../SPEC.md) says a customer can cancel their own pickup before collection, "including when its state is `requested` or `packed`". The code does not do that for `packed`. Should the service change so the owner can cancel a packed pickup?
 
-See [[notes/cancellation-boundary|current behavior]] and [[notes/route-responses|response mapping]]. [[gaps/partner-decision|Partner support]] is a different decision and does not block this correction.
+## Evidence
+
+- Documented intent: CAN-1 in [SPEC.md](../../../SPEC.md).
+- Static reading: the state guard in [cancel_pickup](../../../src/pickups.py) permits only `requested`; [cancel_request](../../../src/routes.py) maps the resulting `ValueError` to 409.
+- The three existing [tests](../../../tests/test_pickups.py) pass and none uses a `packed` pickup, so they neither show nor contradict the mismatch.
+
+## Recheck
+
+2026-11-15, Tomas Brandt: ran `cancel_request(Pickup("example", "customer-a", "packed"), "customer-a")` in the fixture. Result: `{'status': 409, 'error': 'cancellation_conflict'}` and the state stays `packed`. The same call with `customer-b` returns 403 and also leaves the state unchanged. Confirmed against the current files; this is a local in-process call, not a request to a deployed service.
+
+## Discussion
+
+- 2026-11-14 · agent: Found while mapping the cancellation flow. The alternative to changing the code is revising CAN-1 to say `requested` only.
+- 2026-11-15 · Priya Nair: CAN-1 stays as written; support has had packed-pickup complaints. The partner question is separate and does not block this.
+
+## Decision
+
+Accepted on 2026-11-15 by Priya Nair: keep CAN-1 and change the service. Planned in [[plans/packed-cancellation|the implementation plan]].
