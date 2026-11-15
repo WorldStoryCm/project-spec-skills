@@ -53,4 +53,4 @@ Include one gap that each side decided differently (for example `accepted` on on
 
 ## View checks
 
-Open the generated `graph.html` in a real browser. Check search, the spec and gap layers and gap states, note selection, internal navigation, readable Markdown and evidence links. Open the generated `AS-BUILT.md` and `GAPS.md` and confirm the first contains no gap or plan content and the second lists each gap in its derived state. Record direct-file versus local-server loading and viewport limits. Check the vault in Obsidian when available; valid Markdown and Canvas JSON alone do not count as an Obsidian GUI test.
+Open the generated `graph.html` in a real browser. Check search, the spec and gap layers and gap states, note selection, internal navigation, readable Markdown and evidence links. Open the generated `AS-BUILT.md` and `GAPS.md` and confirm the first contains no gap or plan content and the second lists each gap in its derived state. Record direct-file versus local-server loading and viewport limits. Check the vault in Obsidian when available; valid Markdown alone does not count as an Obsidian GUI test.

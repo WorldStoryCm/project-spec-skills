@@ -95,7 +95,7 @@ class KnowledgeTests(Fixture):
         note = self.vault / 'notes/n.md'
         original = note.read_bytes()
         try:
-            for name in ('graph.html', 'Map.canvas', '.knowledge/graph.json'):
+            for name in ('graph.html', '.knowledge/graph.json'):
                 with self.subTest(name=name):
                     output = self.vault / name
                     output.parent.mkdir(parents=True, exist_ok=True)
@@ -435,7 +435,7 @@ class GapLayerTests(Fixture):
                  decided_by='Ann', decided_on='2026-11-16', body=section_body())
         self.note('plans/p.md', 'p', 'plan', status='planned', gap='acc')
         self.assertEqual(self.build()[0], 0)
-        for name in ('AS-BUILT.md', 'GAPS.md', 'graph.html', 'Map.canvas', '.knowledge/graph.json'):
+        for name in ('AS-BUILT.md', 'GAPS.md', 'graph.html', '.knowledge/graph.json'):
             self.assertTrue((self.vault / name).is_file(), name)
         nodes = {n['id']: n for n in json.loads((self.vault / '.knowledge/graph.json').read_text())['nodes']}
         fields = {'kind', 'recheck', 'recheckedBy', 'recheckedOn', 'decision', 'decidedBy', 'decidedOn', 'state', 'gap', 'layer'}
@@ -447,8 +447,38 @@ class GapLayerTests(Fixture):
         self.assertEqual(nodes['index']['layer'], 'nav')
         html = (self.vault / 'graph.html').read_text()
         self.assertIn('needs-recheck', html)
-        canvas = json.loads((self.vault / 'Map.canvas').read_text())
-        self.assertEqual({n['id'] for n in canvas['nodes']}, set(nodes))
+        self.assertFalse((self.vault / 'Map.canvas').exists())
+
+    def test_build_removes_only_a_canvas_an_earlier_build_wrote(self):
+        canvas = self.vault / 'Map.canvas'
+        old = {'nodes': [{'id': 'n', 'type': 'file', 'file': 'notes/n.md', 'x': 0, 'y': 0, 'width': 300, 'height': 200}],
+               'edges': [{'id': 'e0', 'fromNode': 'a', 'toNode': 'n'}]}
+        canvas.write_text(json.dumps(old), encoding='utf-8')
+        status, out, _ = self.build()
+        self.assertEqual(status, 0)
+        self.assertFalse(canvas.exists())
+        self.assertIn('removed Map.canvas', out)
+        for kept in ({**old, 'nodes': old['nodes'] + [{'id': 't', 'type': 'text', 'text': 'mine', 'x': 0, 'y': 0, 'width': 300, 'height': 200}]},
+                     {**old, 'nodes': [{**old['nodes'][0], 'width': 420}]}, 'not json'):
+            with self.subTest(kept=kept):
+                canvas.write_text(kept if isinstance(kept, str) else json.dumps(kept), encoding='utf-8')
+                before = canvas.read_bytes()
+                self.assertEqual(self.build()[0], 0)
+                self.assertEqual(canvas.read_bytes(), before)
+
+    def test_run_pages_cannot_link_to_vault_pages(self):
+        for body in ('[[notes/n]]', 'see [[n|the note]] and [[areas/a]]', '![[notes/n]]', '[n](../notes/n.md)', '[n]: ../00-index.md'):
+            with self.subTest(body=body):
+                self.note('runs/r.md', 'r', 'run', areas=[], body=body)
+                self.assertInvalid('run pages are history, not part of the map')
+        self.note('runs/r.md', 'r', 'run', areas=[], body='see [[n]] and [[areas/a]]')
+        self.assertIn('(2 links)', self.errors()[1])
+        self.note('runs/r.md', 'r', 'run', areas=[], body='Updated `notes/n` and `[[areas/a]]`; read [source](../../repo/source.txt) and https://example.com.')
+        self.assertEqual(self.errors()[0], 0, self.errors()[1])
+        self.note('00-index.md', 'index', 'index', areas=[], body='[[areas/a]] [[runs/r]]')
+        self.assertEqual(self.build()[0], 0)
+        graph = json.loads((self.vault / '.knowledge/graph.json').read_text())
+        self.assertEqual([e for e in graph['edges'] if e['source'] == 'r'], [])
 
     def test_gaps_md_groups_by_state_in_order(self):
         self.gap('b-open')

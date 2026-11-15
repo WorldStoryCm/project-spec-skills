@@ -1,6 +1,6 @@
 {
   "title": "Parcel Desk knowledge",
-  "generatedAt": "2026-11-15T11:17:48.766498+00:00",
+  "generatedAt": "2026-11-15T11:28:35.081627+00:00",
   "nodes": [
     {
       "id": "index",
@@ -14,7 +14,7 @@
         "knowledge"
       ],
       "path": "00-index.md",
-      "body": "# Parcel Desk knowledge\n\nA small **fictional** pickup service. The vault has two layers. The **as-built spec** says what the code does today and is derived only from source. The **gap queue** holds every question about what is missing, doubtful or proposed; people re-check and decide each one. This is a worked example, not a production readiness assessment.\n\n## The spec\n\nRead it as one document in [AS-BUILT](AS-BUILT.md) (generated), or page by page:\n\n- **[[areas/pickups|Pickup cancellation]]** covers the state transition and the response mapping.\n- [[areas/access|Customer access]] covers whose pickup can be changed.\n\nStart with [[notes/cancellation-boundary|the cancellation boundary]], then [[notes/route-responses|the route response mapping]]. The rule in [[notes/ownership-check|Customer ownership]] runs first.\n\n## The gap queue\n\n[GAPS](GAPS.md) (generated) lists every gap by state. In this example:\n\n- [[gaps/packed-cancellation|Packed cancellation]] is accepted, with [[plans/packed-cancellation|a plan]].\n- [[gaps/partner-decision|Partner cancellation]] has been rechecked and awaits a person's decision.\n- [[gaps/deployment-evidence|Deployment evidence]] has not been rechecked yet.\n\nSee [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. `AS-BUILT.md` and `GAPS.md` appear after `build`; open `graph.html` in a browser or `Map.canvas` in Obsidian for the map.\n",
+      "body": "# Parcel Desk knowledge\n\nA small **fictional** pickup service. The vault has two layers. The **as-built spec** says what the code does today and is derived only from source. The **gap queue** holds every question about what is missing, doubtful or proposed; people re-check and decide each one. This is a worked example, not a production readiness assessment.\n\n## The spec\n\nRead it as one document in [AS-BUILT](AS-BUILT.md) (generated), or page by page:\n\n- **[[areas/pickups|Pickup cancellation]]** covers the state transition and the response mapping.\n- [[areas/access|Customer access]] covers whose pickup can be changed.\n\nStart with [[notes/cancellation-boundary|the cancellation boundary]], then [[notes/route-responses|the route response mapping]]. The rule in [[notes/ownership-check|Customer ownership]] runs first.\n\n## The gap queue\n\n[GAPS](GAPS.md) (generated) lists every gap by state. In this example:\n\n- [[gaps/packed-cancellation|Packed cancellation]] is accepted, with [[plans/packed-cancellation|a plan]].\n- [[gaps/partner-decision|Partner cancellation]] has been rechecked and awaits a person's decision.\n- [[gaps/deployment-evidence|Deployment evidence]] has not been rechecked yet.\n\nSee [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. `AS-BUILT.md` and `GAPS.md` appear after `build`; open `graph.html` in a browser for the map.\n",
       "summary": "",
       "stale": false,
       "kind": "",
@@ -396,7 +396,7 @@
         "run"
       ],
       "path": "runs/example-survey.md",
-      "body": "# Fictional project survey\n\nThis authored example surveys the four fixture source, requirements and test files. It is not a transcript of an independent agent run. The fixture has no independent application revision: it ships inside the toolkit repository, whose Git commit identifies the exact version.\n\n## 2026-11-14: survey\n\nWrote the [[areas/pickups|pickup]] and [[areas/access|access]] maps and three behavior notes from the code. Raised three gaps, each with `decision: \"open\"`: [[gaps/packed-cancellation|packed cancellation]] (the code rejects a state the requirements allow), [[gaps/partner-decision|partner cancellation]] (the requirements leave it undecided) and [[gaps/deployment-evidence|deployment evidence]] (not checkable in this fixture). Ran `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. Reviewed source fingerprints were then accepted; view generation does not make claims true.\n\n## 2026-11-15: gap queue\n\nTomas Brandt rechecked packed cancellation by running the fixture; Priya Nair accepted it and [[plans/packed-cancellation|a plan]] was written. The agent rechecked partner cancellation by reading the code and left the decision open. Deployment evidence has not been rechecked. No spec note changed.\n\nSee [[00-index|the index]] and [[01-coverage|coverage]]. No external system was queried and no real product behavior is implied. Release checks and browser observations are in the toolkit's `VALIDATION.md`.\n",
+      "body": "# Fictional project survey\n\nThis authored example surveys the four fixture source, requirements and test files. It is not a transcript of an independent agent run. The fixture has no independent application revision: it ships inside the toolkit repository, whose Git commit identifies the exact version.\n\n## 2026-11-14: survey\n\nWrote the pickup (`areas/pickups`) and access (`areas/access`) maps and three behavior notes from the code. Raised three gaps, each with `decision: \"open\"`: packed cancellation (`gaps/packed-cancellation`; the code rejects a state the requirements allow), partner cancellation (`gaps/partner-decision`; the requirements leave it undecided) and deployment evidence (`gaps/deployment-evidence`; not checkable in this fixture). Ran `python3 -m unittest discover -s tests -v` from the fictional project: **PASS, 3 tests**. Reviewed source fingerprints were then accepted; view generation does not make claims true.\n\n## 2026-11-15: gap queue\n\nTomas Brandt rechecked packed cancellation by running the fixture; Priya Nair accepted it and a plan (`plans/packed-cancellation`) was written. The agent rechecked partner cancellation by reading the code and left the decision open. Deployment evidence has not been rechecked. No spec note changed.\n\nNo external system was queried and no real product behavior is implied. Release checks and browser observations are in the toolkit's `VALIDATION.md`.\n",
       "summary": "",
       "stale": false,
       "kind": "",
@@ -479,38 +479,6 @@
     {
       "source": "deployment-evidence",
       "target": "route-responses"
-    },
-    {
-      "source": "example-survey",
-      "target": "access"
-    },
-    {
-      "source": "example-survey",
-      "target": "coverage"
-    },
-    {
-      "source": "example-survey",
-      "target": "deployment-evidence"
-    },
-    {
-      "source": "example-survey",
-      "target": "index"
-    },
-    {
-      "source": "example-survey",
-      "target": "packed-cancellation"
-    },
-    {
-      "source": "example-survey",
-      "target": "packed-cancellation-plan"
-    },
-    {
-      "source": "example-survey",
-      "target": "partner-decision"
-    },
-    {
-      "source": "example-survey",
-      "target": "pickups"
     },
     {
       "source": "index",

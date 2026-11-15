@@ -42,7 +42,7 @@ The first knowledge sync produced 12 pages and 52 links. After the final evidenc
 - 43 knowledge helper tests, including changed-source freshness, incremental review safeguards and concurrent-merge inspection. Regression cases reject local-only evidence, dirty excluded paths and changes hidden by Git index flags, without advancing fingerprints or the reviewed cursor; clean tracked evidence is accepted.
 - 3 fictional application tests.
 - Strict example vault validation: 11 notes, 59 links, zero warnings.
-- Regenerated graph, HTML payload and Canvas match their shipped artifacts, ignoring only generation time.
+- Regenerated graph and HTML payload match their shipped artifacts, ignoring only generation time.
 - Viewer JavaScript syntax, using the available Node executable, plus a focused DOM-stub check that bold text preserves nested wiki links, source links and code without interpreting raw HTML. The stub check does not independently test URL validation or replace browser observations.
 
 The skill-authoring validator also passed for all four skill folders. The portable verification command requires no installed skill-authoring tools. Node is optional and its syntax check reports `NOT RUN` when unavailable.

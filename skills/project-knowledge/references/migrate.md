@@ -27,6 +27,10 @@ Do these in order, rerunning `check` between steps. Each step removes a class of
 6. **Plans.** `plans/` holds a plan only for a gap a person accepted. In the real migration it stayed empty, because no person had decided anything. Do not infer an acceptance from an old priority, a task, or an existing implementation plan.
 7. **Fingerprints and views.** Run `snapshot --notes ID...` only for pages you actually re-read against their sources, then `build`. `snapshot --notes` is blocked only by errors on the pages you select (or by an unknown or duplicated id, or an error that belongs to no page, such as a damaged `sources.json`), so it works on fixed pages while other pages still fail and tells you how many other errors it ignored; `snapshot --all` and `build` need the whole vault valid. Accepting a fingerprint says "I read this page against these bytes", so never use it to clear a warning on a page you did not re-read.
 
+## Run pages that link to everything
+
+Older run pages linked every page they touched, and `check` now reports `run pages are history, not part of the map` with the number of links. Those links made each run a hub in Obsidian's graph and pulled all areas into one ball. The fix is mechanical and changes no claim: in each `runs/*.md` replace `[[notes/example|the example rule]]` with the label and the path in code formatting, `the example rule (`notes/example`)`, and do the same for embeds and Markdown links to vault pages. Links to source files and URLs stay. An old `Map.canvas` is no longer generated; `build` removes it if nobody edited it, otherwise delete it yourself.
+
 ## Rules that kept the migration honest
 
 - No decision is inferred from priorities, tasks or plans. If a page does not show who decided and when, the gap is `open`.

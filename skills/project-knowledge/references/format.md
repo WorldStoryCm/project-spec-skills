@@ -17,7 +17,6 @@ knowledge/<project>/
   gaps/                 one question per page (gap)
   plans/                one plan per accepted gap (gap)
   runs/                 review history and evidence limits
-  Map.canvas            generated Obsidian card map
   graph.html            generated offline browser view
   .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint), graph.json (generated view data)
 ```
@@ -26,7 +25,7 @@ knowledge/<project>/
 
 Wikilinks are vault-relative without `.md`; use full paths to avoid ambiguity. Filenames avoid `# | ^ :` and brackets. Code links are relative to the note location, URL-encoded as necessary. Source metadata paths are relative to the **repository**, not the vault.
 
-Markdown beneath any `.obsidian`, `.trash`, or `.knowledge` path component is excluded from note discovery and validation, as are the two generated files by name. A hand-written root page named like a generated file (`AS-BUILT.md`, `GAPS.md`, `graph.html`, `Map.canvas`), ignoring case, is an error and is never overwritten. Deleted notes and plugin documentation must not become graph nodes.
+Markdown beneath any `.obsidian`, `.trash`, or `.knowledge` path component is excluded from note discovery and validation, as are the two generated files by name. A hand-written root page named like a generated file (`AS-BUILT.md`, `GAPS.md`, `graph.html`), ignoring case, is an error and is never overwritten. Deleted notes and plugin documentation must not become graph nodes.
 
 ## Page types
 
@@ -86,9 +85,10 @@ All sample paths and symbols are illustrative. Area pages list reviewed, discove
 
 The validator enforces these body rules:
 
-1. An `area` or `note` page may not reference the gap layer in any form: a wikilink, an embed (`![[...]]`) or a Markdown link to a `gap` or `plan` page, a Markdown link to `GAPS.md`, or any link inside its `title` or `summary`. Link from the gap to the note instead. Links from gaps, plans, index and run pages to anything are fine.
-2. A gap has six `##` sections with exactly these headings, each once: `Current behavior`, `Gap`, `Evidence`, `Recheck`, `Discussion`, `Decision`. Headings inside code fences do not count.
-3. When `decision` is not `open`, `Decision` needs text; when `recheck` is not `not-checked`, `Recheck` needs text.
+1. An `area` or `note` page may not reference the gap layer in any form: a wikilink, an embed (`![[...]]`) or a Markdown link to a `gap` or `plan` page, a Markdown link to `GAPS.md`, or any link inside its `title` or `summary`. Link from the gap to the note instead. Links from gaps, plans and index pages to anything are fine.
+2. A `run` page links to no vault page, by wikilink, embed or Markdown link. It names the pages it touched by path in code formatting (`notes/example`). A run touches many pages; as links they would make every run a hub and the area clusters would collapse into one ball in Obsidian's graph. Links to source files and URLs are fine, and the index may link to a run.
+3. A gap has six `##` sections with exactly these headings, each once: `Current behavior`, `Gap`, `Evidence`, `Recheck`, `Discussion`, `Decision`. Headings inside code fences do not count.
+4. When `decision` is not `open`, `Decision` needs text; when `recheck` is not `not-checked`, `Recheck` needs text.
 
 ## Helper
 
@@ -100,13 +100,13 @@ Three scripts in `$SKILL_DIR/scripts/`; see [SKILL.md](../SKILL.md) for the vari
 
   `--strict --ignore-dirty` is for a working tree shared with someone else's uncommitted work. Only the "changed source" and "line endings differ" warnings are forgiven, and only for a file with uncommitted changes (modified, staged or untracked); the warning is still printed, marked as not counted, and the summary says how many were forgiven. A source with no baseline (unbaselined) is not forgiven, and a Git-ignored file never counts as uncommitted. Warnings for committed changes still fail, and without the flag nothing changes. Structural errors, missing files and committed drift stay visible and fatal. The flag is valid only with `check`. It is not for CI: a CI checkout has no uncommitted work, and using it there would only let real drift through. Outside a Git work tree the flag is an error. There is no acknowledgement file, so when the other contributor commits, the warning counts again.
 - `snapshot --notes ID...` or `--all`: explicitly accept raw-byte SHA-256 fingerprints of selected pages' sources into `.knowledge/sources.json`; preserve other baselines. `--notes` is blocked only by errors on the selected pages themselves (frontmatter, body rules, resolvable links, acceptable sources), by an unknown or duplicated selected id, and by errors that belong to no page, such as a damaged `sources.json`. It reports how many errors on other pages it is not blocked by, which lets you accept a fixed page while others are still being repaired. `--all` needs a fully valid vault.
-- `build`: validate the whole vault first, fail on errors, then write `graph.html`, `Map.canvas`, `.knowledge/graph.json`, `AS-BUILT.md` and `GAPS.md`. It never accepts fingerprints or rewrites canonical notes. `AS-BUILT.md` and `GAPS.md` are deterministic; `graph.html` and `.knowledge/graph.json` carry a `generatedAt` time.
+- `build`: validate the whole vault first, fail on errors, then write `graph.html`, `.knowledge/graph.json`, `AS-BUILT.md` and `GAPS.md`. It never accepts fingerprints or rewrites canonical notes. A `Map.canvas` left by an earlier version is deleted when it is exactly what that version generated; a canvas with anything hand-made in it is left alone. `AS-BUILT.md` and `GAPS.md` are deterministic; `graph.html` and `.knowledge/graph.json` carry a `generatedAt` time.
 
 Rules the validator applies beyond the basics: `decided_by: "agent"` is rejected in every decision state; `decided_by` and `decided_on` are validated but optional on `done` and `duplicate`; a missing source file cited by a gap is an error while its decision is `open`, `accepted` or `deferred` and a warning once it is `done`, `rejected` or `duplicate`, and a plan follows its gap (a warning when the gap is `done`).
 
 `maintain.py {scan,receipt,finish}` supports [sync](sync.md); `merge.py inspect` supports [merge](merge.md).
 
-`AS-BUILT.md` starts with a "generated, do not edit" line and `# {index title}: as-built specification`. It has one `##` per area (sorted by title) with the area `summary`; each note whose first listed area it is appears as a `###` with a line of id, status, updated and sources, and its own headings demoted to levels 4-6. Notes also listed under other areas appear there as "See also" lines; superseded notes are omitted. No gap or plan content appears. `GAPS.md` starts with the same line and `# {index title}: gap queue`, then one `## {state}` per non-empty state in the order `needs-recheck`, `needs-decision`, `accepted`, `deferred`, `rejected`, `done`, `duplicate`, each a table with columns `Gap | Kind | Areas | Recheck | Decision | Priority | Plan`. A Recheck cell reads "confirmed (still holds)" or "not reproduced (no longer holds)" for the stored values `confirmed` and `not-reproduced` (the stored values do not change) followed by who and when; `not-checked` and `outdated` read as before, and the cell ends with ` · sources changed since` when `recheck` is `confirmed` or `not-reproduced` and a cited source's current bytes differ from its accepted fingerprint (line-ending-only differences do not count). `Map.canvas` does not color by state.
+`AS-BUILT.md` starts with a "generated, do not edit" line and `# {index title}: as-built specification`. It has one `##` per area (sorted by title) with the area `summary`; each note whose first listed area it is appears as a `###` with a line of id, status, updated and sources, and its own headings demoted to levels 4-6. Notes also listed under other areas appear there as "See also" lines; superseded notes are omitted. No gap or plan content appears. `GAPS.md` starts with the same line and `# {index title}: gap queue`, then one `## {state}` per non-empty state in the order `needs-recheck`, `needs-decision`, `accepted`, `deferred`, `rejected`, `done`, `duplicate`, each a table with columns `Gap | Kind | Areas | Recheck | Decision | Priority | Plan`. A Recheck cell reads "confirmed (still holds)" or "not reproduced (no longer holds)" for the stored values `confirmed` and `not-reproduced` (the stored values do not change) followed by who and when; `not-checked` and `outdated` read as before, and the cell ends with ` · sources changed since` when `recheck` is `confirmed` or `not-reproduced` and a cited source's current bytes differ from its accepted fingerprint (line-ending-only differences do not count).
 
 ## Data contract for the HTML view
 
@@ -133,13 +133,12 @@ Extract prose wikilinks, excluding inline and fenced code examples. Resolve full
 
 Canonical Markdown must not contain raw merge conflicts. Validation rejects complete Git groups with a labeled opening marker, matching marker widths (including configured widths), and an optional diff3 base section, even inside code fences. Unlabeled or custom conflict formats are outside this detector; also inspect unresolved Git index entries. A `conflict` gap that records attributed claims and a next check is valid; it does not resolve them. See [concurrent merges](merge.md).
 
-`assets/viewer.html` has exactly one `__KNOWLEDGE_DATA__` placeholder for script-safe JSON. Treat contents as untrusted text: no raw Markdown HTML execution, unsafe URL schemes, external scripts, fonts, analytics or fetches. Render readable basic Markdown and wikilinks; leave unsupported syntax as text. Canvas uses valid JSON Canvas 1.0 file nodes (vault-relative paths) and edges. Generated filenames are reserved; preserve manual changes separately before rebuilding.
+`assets/viewer.html` has exactly one `__KNOWLEDGE_DATA__` placeholder for script-safe JSON. Treat contents as untrusted text: no raw Markdown HTML execution, unsafe URL schemes, external scripts, fonts, analytics or fetches. Render readable basic Markdown and wikilinks; leave unsupported syntax as text. The map draws one frame per primary area (the area page, or the first entry of `areas`) with its pages inside; an edge between a page and its primary area is not drawn because the frame says it, links inside one area are solid and links across areas dashed; `nav` pages are not drawn. Generated filenames are reserved; preserve manual changes separately before rebuilding.
 
 ## Format references
 
 - [Internal links](https://help.obsidian.md/links)
 - [Properties](https://help.obsidian.md/properties)
 - [Graph view](https://help.obsidian.md/plugins/graph)
-- [JSON Canvas](https://jsoncanvas.org/spec/1.0/)
 
 The bundle is self-contained. [Official Obsidian Skills](https://github.com/obsidianmd/obsidian-skills) can help with advanced format requests but are optional.

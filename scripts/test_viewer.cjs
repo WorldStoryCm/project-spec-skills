@@ -142,7 +142,11 @@ const sample = {
   assert.equal(v.q('#mode-spec').attrs['aria-pressed'], 'true');
   assert.equal(v.q('#mode-gaps').attrs['aria-pressed'], 'false');
   assert.deepEqual(v.itemTitles().sort(), ['Area A', 'Index page', 'Note A', 'Run one']);
-  assert.deepEqual(v.graphLabels().sort(), ['Area A', 'Index page', 'Note A', 'Run one']);
+  // the map shows spec pages only: index, coverage and run pages are listed but not drawn
+  assert.deepEqual(v.graphLabels().sort(), ['Area A', 'Note A']);
+  // one frame per area; membership is the frame, not a line
+  assert.equal(findAll(v.q('#graph'), e => cls(e) === 'cluster').length, 1);
+  assert.equal(findAll(v.q('#graph'), e => e.tag === 'line').length, 0);
   assert.equal(v.q('#panel-gaps').hidden, true);
   assert.equal(v.q('#panel-spec').hidden, false);
   assert.equal(v.q('#mode-wait').textContent, '7 waiting', 'recheck(4: explicit + legacy + 2 outdated) + decision(3)');
@@ -380,4 +384,55 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   assert.ok(hostile.textContent.includes('<img src=x onerror=alert(1)>'));
 }
 
-console.log('PASS: viewer markdown, modes, state derivation, legacy payloads');
+// --- area clusters ---------------------------------------------------------
+{
+  const spec = (id, title, type, areas) => node({ id, title, type, layer: 'spec', status: 'current', path: `${id}.md`, areas });
+  const v = load({
+    title: 'Clusters',
+    nodes: [
+      node({ id: 'idx', title: 'Index page', type: 'index', layer: 'nav', status: 'current', path: '00-index.md', areas: [] }),
+      node({ id: 'run1', title: 'Run one', type: 'run', layer: 'nav', status: 'current', path: 'runs/run1.md', areas: [] }),
+      spec('a', 'Area A', 'area', []), spec('b', 'Area B', 'area', []),
+      spec('a1', 'A one', 'note', ['a']), spec('a2', 'A two', 'note', ['a']), spec('b1', 'B one', 'note', ['b', 'a']),
+      gap('g-b', 'Gap in B', { state: 'needs-recheck', areas: ['b'] }),
+    ],
+    edges: [
+      { source: 'idx', target: 'a' }, { source: 'idx', target: 'b' }, { source: 'run1', target: 'a1' },
+      { source: 'a', target: 'a1' }, { source: 'a', target: 'a2' }, { source: 'b', target: 'b1' },
+      { source: 'a', target: 'b1' },   // second area of b1: a real cross-area relation
+      { source: 'a1', target: 'a2' },  // inside one area
+      { source: 'a2', target: 'b1' },  // across areas
+      { source: 'g-b', target: 'b1' },
+    ],
+  });
+  const svg = v.q('#graph');
+  const frames = findAll(svg, e => cls(e) === 'cluster');
+  const xy = label => v.graphNode(label).attrs.transform.match(/-?[\d.]+/g).map(Number);
+  const inside = (label, f) => {
+    const [x, y] = xy(label), fx = +f.attrs.x, fy = +f.attrs.y;
+    return x > fx && x < fx + +f.attrs.width && y > fy && y < fy + +f.attrs.height;
+  };
+  assert.deepEqual(v.graphLabels().sort(), ['A one', 'A two', 'Area A', 'Area B', 'B one']);
+  assert.equal(frames.length, 2);
+  const frameOf = label => frames.filter(f => inside(label, f));
+  for (const label of ['Area A', 'A one', 'A two', 'Area B', 'B one']) assert.equal(frameOf(label).length, 1, label + ' sits in exactly one frame');
+  assert.equal(frameOf('A one')[0], frameOf('Area A')[0]);
+  assert.equal(frameOf('A two')[0], frameOf('Area A')[0]);
+  assert.equal(frameOf('B one')[0], frameOf('Area B')[0]);
+  assert.notEqual(frameOf('Area A')[0], frameOf('Area B')[0]);
+  // frames do not overlap
+  const [f1, f2] = frames.map(f => ({ x: +f.attrs.x, y: +f.attrs.y, w: +f.attrs.width, h: +f.attrs.height }));
+  assert.ok(f1.x + f1.w <= f2.x || f2.x + f2.w <= f1.x || f1.y + f1.h <= f2.y || f2.y + f2.h <= f1.y);
+  // lines: a1-a2 (plain), a2-b1 and a-b1 (cross); the three membership edges and nav edges are not drawn
+  const lines = findAll(svg, e => e.tag === 'line');
+  assert.equal(lines.length, 3);
+  assert.equal(lines.filter(l => cls(l) === 'cross').length, 2);
+  // Gaps mode: the gap's area page is not shown, so its frame gets a plain label
+  v.q('#mode-gaps').click();
+  assert.deepEqual(v.graphLabels().sort(), ['B one', 'Gap in B (Needs recheck)']);
+  const labels = findAll(svg, e => cls(e) === 'cluster-label');
+  assert.deepEqual(labels.map(e => e.textContent), ['Area B']);
+  assert.equal(findAll(svg, e => cls(e) === 'cluster').length, 1);
+}
+
+console.log('PASS: viewer markdown, modes, state derivation, legacy payloads, area clusters');

@@ -386,7 +386,7 @@ def finish(repo, vault, plan_path, review_path):
             if knowledge.main(['check', '--repo', str(repo), '--vault', str(staged)]) != 0 or knowledge.main(['build', '--repo', str(repo), '--vault', str(staged)]) != 0:
                 raise ValueError('structural check or build failed')
             # Validate all output destinations before publishing anything.
-            outputs = ['.knowledge/sources.json', '.knowledge/graph.json', 'Map.canvas', 'graph.html', 'AS-BUILT.md', 'GAPS.md', '.knowledge/review.json']
+            outputs = ['.knowledge/sources.json', '.knowledge/graph.json', 'graph.html', 'AS-BUILT.md', 'GAPS.md', '.knowledge/review.json']
             destinations = [knowledge.output_path(vault, p) for p in outputs]
             cursor = json.loads((vault / '.knowledge/review.json').read_text())
             checkpoint = cursor['reviewed_through']

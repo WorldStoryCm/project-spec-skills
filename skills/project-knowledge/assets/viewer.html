@@ -435,8 +435,26 @@
         cursor: grabbing;
       }
       .graph-wrap line {
-        stroke: #b9cfc0;
+        stroke: #9fbcaa;
         stroke-width: 1.5;
+      }
+      .graph-wrap line.cross {
+        stroke: #b7c6bb;
+        stroke-dasharray: 5 4;
+      }
+      .graph-wrap rect.cluster {
+        fill: #e7eee4;
+        stroke: #cddbcb;
+        stroke-width: 1.5;
+      }
+      .graph-wrap text.cluster-label,
+      .graph-node.area text {
+        font-size: 15px;
+        font-weight: 650;
+        fill: #2c4a3d;
+      }
+      .graph-node.area text {
+        stroke: #e7eee4;
       }
       .graph-node {
         cursor: pointer;
@@ -1525,8 +1543,8 @@
             ? "Gaps and their plans, with the spec pages they refer to. Gaps are questions, not facts about the code."
             : "Areas and notes describing how the code works now. Gaps live in the Gaps view.";
           $("#graph-hint").textContent = gaps
-            ? "Colored circles are gaps (label shows the state), squares are plans, dashed outlines are spec pages the gaps refer to. Drag to pan; select a node to open it."
-            : "Drag to pan the map. Select a node to open its content.";
+            ? "Each frame is an area. Colored circles are gaps (label shows the state), squares are plans, dashed outlines are spec pages the gaps refer to. Drag to pan; select a node to open it."
+            : "Each frame is an area with its pages; lines are links between pages, dashed when they cross areas. Drag to pan; select a node to open it.";
           specFilters.forEach(([f, b]) =>
             b.setAttribute("aria-pressed", String(filter === f)),
           );
@@ -1624,71 +1642,152 @@
             context: new Set(context.keys()),
           };
         }
+        // One labelled frame per area with its pages inside. Membership is shown by the frame,
+        // so only real links are drawn; index, coverage and run pages are not part of the map.
         function draw(model, preserveView) {
-          const shown = model.items,
+          const shown = model.items.filter((n) => layerOf(n) !== "nav"),
             ids = new Set(shown.map((n) => n.id));
           graph.replaceChildren();
+          const keyOf = (n) => (n.type === "area" ? n.id : (n.areas || [])[0] || "");
           const groups = new Map();
           shown.forEach((n) => {
-            const key =
-              n.type === "area" ? n.id : (n.areas || [])[0] || "other";
+            const key = keyOf(n);
             if (!groups.has(key)) groups.set(key, []);
             groups.get(key).push(n);
           });
+          const CW = 190,
+            CH = 92,
+            PAD = 24,
+            HEAD = 48,
+            GAP = 34;
+          const titleOf = (key) =>
+            str(byId.get(key)?.title) || (key ? String(key) : "Other");
+          const clusters = [...groups.entries()]
+            .map(([key, group]) => {
+              const head = group.find((n) => n.type === "area") || null;
+              const members = group
+                .filter((n) => n !== head)
+                .sort((x, y) =>
+                  model.context.has(x.id) !== model.context.has(y.id)
+                    ? model.context.has(x.id)
+                      ? 1
+                      : -1
+                    : stateRank(x) - stateRank(y) || byTitle(x, y),
+                );
+              const cols = Math.max(
+                1,
+                Math.min(5, Math.ceil(Math.sqrt(members.length))),
+              );
+              const rows = Math.ceil(members.length / cols);
+              return {
+                key,
+                head,
+                members,
+                cols,
+                title: titleOf(key),
+                w: Math.max(cols * CW, 250) + PAD * 2,
+                h: HEAD + rows * CH + (rows ? PAD / 2 : 0),
+              };
+            })
+            .sort(
+              (x, y) =>
+                !x.key - !y.key ||
+                x.title.localeCompare(y.title) ||
+                String(x.key).localeCompare(String(y.key)),
+            );
+          // Shelf packing: fill rows up to a width that keeps the whole map roughly landscape.
+          const area = clusters.reduce((t, c) => t + (c.w + GAP) * (c.h + GAP), 0);
+          const rowWidth = Math.max(900, Math.sqrt(area * 1.8));
           const positions = new Map();
-          let y = 80,
-            maxWidth = 700;
-          [...groups.entries()]
-            .sort(([a], [b]) => String(a).localeCompare(String(b)))
-            .forEach(([key, group]) => {
-              group.sort((a, b) =>
-                a.type === "area"
-                  ? -1
-                  : b.type === "area"
-                    ? 1
-                    : model.context.has(a.id) !== model.context.has(b.id)
-                      ? model.context.has(a.id)
-                        ? 1
-                        : -1
-                      : stateRank(a) - stateRank(b) || byTitle(a, b),
-              );
-              const cols = Math.min(4, Math.max(1, group.length));
-              group.forEach((n, i) =>
-                positions.set(n.id, {
-                  x: 140 + (i % cols) * 220,
-                  y: y + Math.floor(i / cols) * 110,
-                }),
-              );
-              maxWidth = Math.max(maxWidth, 280 + (cols - 1) * 220);
-              y += Math.ceil(group.length / cols) * 110 + 55;
-            });
+          let x = GAP,
+            y = GAP,
+            rowH = 0,
+            maxW = 0;
+          clusters.forEach((c) => {
+            if (x > GAP && x + c.w > rowWidth) {
+              x = GAP;
+              y += rowH + GAP;
+              rowH = 0;
+            }
+            c.x = x;
+            c.y = y;
+            if (c.head) positions.set(c.head.id, { x: x + PAD + 12, y: y + 26 });
+            const inset = (c.w - c.cols * CW) / 2;
+            c.members.forEach((n, i) =>
+              positions.set(n.id, {
+                x: x + inset + (i % c.cols) * CW + CW / 2,
+                y: y + HEAD + Math.floor(i / c.cols) * CH + 26,
+              }),
+            );
+            x += c.w + GAP;
+            rowH = Math.max(rowH, c.h);
+            maxW = Math.max(maxW, x);
+          });
           initialBox = {
             x: 0,
             y: 0,
-            w: maxWidth,
-            h: Math.min(700, Math.max(430, y + 20)),
+            w: Math.min(1500, Math.max(700, maxW)),
+            h: Math.min(950, Math.max(430, y + rowH + GAP)),
           };
           if (!preserveView) box = { ...initialBox };
           applyBox();
           const layer = sv("g", {});
           graph.append(layer);
-          model.links.forEach((e) => {
-            if (ids.has(e.source) && ids.has(e.target)) {
-              const a = positions.get(e.source),
-                b = positions.get(e.target);
-              if (a && b)
-                layer.append(
-                  sv("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y }),
-                );
+          const clip = (text, max) =>
+            text.length > max ? text.slice(0, max - 1) + "…" : text;
+          clusters.forEach((c) => {
+            layer.append(
+              sv("rect", {
+                class: "cluster",
+                x: c.x,
+                y: c.y,
+                width: c.w,
+                height: c.h,
+                rx: 14,
+              }),
+            );
+            if (!c.head) {
+              const t = sv("text", {
+                class: "cluster-label",
+                x: c.x + PAD,
+                y: c.y + 31,
+              });
+              t.textContent = clip(c.title, Math.floor((c.w - PAD * 2) / 9));
+              layer.append(t);
             }
           });
+          model.links.forEach((e) => {
+            if (!ids.has(e.source) || !ids.has(e.target)) return;
+            const na = byId.get(e.source),
+              nb = byId.get(e.target),
+              a = positions.get(e.source),
+              b = positions.get(e.target);
+            if (!na || !nb || !a || !b) return;
+            // The frame already says which area a page belongs to.
+            if (
+              (na.type === "area" && keyOf(nb) === na.id) ||
+              (nb.type === "area" && keyOf(na) === nb.id)
+            )
+              return;
+            layer.append(
+              sv("line", {
+                class: keyOf(na) === keyOf(nb) ? "" : "cross",
+                x1: a.x,
+                y1: a.y,
+                x2: b.x,
+                y2: b.y,
+              }),
+            );
+          });
+          const widthOf = new Map(clusters.map((c) => [c.key, c.w]));
           shown.forEach((n) => {
             const p = positions.get(n.id),
               state = stateOf(n),
+              isArea = n.type === "area",
               g = sv("g", {
                 class:
                   "graph-node " +
-                  (n.type === "area" ? "area " : "") +
+                  (isArea ? "area " : "") +
                   (isPlan(n) ? "plan-node " : "") +
                   (model.context.has(n.id) ? "context " : "") +
                   stateClass(n) +
@@ -1710,17 +1809,20 @@
             else
               g.append(
                 sv("circle", {
-                  r:
-                    n.type === "area"
-                      ? 18
-                      : ["needs-recheck", "needs-decision"].includes(state)
-                        ? 16
-                        : 13,
+                  r: isArea
+                    ? 11
+                    : ["needs-recheck", "needs-decision"].includes(state)
+                      ? 16
+                      : 13,
                 }),
               );
-            const t = sv("text", { x: 0, y: 32, "text-anchor": "middle" });
-            const title = String(n.title || "");
-            t.textContent = title.length > 28 ? title.slice(0, 27) + "…" : title;
+            const t = isArea
+              ? sv("text", { x: 20, y: 5, "text-anchor": "start" })
+              : sv("text", { x: 0, y: 32, "text-anchor": "middle" });
+            t.textContent = clip(
+              String(n.title || ""),
+              isArea ? Math.floor((widthOf.get(n.id) - PAD * 2 - 32) / 9) : 26,
+            );
             g.append(t);
             g.addEventListener("click", () => openNode(n));
             g.addEventListener("keydown", (e) => {

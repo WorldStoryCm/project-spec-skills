@@ -126,8 +126,8 @@ def check_generated():
             errors.append('graph.html payload differs from current notes and links')
         if actual_template != expected_template:
             errors.append('graph.html viewer differs from current template')
-        if json.loads((VAULT / 'Map.canvas').read_text(encoding='utf-8')) != json.loads((copy / 'Map.canvas').read_text(encoding='utf-8')):
-            errors.append('Map.canvas differs from current notes and links')
+        if (VAULT / 'Map.canvas').exists():
+            errors.append('Map.canvas is no longer generated; delete it from the example vault')
         for name in ('AS-BUILT.md', 'GAPS.md'):
             shipped = VAULT / name
             if not shipped.is_file():

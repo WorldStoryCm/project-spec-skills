@@ -47,7 +47,7 @@ Keep unrelated dirty sources deferred; `finish` handles that case without losing
 
 At finish time, each selected source must be a regular tracked file whose working bytes equal the raw blob at the target commit, whatever Git ignore, assume-unchanged or skip-worktree flags say. This rejects CRLF conversion and smudge-filter output rather than normalizing it. Explain the mismatch, defer the notes that cite such a file, and leave the checkpoint pending until the checkout is aligned. Missing evidence may remain on explicitly `stale` or `superseded` notes.
 
-Write a run page under `runs/`: exact range, observed dirty state, pages changed, exclusions, gaps closed, outdated or created, and the checks you actually ran. It needs `type: "run"` and the JSON-string properties `review_base` and `review_target`, equal to the full scanned SHAs. An old run page is not a receipt for a new interval, and an empty no-change scan gets no new run page.
+Write a run page under `runs/`: exact range, observed dirty state, pages changed, exclusions, gaps closed, outdated or created, and the checks you actually ran. Name pages by path in code formatting (`notes/example`), not as links ([why](format.md)). It needs `type: "run"` and the JSON-string properties `review_base` and `review_target`, equal to the full scanned SHAs. An old run page is not a receipt for a new interval, and an empty no-change scan gets no new run page.
 
 ## 3. Plan, receipt, finish
 

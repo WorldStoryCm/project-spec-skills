@@ -28,7 +28,7 @@ GAP_SECTIONS = ('Current behavior', 'Gap', 'Evidence', 'Recheck', 'Discussion', 
 LAYERS = {'area': 'spec', 'note': 'spec', 'gap': 'gap', 'plan': 'gap', 'index': 'nav', 'run': 'nav'}
 RESERVED = {'AS-BUILT.md', 'GAPS.md'}  # generated at the vault root; never notes
 UNCOUNTED = ' (uncommitted change, not counted)'  # suffix of a freshness warning that --ignore-dirty does not count
-GENERATED_NAMES = ('AS-BUILT.md', 'GAPS.md', 'graph.html', 'Map.canvas')  # matched case-insensitively
+GENERATED_NAMES = ('AS-BUILT.md', 'GAPS.md', 'graph.html')  # matched case-insensitively
 CONTROL = re.compile('[\x00-\x1f\x7f\x85\u2028\u2029]')
 SCHEME = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:')
 MD_LINK = re.compile(r'\]\(\s*(<[^>]*>|[^\s)]*)')
@@ -293,6 +293,20 @@ def tolerates_missing_source(meta, ids):
     return False
 
 
+def stale_canvas(file):
+    """True for a Map.canvas written by an earlier build: only 300x200 file cards and e0..eN edges, so nothing hand-made is lost."""
+    if file.is_symlink() or not file.is_file():
+        return False
+    try:
+        data = json.loads(file.read_text(encoding='utf-8'))
+        return (set(data) == {'nodes', 'edges'}
+                and all(set(n) == {'id', 'type', 'file', 'x', 'y', 'width', 'height'} and n['type'] == 'file'
+                        and (n['width'], n['height']) == (300, 200) for n in data['nodes'])
+                and all(set(e) == {'id', 'fromNode', 'toNode'} and e['id'] == f'e{i}' for i, e in enumerate(data['edges'])))
+    except (OSError, ValueError, TypeError, KeyError):
+        return False
+
+
 def markdown_target(rel, raw):
     """Vault-relative path a Markdown link points at, or None for URLs, anchors and absolute paths."""
     target = unquote(re.split(r'[?#]', raw[1:-1] if raw.startswith('<') else raw, maxsplit=1)[0])
@@ -458,6 +472,7 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
             elif area != meta['id']:
                 edges.add((area, meta['id']))
         text = prose(note['body'])
+        run_links = 0
         for embed, link in LINK.findall(text):
             # Inside Markdown tables Obsidian requires the alias separator to be written as \|.
             target = re.split(r'\\?\|', link, maxsplit=1)[0].split('#', 1)[0].split('^', 1)[0].strip()
@@ -478,6 +493,8 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
                 errors.append(f"{rel}: {'ambiguous' if choices else 'missing'} {'embed' if embed else 'wikilink'} {target}")
             elif meta['type'] in {'area', 'note'} and choices[0]['meta']['type'] in {'gap', 'plan'}:
                 errors.append(f"{rel}: spec pages must not link to the gap layer ({'embed ' if embed else ''}{target}); link from the gap to this page instead")
+            elif meta['type'] == 'run':
+                run_links += 1
             else:
                 edges.add((meta['id'], choices[0]['meta']['id']))
         if meta['type'] in {'area', 'note'}:
@@ -486,6 +503,13 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
                 resolved = markdown_target(rel, raw)
                 if resolved is not None and resolved.casefold() in gap_files:
                     errors.append(f"{rel}: spec pages must not link to the gap layer ({raw.strip('<>')}); link from the gap to this page instead")
+        if meta['type'] == 'run':
+            # A run touches many pages; as links they would turn it into a hub that glues every cluster together.
+            page_files = {n['path'].casefold() for n in notes}
+            run_links += sum(1 for raw in MD_LINK.findall(text) + MD_REF.findall(text)
+                             if (markdown_target(rel, raw) or '').casefold() in page_files)
+            if run_links:
+                errors.append(f"{rel}: run pages are history, not part of the map, and must not link to vault pages ({run_links} link{'s' if run_links != 1 else ''}); name a page by its path in code formatting, e.g. `notes/example`")
         closed = tolerates_missing_source(meta, ids)
         note['changed'] = False
         for source in meta['sources']:
@@ -816,21 +840,7 @@ def main(argv=None):
         if template.count('__KNOWLEDGE_DATA__') != 1:
             raise ValueError('viewer template must contain exactly one placeholder')
         serialized = json.dumps(graph, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
-        # Lay out each primary area as a separate, non-overlapping block.
-        clusters = {}
-        for node in nodes:
-            area = node['id'] if node['type'] == 'area' else (node['areas'][0] if node['areas'] else '')
-            clusters.setdefault(area, []).append(node)
-        canvas_nodes, y = [], 0
-        for area in sorted(clusters):
-            group = sorted(clusters[area], key=lambda n: (n['type'] != 'area', n['path']))
-            for i, node in enumerate(group):
-                canvas_nodes.append({'id': node['id'], 'type': 'file', 'file': node['path'],
-                                     'x': (i % 4) * 340, 'y': y + (i // 4) * 240,
-                                     'width': 300, 'height': 200})
-            y += ((len(group) + 3) // 4) * 240 + 80
-        canvas = {'nodes': canvas_nodes, 'edges': [{'id': f'e{i}', 'fromNode': a, 'toNode': b} for i, (a, b) in enumerate(edges)]}
-        for path in ('.knowledge/graph.json', 'Map.canvas', 'graph.html', 'AS-BUILT.md', 'GAPS.md'):
+        for path in ('.knowledge/graph.json', 'graph.html', 'AS-BUILT.md', 'GAPS.md'):
             output_path(vault, path)
         for entry in vault.iterdir():
             for name in GENERATED_NAMES:
@@ -840,7 +850,9 @@ def main(argv=None):
             if (vault / name).is_file() and not is_generated(vault / name):
                 raise ValueError(f'{name} is a hand-written page but this name is reserved for a generated file; build would overwrite it, so rename the page')
         write_json(vault / '.knowledge/graph.json', graph)
-        write_json(vault / 'Map.canvas', canvas)
+        if stale_canvas(vault / 'Map.canvas'):
+            (vault / 'Map.canvas').unlink()
+            print('build: removed Map.canvas, which is no longer generated')
         atomic_write(vault / 'graph.html', template.replace('__KNOWLEDGE_DATA__', serialized))
         atomic_write(vault / 'AS-BUILT.md', render_as_built(notes, title))
         atomic_write(vault / 'GAPS.md', render_gaps(notes, title))

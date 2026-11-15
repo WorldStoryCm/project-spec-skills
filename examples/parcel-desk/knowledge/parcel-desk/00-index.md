@@ -30,4 +30,4 @@ Start with [[notes/cancellation-boundary|the cancellation boundary]], then [[not
 - [[gaps/partner-decision|Partner cancellation]] has been rechecked and awaits a person's decision.
 - [[gaps/deployment-evidence|Deployment evidence]] has not been rechecked yet.
 
-See [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. `AS-BUILT.md` and `GAPS.md` appear after `build`; open `graph.html` in a browser or `Map.canvas` in Obsidian for the map.
+See [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. `AS-BUILT.md` and `GAPS.md` appear after `build`; open `graph.html` in a browser for the map.

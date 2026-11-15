@@ -9,7 +9,7 @@ The knowledge skill produces an **Obsidian-compatible vault** with two clearly s
 - an **as-built spec**: exactly how the code is implemented now, derived only from source. What people or agents agreed in chats is not part of it.
 - a **gap queue**: the agent's guesses about what is missing, doubtful or worth adding, one question per page. People re-check each gap and decide it, with a separate discussion and decision for every item.
 
-It also writes a JSON Canvas map and an **offline browser graph**. Obsidian is optional. The other skills work with ordinary repository files, with or without a vault.
+It also writes an **offline browser map** that groups pages by area. Obsidian is optional. The other skills work with ordinary repository files, with or without a vault.
 
 ## Pick a skill
 
@@ -118,7 +118,7 @@ python3 scripts/verify.py
 
 Open `examples/parcel-desk/knowledge/parcel-desk/graph.html` directly in your browser. It has two modes: **Spec** (areas and notes; an open note lists "Gaps about this") and **Gaps** (the queue filtered by state, kind and area, with who rechecked and decided and when, and a "recheck outdated" badge when the cited sources changed; each gap links to its spec notes and plan). Search for **cancellation**, open a gap, and follow its links. After `python3 skills/project-knowledge/scripts/knowledge.py build ...` (see the example's README), `AS-BUILT.md` and `GAPS.md` sit beside the graph. The HTML contains its data and makes no network requests on load.
 
-To use Obsidian, choose **Open folder as vault** and select `examples/parcel-desk/knowledge/parcel-desk`. Open `00-index`, then **Graph view: Open graph view** from the command palette, or open `Map.canvas` for a card layout. In graph settings, **Existing files only** hides unresolved source links outside the vault. Gap properties are searchable, for example `[decision:open]` or `[kind:verification-gap]`. See [Obsidian's graph guide](https://help.obsidian.md/plugins/graph).
+To use Obsidian, choose **Open folder as vault** and select `examples/parcel-desk/knowledge/parcel-desk`. Open `00-index`, then **Graph view: Open graph view** from the command palette (Cmd/Ctrl+G). In graph settings, **Existing files only** hides unresolved source links outside the vault. Pages cluster around their area because each page links to it; run pages carry no links, so they do not pull the clusters together. To see the spec alone, put `-path:gaps -path:plans -path:runs` in the graph's search filter, and add a color group per folder (`path:areas`, `path:notes`, `path:gaps`) under **Groups**. **Open local graph** shows only the neighbours of the page you are reading. Gap properties are searchable, for example `[decision:open]` or `[kind:verification-gap]`. See [Obsidian's graph guide](https://help.obsidian.md/plugins/graph).
 
 Source links point outside the vault into the repository. Some hosts do not open these paths; the note's `sources` property gives the repository-relative path for your editor. All example application data is invented.
 
@@ -174,7 +174,6 @@ knowledge/<project>/
   gaps/                 one question per page (gap)
   plans/                one plan per accepted gap (gap)
   runs/                 review history and evidence limits
-  Map.canvas            generated Obsidian card map
   graph.html            generated offline browser view
   .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint), graph.json (generated view data)
 ```
