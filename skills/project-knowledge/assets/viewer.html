@@ -1170,11 +1170,70 @@
         font: 12px var(--mono);
         color: var(--muted);
       }
+      /* The dialog fits the window: what you choose on the left, what gets copied on the right. */
+      #copydlg {
+        align-items: center;
+        padding: 20px;
+        overflow: hidden;
+      }
       .copy-card {
-        width: min(600px, 100%);
-        padding: 28px;
-        gap: 20px;
-        overflow: visible;
+        width: min(1040px, 100%);
+        max-height: calc(100vh - 40px);
+        padding: 22px 24px 24px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 16px 28px;
+        overflow: auto;
+      }
+      .copy-card > .stack {
+        grid-column: 1 / -1;
+        max-width: none;
+      }
+      .copy-card > .stack .h2 {
+        font-size: 18px;
+      }
+      .copy-controls,
+      .copy-side {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+      }
+      .copy-side {
+        align-self: start;
+        position: sticky;
+        top: 0;
+      }
+      .copy-card .pillrow {
+        gap: 6px;
+      }
+      .copy-card .pill {
+        height: 32px;
+        padding: 0 12px;
+        font-size: 13px;
+      }
+      .copy-card fieldset.checks {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0 20px;
+      }
+      .copy-card fieldset.checks legend {
+        width: 100%;
+        float: left;
+      }
+      .copy-card .check {
+        min-height: 32px;
+      }
+      .copy-card .btn {
+        height: 40px;
+      }
+      @media (max-width: 820px) {
+        .copy-card {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .copy-side {
+          position: static;
+        }
       }
       .copy-card fieldset {
         margin: 0;
@@ -1186,29 +1245,35 @@
       }
       .copy-card legend {
         padding: 0;
-        margin-bottom: 8px;
-        font-size: 14px;
+        margin-bottom: 6px;
+        font-size: 13px;
         font-weight: 600;
       }
       .field-label {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
       }
       .copy-card input[type="text"] {
         width: 100%;
-        height: 44px;
-        padding: 0 14px;
+        height: 38px;
+        padding: 0 12px;
         border: 1px solid var(--line-strong);
         border-radius: 14px;
         background: var(--paper);
         font-size: 15px;
       }
       .copy-card textarea {
+        padding: 9px 12px;
         font-size: 15px;
-        margin-bottom: 4px;
+        line-height: 1.45;
       }
+      .copy-card .night {
+        padding: 16px 18px;
+        border-radius: 16px;
+      }
+      /* Tall enough to read, short enough that the dialog itself never needs a second scrollbar. */
       .copy-card .night pre {
-        max-height: 260px;
+        max-height: max(160px, calc(100vh - 380px));
       }
       .check {
         display: flex;
@@ -1743,12 +1808,14 @@
         function openFile(ref) {
           fileState = { ref, view: isMarkdownFile(ref.key) ? "rendered" : "source" };
           $("#filepane").hidden = false;
+          lockPage(true);
           renderFile();
           const close = $("#file-close");
           if (typeof close.focus === "function") close.focus();
         }
         function closeFile() {
           fileState = null;
+          lockPage(false);
           $("#filepane").hidden = true;
           $("#file-body").replaceChildren();
         }
@@ -2867,7 +2934,12 @@
           if (state.text) lines.push("", "Text of the page:", "", bodyOf(n).trim());
           return lines.join("\n");
         }
+        // While a dialog is open the page behind it stays put, so there is one scrollbar at most.
+        function lockPage(on) {
+          if (document.body && document.body.style) document.body.style.overflow = on ? "hidden" : "";
+        }
         function openCopy(n) {
+          lockPage(true);
           copyState = {
             node: n,
             intent: intentsFor(n)[0],
@@ -2882,6 +2954,7 @@
           renderCopy();
         }
         function closeCopy() {
+          lockPage(false);
           copyState = null;
           $("#copydlg").hidden = true;
           $("#copy-card").replaceChildren();
@@ -2940,7 +3013,7 @@
               });
               words.append(tag, input);
             };
-          field("copy-note", intent.ask, copyState.note, 3, (v) => {
+          field("copy-note", intent.ask, copyState.note, 2, (v) => {
             copyState.note = v;
           });
           if (intent.name)
@@ -2949,7 +3022,7 @@
               store.set("me", v.trim());
             });
 
-          const include = el("fieldset");
+          const include = el("fieldset", null, "checks");
           include.append(el("legend", "Include"));
           const check = (text, key) => {
             const label = el("label", null, "check"),
@@ -2967,13 +3040,17 @@
           check("Full text of the page", "text");
 
           const actions = el("div", null, "actions"),
-            copy = button(null, "btn accent large", () => copyText(pageBrief(n, copyState), "Copied. Paste it into your agent."));
+            copy = button(null, "btn accent", () => copyText(pageBrief(n, copyState), "Copied. Paste it into your agent."));
           copy.id = "copy-do";
-          copy.append(icon(ICON.copy, 18), document.createTextNode("Copy"));
-          actions.append(copy, button("Close", "btn large", closeCopy), el("span", "Nothing is sent. It goes to your clipboard.", "muted small"));
+          copy.append(icon(ICON.copy), document.createTextNode("Copy"));
+          actions.append(copy, button("Close", "btn", closeCopy), el("span", "Nothing is sent. It goes to your clipboard.", "muted small"));
           const preview = el("div", null, "night");
           preview.append(el("div", "What gets copied", "eyebrow"), pre);
-          card.append(top, want, words, include, actions, preview);
+          const controls = el("div", null, "copy-controls"),
+            side = el("div", null, "copy-side");
+          controls.append(want, words, include);
+          side.append(preview, actions);
+          card.append(top, controls, side);
         }
         $("#copydlg").addEventListener("click", (e) => {
           if (e.target === $("#copydlg")) closeCopy();
@@ -3089,10 +3166,12 @@
           const input = $("#palette-input");
           input.value = "";
           $("#palette").hidden = false;
+          lockPage(true);
           renderPalette();
           if (typeof input.focus === "function") input.focus();
         }
         function closePalette() {
+          lockPage(false);
           $("#palette").hidden = true;
         }
         $("#palette-input").addEventListener("input", () => {
