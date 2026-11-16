@@ -1,4 +1,0 @@
-interface:
-  display_name: "Spec Audit"
-  short_description: "Compare requirements with repository evidence"
-  default_prompt: "Use $spec-audit to audit this specification against the repository. Report confirmed requirements separately from findings, and in a project-knowledge vault record each finding as its own open gap."

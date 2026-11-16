@@ -1,6 +1,6 @@
 # Investigation: why does a packed pickup return a conflict?
 
-A worked example of the `spec-investigation` report shape, based on the fictional source. No deployed behavior was observed. Used on a gap, the same findings would go into the gap's `Recheck` section; see [packed-cancellation](../knowledge/parcel-desk/gaps/packed-cancellation.md).
+A worked example of the investigation report shape in the `project-knowledge` skill, based on the fictional source. No deployed behavior was observed. Used on a gap, the same findings would go into the gap's `Recheck` section; see [packed-cancellation](../knowledge/parcel-desk/gaps/packed-cancellation.md).
 
 ## Answer
 

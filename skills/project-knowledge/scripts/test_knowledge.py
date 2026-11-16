@@ -95,15 +95,7 @@ class KnowledgeTests(Fixture):
         note = self.vault / 'notes/n.md'
         original = note.read_bytes()
         try:
-            for name in ('.knowledge/graph.json',):
-                with self.subTest(name=name):
-                    output = self.vault / name
-                    output.parent.mkdir(parents=True, exist_ok=True)
-                    output.symlink_to(note)
-                    with self.assertRaisesRegex(ValueError, 'output path contains symlink'):
-                        self.run_cli('build')
-                    self.assertEqual(original, note.read_bytes())
-                    output.unlink()
+            (self.vault / '.knowledge').mkdir()
             snapshot = self.vault / '.knowledge/sources.json'
             snapshot.symlink_to(note)
             self.assertEqual(self.run_cli('snapshot', '--all')[0], 1)
@@ -130,8 +122,8 @@ class KnowledgeTests(Fixture):
         status, _, err = self.run_cli('check', '--strict')
         self.assertEqual(status, 1)
         self.assertIn('changed source', err)
-        for args in (('build', '--strict'), ('snapshot', '--all', '--strict'),
-                     ('build', '--all'), ('build', '--notes', 'n')):
+        for args in (('serve', '--strict'), ('snapshot', '--all', '--strict'),
+                     ('serve', '--all'), ('serve', '--notes', 'n'), ('build',), ('clean',)):
             with self.subTest(args=args), self.assertRaises(SystemExit) as exc:
                 self.run_cli(*args)
             self.assertEqual(exc.exception.code, 2)
@@ -145,7 +137,7 @@ class KnowledgeTests(Fixture):
         for group in ('<<<<<<< ours\nleft\n=======\nright\n>>>>>>> theirs',
                       '```\n<<<<<<< ours\nleft\n||||||| base\nbase\n=======\nright\n>>>>>>> theirs\n```'):
             self.note('notes/n.md', 'n', sources=['source.txt'], body=group)
-            for args in (('check',), ('snapshot', '--all'), ('build',)):
+            for args in (('check',), ('snapshot', '--all')):
                 with self.subTest(group=group, args=args):
                     status, _, err = self.run_cli(*args)
                     self.assertEqual(status, 1)
@@ -174,7 +166,7 @@ class KnowledgeTests(Fixture):
         self.assertIn('<<<<< HEAD', content)
         self.assertIn('=====\n', content)
         self.assertIn('>>>>> other', content)
-        for args in (('check',), ('snapshot', '--all'), ('build',)):
+        for args in (('check',), ('snapshot', '--all')):
             with self.subTest(args=args):
                 status, _, err = self.run_cli(*args)
                 self.assertEqual(status, 1)
@@ -204,7 +196,7 @@ class KnowledgeTests(Fixture):
         content = (self.vault / 'notes/n.md').read_text()
         self.assertIn('<<<<<<< HEAD\n<\nright side', content)
         self.assertTrue(k.has_conflict_markers(content))
-        for args in (('check',), ('snapshot', '--all'), ('build',)):
+        for args in (('check',), ('snapshot', '--all')):
             status, _, err = self.run_cli(*args)
             self.assertEqual(status, 1, args)
             self.assertIn('unresolved Git conflict markers', err)
@@ -228,7 +220,6 @@ class KnowledgeTests(Fixture):
         (self.root / 'skill/assets/viewer.html').write_text('<script>const x=__KNOWLEDGE_DATA__</script>', encoding='utf-8')
         k.__file__ = str(fake_script)
         try:
-            self.assertEqual(self.run_cli('build')[0], 0)
             html = k.live_page(self.repo.resolve(), self.vault.resolve())
         finally:
             k.__file__ = original
@@ -236,8 +227,9 @@ class KnowledgeTests(Fixture):
         self.assertFalse((self.vault / 'graph.html').exists())
         self.assertIn('Привет', html)
         self.assertIn('\\u003c/script\\u003e', html)
-        graph = json.loads((self.vault / '.knowledge/graph.json').read_text())
-        self.assertTrue(next(n for n in graph['nodes'] if n['id'] == 'n')['stale'])
+        notes, edges, _, warnings, _ = k.load_vault(self.repo.resolve(), self.vault.resolve())
+        self.assertTrue(next(n for n in k.graph_of(notes, edges, warnings)['nodes'] if n['id'] == 'n')['stale'])
+        self.assertFalse((self.vault / '.knowledge/graph.json').exists(), 'nothing is generated into the vault')
 
 
 GAP_BODY = ''.join(f'## {name}\n\ntext\n\n' for name in k.GAP_SECTIONS)
@@ -265,18 +257,16 @@ class GapLayerTests(Fixture):
         self.assertIn(fragment, err)
 
     def build(self):
-        original = k.__file__
-        fake = self.root / 'skill/scripts/knowledge.py'
-        fake.parent.mkdir(parents=True, exist_ok=True)
-        (self.root / 'skill/assets').mkdir(exist_ok=True)
-        (self.root / 'skill/assets/viewer.html').write_text('<script>const x=__KNOWLEDGE_DATA__</script>', encoding='utf-8')
-        k.__file__ = str(fake)
-        try:
-            return self.run_cli('build')
-        finally:
-            k.__file__ = original
+        """What the viewer is given for this vault, saved as .knowledge/graph.json so a test can read it. (status, out, err)"""
+        repo, vault = self.repo.resolve(), self.vault.resolve()
+        notes, edges, errors, warnings, _ = k.load_vault(repo, vault)
+        if errors:
+            return 1, '', '\n'.join(errors)
+        target = vault / '.knowledge/graph.json'
+        target.parent.mkdir(exist_ok=True)
+        target.write_text(json.dumps(k.graph_of(notes, edges, warnings), ensure_ascii=False), encoding='utf-8')
+        return 0, '', ''
 
-    # status rules
     def test_status_rules_per_type(self):
         for kind, status, ok in [('note', 'current', True), ('note', 'planned', False), ('area', 'planned', False),
                                  ('note', 'unverified', False), ('note', 'conflict', False),
@@ -430,14 +420,12 @@ class GapLayerTests(Fixture):
             for recheck in k.RECHECKS:
                 self.assertEqual(k.gap_state({'recheck': recheck, 'decision': decision}), decision)
 
-    def test_build_writes_all_outputs_with_new_node_fields(self):
+    def test_viewer_data_carries_the_gap_fields(self):
         self.gap('open')
         self.gap('acc', recheck='confirmed', rechecked_by='Bob', rechecked_on='2026-11-15', decision='accepted',
                  decided_by='Ann', decided_on='2026-11-16', body=section_body())
         self.note('plans/p.md', 'p', 'plan', status='planned', gap='acc')
         self.assertEqual(self.build()[0], 0)
-        for name in ('AS-BUILT.md', 'GAPS.md', '.knowledge/graph.json'):
-            self.assertTrue((self.vault / name).is_file(), name)
         nodes = {n['id']: n for n in json.loads((self.vault / '.knowledge/graph.json').read_text())['nodes']}
         fields = {'kind', 'recheck', 'recheckedBy', 'recheckedOn', 'decision', 'decidedBy', 'decidedOn', 'state', 'gap', 'layer'}
         self.assertTrue(all(fields <= n.keys() for n in nodes.values()))
@@ -446,20 +434,6 @@ class GapLayerTests(Fixture):
         self.assertEqual((nodes['p']['gap'], nodes['p']['layer'], nodes['p']['status']), ('acc', 'gap', 'planned'))
         self.assertEqual((nodes['n']['layer'], nodes['n']['state'], nodes['n']['kind']), ('spec', '', ''))
         self.assertEqual(nodes['index']['layer'], 'nav')
-        self.assertFalse((self.vault / 'graph.html').exists())
-        self.assertFalse((self.vault / 'Map.canvas').exists())
-
-    def test_build_moves_an_old_generated_viewer_aside_and_leaves_other_html(self):
-        page = self.vault / 'graph.html'
-        page.write_text('<html><script id="knowledge-data" type="application/json">{}</script></html>', encoding='utf-8')
-        status, out, _ = self.build()
-        self.assertEqual(status, 0)
-        self.assertFalse(page.exists())
-        self.assertTrue((self.vault / '.knowledge/graph.html.removed').is_file())
-        self.assertIn('graph.html is no longer generated', out)
-        page.write_text('<html>my own page</html>', encoding='utf-8')
-        self.assertEqual(self.build()[0], 0)
-        self.assertEqual(page.read_text(encoding='utf-8'), '<html>my own page</html>')
 
     def test_cited_files_are_repository_text_files_only(self):
         (self.repo / 'docs').mkdir()
@@ -629,31 +603,6 @@ class GapLayerTests(Fixture):
             self.assertEqual(k.main(['check', '--repo', str(self.repo)]), 0)
         self.assertIn('check: 1 notes', out.getvalue())
 
-    def test_build_removes_only_a_canvas_an_earlier_build_wrote(self):
-        canvas = self.vault / 'Map.canvas'
-        old = {'nodes': [{'id': 'a', 'type': 'file', 'file': 'areas/a.md', 'x': 0, 'y': 0, 'width': 300, 'height': 200},
-                         {'id': 'n', 'type': 'file', 'file': 'notes/n.md', 'x': 340, 'y': 0, 'width': 300, 'height': 200}],
-               'edges': [{'id': 'e0', 'fromNode': 'a', 'toNode': 'n'}]}
-        canvas.write_text(json.dumps(old), encoding='utf-8')
-        status, out, _ = self.build()
-        self.assertEqual(status, 0)
-        self.assertFalse(canvas.exists())
-        aside = self.vault / '.knowledge/Map.canvas.removed'
-        self.assertEqual(json.loads(aside.read_text()), old)  # moved, not deleted
-        self.assertIn('moved it to .knowledge/Map.canvas.removed', out)
-        # A second stale canvas never overwrites the first one that was set aside.
-        canvas.write_text(json.dumps({**old, 'edges': []}), encoding='utf-8')
-        self.assertEqual(self.build()[0], 0)
-        self.assertEqual(json.loads(aside.read_text()), old)
-        self.assertEqual(json.loads((self.vault / '.knowledge/Map.canvas.removed.2').read_text())['edges'], [])
-        for kept in ({**old, 'nodes': old['nodes'] + [{'id': 't', 'type': 'text', 'text': 'mine', 'x': 0, 'y': 0, 'width': 300, 'height': 200}]},
-                     {**old, 'nodes': [{**old['nodes'][0], 'width': 420}]}, 'not json'):
-            with self.subTest(kept=kept):
-                canvas.write_text(kept if isinstance(kept, str) else json.dumps(kept), encoding='utf-8')
-                before = canvas.read_bytes()
-                self.assertEqual(self.build()[0], 0)
-                self.assertEqual(canvas.read_bytes(), before)
-
     def test_run_pages_cannot_link_to_vault_pages(self):
         for body in ('[[notes/n]]', 'see [[n|the note]] and [[areas/a]]', '![[notes/n]]', '[n](../notes/n.md)', '[n]: ../00-index.md'):
             with self.subTest(body=body):
@@ -667,82 +616,6 @@ class GapLayerTests(Fixture):
         self.assertEqual(self.build()[0], 0)
         graph = json.loads((self.vault / '.knowledge/graph.json').read_text())
         self.assertEqual([e for e in graph['edges'] if e['source'] == 'r'], [])
-
-    def test_gaps_md_groups_by_state_in_order(self):
-        self.gap('b-open')
-        self.gap('a-conf', recheck='confirmed', rechecked_by='Bob', rechecked_on='2026-11-15')
-        self.gap('z-done', decision='done', body=section_body(Decision='in code'))
-        self.gap('d-dup', decision='duplicate', duplicate_of='b-open')
-        self.gap('acc', decision='accepted', decided_by='Ann', decided_on='2026-11-16', priority='high',
-                 body=section_body(Decision='yes'))
-        self.note('plans/p.md', 'p', 'plan', status='planned', gap='acc')
-        self.build()
-        text = (self.vault / 'GAPS.md').read_text()
-        self.assertTrue(text.startswith('> Generated by'))
-        self.assertFalse(text.startswith('---'))
-        heads = [line for line in text.splitlines() if line.startswith('## ')]
-        self.assertEqual(heads, ['## needs-recheck', '## needs-decision', '## accepted', '## done', '## duplicate'])
-        self.assertIn('| [[gaps/acc\\|Тест acc]] | product-gap | Тест a | not-checked | accepted (Ann, 2026-11-16) | high | [[plans/p\\|Тест p]] |', text)
-        self.assertIn('confirmed (still holds) (Bob, 2026-11-15)', text)
-        self.assertIn('duplicate of [[gaps/b-open\\|Тест b-open]]', text)
-        again = text
-        self.build()
-        self.assertEqual(again, (self.vault / 'GAPS.md').read_text())
-
-    def test_as_built_md_content(self):
-        self.note('areas/b.md', 'b', 'area', areas=[], summary='Second area.')
-        self.note('notes/n.md', 'n', sources=['source.txt'], body='# Heading\n\nIntro [[areas/a|x]]\n\n## Rules\n\n```md\n# not a heading\n```\n\n### Deep\n#### D4\n#tag\n')
-        self.note('notes/multi.md', 'multi', areas=['b', 'a'], sources=['source.txt'], body='M')
-        self.note('notes/old.md', 'old', sources=['source.txt'], status='superseded')
-        self.gap('g', body=GAP_BODY)
-        self.build()
-        text = (self.vault / 'AS-BUILT.md').read_text()
-        self.assertTrue(text.startswith('> Generated by'))
-        self.assertIn('# Тест index: as-built specification', text)
-        self.assertLess(text.index('## Тест a'), text.index('## Тест b'))
-        self.assertIn('Second area.', text)
-        self.assertIn('### Тест n\n\n**id:** `n` · **status:** current · **updated:** 2026-11-14 · **sources:** `source.txt`', text)
-        self.assertNotIn('\n# Heading', text)
-        self.assertIn('\n#### Rules\n', text)
-        self.assertIn('\n##### Deep\n', text)
-        self.assertIn('\n###### D4\n', text)
-        self.assertIn('\n#tag', text)
-        self.assertIn('```md\n# not a heading\n```', text)
-        self.assertIn('Intro [[areas/a|x]]', text)
-        self.assertIn('- See also [[notes/multi|Тест multi]] (described under Тест b)', text)
-        self.assertNotIn('Тест old', text)
-        self.assertNotIn('Тест g', text)
-        self.assertEqual(text.count('### Тест multi'), 1)
-        self.build()
-        self.assertEqual(text, (self.vault / 'AS-BUILT.md').read_text())
-
-    def test_as_built_rebases_relative_markdown_links(self):
-        self.note('notes/n.md', 'n', sources=['source.txt'], body='[s](../../src/x.py#L3) [w](https://e.x/a) [a](#top) ![i](<../img a.png>) [root](/abs)\n\n[ref]: ../r.md\n\n```\n[c](../keep.md)\n```\n')
-        self.build()
-        text = (self.vault / 'AS-BUILT.md').read_text()
-        self.assertIn('[s](../src/x.py#L3) [w](https://e.x/a) [a](#top) ![i](<img a.png>) [root](/abs)', text)
-        self.assertIn('[ref]: r.md', text)
-        self.assertIn('[c](../keep.md)', text)
-
-    def test_generated_files_are_reserved_names(self):
-        (self.vault / 'AS-BUILT.md').write_text(k.GENERATED + '\n\n# No frontmatter\n[[nowhere]]')
-        (self.vault / 'GAPS.md').write_text(k.GENERATED + '\nno frontmatter either')
-        (self.vault / 'sub').mkdir()
-        (self.vault / 'sub/GAPS.md').write_text('---\nbroken')
-        status, err = self.errors()
-        self.assertEqual(status, 1)
-        self.assertNotIn('AS-BUILT.md', err)
-        self.assertNotIn('error: GAPS.md', err)
-        self.assertIn('sub/GAPS.md', err)  # only the root names are reserved
-        (self.vault / 'sub/GAPS.md').unlink()
-        self.assertEqual(self.errors()[0], 0)
-        self.assertIn('3 notes', self.run_cli('check')[1])
-
-    def test_symlinked_generated_file_is_refused(self):
-        (self.vault / 'GAPS.md').symlink_to(self.vault / 'notes/n.md')
-        original = (self.vault / 'notes/n.md').read_bytes()
-        self.assertEqual(self.build()[0], 1)  # a link to a hand-written page is not a generated file
-        self.assertEqual(original, (self.vault / 'notes/n.md').read_bytes())
 
     # defects
     def test_fence_detection_follows_commonmark(self):
@@ -870,15 +743,12 @@ class GapLayerTests(Fixture):
         nodes = {n['id']: n for n in json.loads((self.vault / '.knowledge/graph.json').read_text())['nodes']}
         self.assertEqual((nodes['c']['priority'], nodes['c']['confidence'], nodes['c']['duplicateOf']), ('high', 'low', ''))
         self.assertEqual((nodes['dup']['duplicateOf'], nodes['n']['priority'], nodes['n']['duplicateOf']), ('other', '', ''))
-        self.assertNotIn('sources changed since', (self.vault / 'GAPS.md').read_text())
+        self.assertFalse(nodes['c']['recheckOutdated'])
         (self.repo / 'source.txt').write_text('different')
         self.build()
-        first = (self.vault / 'GAPS.md').read_text()
-        row = lambda ident: next(l for l in first.splitlines() if l.startswith(f'| [[gaps/{ident}\\|'))
-        self.assertIn('confirmed (still holds) (Bob, 2026-11-15) · sources changed since', row('c'))
-        self.assertNotIn('changed since', row('nc'))  # never rechecked: nothing to flag
-        self.build()
-        self.assertEqual(first, (self.vault / 'GAPS.md').read_text())
+        nodes = {n['id']: n for n in json.loads((self.vault / '.knowledge/graph.json').read_text())['nodes']}
+        self.assertTrue(nodes['c']['recheckOutdated'])   # rechecked, and its source changed since
+        self.assertFalse(nodes['nc']['recheckOutdated'])  # never rechecked: nothing to flag
         # stored fields are never rewritten
         self.assertIn('recheck: "confirmed"', (self.vault / 'gaps/c.md').read_text())
 
@@ -939,46 +809,6 @@ class GapLayerTests(Fixture):
         self.gap(rechecked_by='agent, 2026-11-15)\r\r## accepted', recheck='confirmed', rechecked_on='2026-11-15', body=section_body())
         self.assertInvalid('rechecked_by must not contain control characters')
 
-    def test_generated_markdown_neutralises_property_values(self):
-        title = 'Evil <!-- | \\ `x` --> <b>'
-        self.gap('g', recheck='confirmed', rechecked_by='Ann <!--', rechecked_on='2026-11-15', priority='-->  |  hi',
-                 decision='accepted', decided_by='Bo\\', decided_on='2026-11-15', body=section_body())
-        text = (self.vault / 'gaps/g.md').read_text().replace('title: "Тест g"', 'title: ' + json.dumps(title))
-        (self.vault / 'gaps/g.md').write_text(text)
-        self.note('areas/a.md', 'a', 'area', areas=[], summary='## forged heading')
-        self.note('notes/n.md', 'n', sources=['source.txt'], title='## <script>')
-        self.assertEqual(self.build()[0], 0)
-        gaps = (self.vault / 'GAPS.md').read_text()
-        row = next(l for l in gaps.splitlines() if l.startswith('| [[gaps/g'))
-        self.assertNotIn('<', row)
-        self.assertIn('Ann &lt;!--', row)
-        self.assertIn('Bo\\\\', row)
-        self.assertIn('--> \\|', row)  # the pipe inside priority stays inside its cell
-        cells = [c for c in re.split(r'(?<!\\)\|', row) if c.strip()]
-        self.assertEqual(len(cells), 7, row)
-        self.assertEqual(sum(1 for l in gaps.splitlines() if l.startswith('## ')), 1)
-        built = (self.vault / 'AS-BUILT.md').read_text()
-        self.assertNotIn('<script>', built)
-        self.assertIn('### ## &lt;script>', built)
-        self.assertNotIn('\n## forged heading', built)
-        self.assertIn('\\## forged heading', built)
-
-    def test_reserved_generated_names_are_case_insensitive(self):
-        (self.vault / 'gaps.md').write_text('---\nid: "x"\n---\nprecious')
-        status, err = self.errors()
-        self.assertEqual(status, 1)
-        self.assertIn('gaps.md: this name is reserved for a generated file', err)
-        before = (self.vault / 'gaps.md').read_bytes()
-        self.assertEqual(self.build()[0], 1)
-        self.assertEqual(before, (self.vault / 'gaps.md').read_bytes())
-        (self.vault / 'gaps.md').unlink()
-        (self.vault / 'As-Built.md').write_text('x')
-        self.assertIn('As-Built.md: this name is reserved', self.errors()[1])
-        (self.vault / 'As-Built.md').unlink()
-        (self.vault / 'sub').mkdir()
-        (self.vault / 'sub/gaps.md').write_text('---\nid: "gs"\ntitle: "t"\ntype: "run"\nstatus: "current"\nareas: []\nsources: []\nupdated: "2026-11-15"\n---\n')
-        self.assertEqual(self.errors()[0], 0, self.errors()[1])
-
     def test_outdated_recheck(self):
         for props, fragment in (({'recheck': 'outdated'}, 'rechecked_by is required'),
                                 ({'recheck': 'outdated', 'rechecked_by': 'agent', 'rechecked_on': '2026-11-15'}, None)):
@@ -996,10 +826,6 @@ class GapLayerTests(Fixture):
         self.build()
         node = next(n for n in json.loads((self.vault / '.knowledge/graph.json').read_text())['nodes'] if n['id'] == 'g')
         self.assertEqual((node['state'], node['recheckOutdated']), ('needs-recheck', True))
-        gaps = (self.vault / 'GAPS.md').read_text()
-        self.assertIn('## needs-recheck', gaps)
-        self.assertIn('outdated (Bob, 2026-11-15) |', gaps)
-        self.assertNotIn('sources changed since', gaps)
 
     def test_recheck_outdated_flag_ignores_line_endings_and_non_gaps(self):
         source = self.repo / 'source.txt'
@@ -1012,27 +838,10 @@ class GapLayerTests(Fixture):
         source.write_bytes(b'a\r\nb\r\n')
         self.build()
         self.assertFalse(flags()['g'])
-        self.assertNotIn('sources changed since', (self.vault / 'GAPS.md').read_text())
         source.write_bytes(b'different')
         self.build()
         self.assertTrue(flags()['g'])
         self.assertFalse(flags()['n'])
-        self.assertIn('sources changed since', (self.vault / 'GAPS.md').read_text())
-
-    def test_setext_headings_are_demoted_in_as_built(self):
-        body = 'Title\n=====\n\nIntro line\nsecond line\n-----\n\nPara\n\n---\n\n- item\n---\n\n```\nCode\n=====\n```\n\n    indented\n    ====\n'
-        self.note('notes/n.md', 'n', sources=['source.txt'], body=body)
-        self.build()
-        text = (self.vault / 'AS-BUILT.md').read_text()
-        self.assertNotIn('\nTitle\n', text)  # leading H1 dropped like an ATX title
-        self.assertIn('\n#### Intro line second line\n', text)
-        self.assertIn('Para\n\n---\n', text)  # thematic break after a blank line stays
-        self.assertIn('- item\n---', text)
-        self.assertIn('```\nCode\n=====\n```', text)
-        self.assertNotIn('=====\n\nIntro', text)
-        self.note('notes/n.md', 'n', sources=['source.txt'], body='Intro\n\nSub title\n=======\ntext')
-        self.build()
-        self.assertIn('\n#### Sub title\n', (self.vault / 'AS-BUILT.md').read_text())
 
     def test_priority_and_confidence_only_on_gaps_and_plans(self):
         for key in ('priority', 'confidence'):
@@ -1065,42 +874,7 @@ class GapLayerTests(Fixture):
         self.assertEqual(self.run_cli('snapshot', '--all')[0], 1)
         self.assertFalse((self.vault / '.knowledge/sources.json').exists())
 
-    def test_rebased_link_that_would_become_a_url_scheme_is_left_alone(self):
-        self.note('notes/n.md', 'n', sources=['source.txt'], body='[x](../javascript:alert(1)) [y](../data:text/html,hi) [z](../ok.txt)')
-        self.build()
-        text = (self.vault / 'AS-BUILT.md').read_text()
-        self.assertIn('[x](../javascript:alert(1))', text)
-        self.assertIn('[y](../data:text/html,hi)', text)
-        self.assertIn('[z](ok.txt)', text)
-
     # review round 2
-    def test_handwritten_page_named_like_a_generated_file_is_never_overwritten(self):
-        for name in ('GAPS.md', 'AS-BUILT.md'):
-            with self.subTest(name=name):
-                page = self.vault / name
-                page.write_text('---\nid: "mine"\ntitle: "Mine"\ntype: "index"\nstatus: "current"\nareas: []\nsources: []\nupdated: "2026-11-15"\n---\nprecious')
-                before = page.read_bytes()
-                status, err = self.errors()
-                self.assertEqual(status, 1, err)
-                self.assertIn(f'{name}: this name is reserved for a generated file', err)
-                self.assertEqual(self.build()[0], 1)
-                self.assertEqual(before, page.read_bytes())
-                page.unlink()
-        # a real generated file (banner on the first line) is skipped, and a rebuild replaces it
-        self.assertEqual(self.build()[0], 0)
-        self.assertEqual(self.errors()[0], 0, self.errors()[1])
-        self.assertEqual(self.build()[0], 0)
-
-    def test_setext_underline_applies_only_to_plain_paragraph_text(self):
-        keep = ['| a | b |\n| - | - |\n| 1 | 2 |\n---\nafter', '| a |\n=====\nrest', 'a | b\n---\nx', '> quote\n---\nx',
-                '[r]: http://x\n---\nx', '<div>\n---\nx', '- item\n===\nx', '* * *\n---\nx', '1. item\n---\nx']
-        for body in keep:
-            with self.subTest(body=body):
-                self.assertEqual(k.demote(body), body)
-        self.assertEqual(k.demote('---\nfoo: bar\n---\ntext'), '---\n#### foo: bar\ntext')
-        self.assertEqual(k.demote('Title\n=====\nrest'), 'rest')
-        self.assertEqual(k.demote('a\nb\n---\nc'), '#### a b\nc')
-
     def test_embed_of_a_dotted_note_name_resolves_as_a_note(self):
         self.note('notes/v1.2-rule.md', 'dotted', sources=['source.txt'])
         self.note('notes/n.md', 'n', sources=['source.txt'], body='![[notes/v1.2-rule]] ![[v1.2-rule]] [[notes/v1.2-rule]]')
@@ -1111,32 +885,6 @@ class GapLayerTests(Fixture):
         self.note('notes/n.md', 'n', sources=['source.txt'], body='![[pic.v2.png]]')
         self.assertEqual(self.errors()[0], 0, self.errors()[1])
 
-    def test_unclosed_fence_or_comment_cannot_swallow_the_rest_of_as_built(self):
-        self.note('notes/a-first.md', 'first', sources=['source.txt'], body='text\n```\ncode never closed')
-        self.note('notes/b-second.md', 'second', sources=['source.txt'], body='before <!-- opened but not closed\nmore')
-        self.note('notes/c-third.md', 'third', sources=['source.txt'], body='ok <!-- closed --> and `<!--` in code\n\n```\n<!-- in fence\n```\n')
-        self.build()
-        text = (self.vault / 'AS-BUILT.md').read_text()
-        first = text[text.index('### Тест first'):text.index('### Тест n\n')]
-        self.assertTrue(first.rstrip().endswith('```'), first)
-        self.assertEqual(first.count('```'), 2, repr(first))
-        second = text[text.index('### Тест second'):text.index('### Тест third')]
-        self.assertIn('&lt;!-- opened but not closed', second)
-        self.assertNotIn('<!--', second)
-        third = text[text.index('### Тест third'):]
-        self.assertIn('ok <!-- closed --> and `<!--` in code', third)
-        self.assertIn('<!-- in fence', third)
-        self.assertNotIn('&lt;', third)
-        # tilde fences and longer fences are closed with a matching marker
-        self.assertEqual(k.demote('~~~~ js\nx'), '~~~~ js\nx\n~~~~')
-        self.assertEqual(k.demote('<!-- a --> <!-- b'), '<!-- a --> &lt;!-- b')
-
-    def test_rebased_target_that_reads_as_unc_or_protocol_relative_is_left_alone(self):
-        for target in ('../\\evil.example/x', '..//\\evil.example/x', '../\\/evil.example/x', '<../\\evil.example/x>'):
-            with self.subTest(target=target):
-                self.assertEqual(k.rebase_target(target, 'notes'), target)
-        self.assertEqual(k.rebase_target('../ok.txt', 'notes'), 'ok.txt')
-
     def test_wikilink_pattern_is_linear_on_unbalanced_brackets(self):
         import time
         started = time.perf_counter()
@@ -1145,19 +893,6 @@ class GapLayerTests(Fixture):
         self.assertLess(time.perf_counter() - started, 1.0)
 
     # first real sync: recheck wording, cascading errors, dirty sources, partial snapshots
-    def test_gaps_md_prints_recheck_meaning_but_stores_the_value(self):
-        self.gap('c', recheck='confirmed', rechecked_by='agent', rechecked_on='2026-11-15')
-        self.gap('r', recheck='not-reproduced', rechecked_by='Ann', rechecked_on='2026-11-16', decision='done',
-                 body=section_body(Decision='in code'))
-        self.gap('o', recheck='outdated', rechecked_by='Bob', rechecked_on='2026-11-14')
-        self.build()
-        text = (self.vault / 'GAPS.md').read_text()
-        self.assertIn('| confirmed (still holds) (agent, 2026-11-15) |', text)
-        self.assertIn('| not reproduced (no longer holds) (Ann, 2026-11-16) |', text)
-        self.assertIn('| outdated (Bob, 2026-11-14) |', text)
-        nodes = {n['id']: n for n in json.loads((self.vault / '.knowledge/graph.json').read_text())['nodes']}
-        self.assertEqual((nodes['c']['recheck'], nodes['r']['recheck']), ('confirmed', 'not-reproduced'))
-
     def test_failed_page_is_a_link_target_and_causes_no_follow_on_errors(self):
         # One broken page of each kind: a note, an area (by id), a gap (by id).
         self.note('notes/broken.md', 'broken', status=None)
@@ -1199,7 +934,7 @@ class GapLayerTests(Fixture):
         self.assertEqual(before, (self.vault / '.knowledge/sources.json').read_bytes())
         # Whole-vault commands still demand a fully valid vault.
         self.note('notes/m.md', 'm', sources=['source.txt'])
-        for args in (('snapshot', '--all'), ('build',)):
+        for args in (('snapshot', '--all'), ('check',)):
             self.assertEqual(self.run_cli(*args)[0], 1, args)
         # A damaged baseline is vault-wide, so it blocks even a partial snapshot.
         (self.vault / 'notes/broken.md').unlink()
@@ -1242,32 +977,6 @@ class GapLayerTests(Fixture):
         self.assertEqual(self.run_cli('check', '--strict', '--ignore-dirty')[0], 1)  # n is still committed-changed
         # An untracked file has no HEAD blob to equal the accepted bytes, so it is never forgiven.
         self.assertIn('changed source new.txt\n', self.run_cli('check', '--ignore-dirty')[2])
-
-    def test_stale_canvas_accepts_obsidian_layout_but_not_hand_made_content(self):
-        card = {'id': 'a', 'type': 'file', 'file': 'a.md', 'x': 0, 'y': 0, 'width': 300, 'height': 200}
-        edge = {'id': 'e0', 'fromNode': 'a', 'toNode': 'b'}
-        canvas = self.root / 'Map.canvas'
-
-        def verdict(**changes):
-            data = {'nodes': [card, {**card, 'id': 'b', 'file': 'b.md', 'x': 340}], 'edges': [edge]} | changes
-            canvas.write_text(json.dumps(data, indent='\t'), encoding='utf-8')
-            return k.stale_canvas(canvas)
-        self.assertTrue(verdict())
-        self.assertTrue(verdict(edges=[{**edge, 'fromSide': 'bottom', 'toSide': 'top'}]))  # as saved by Obsidian
-        self.assertFalse(verdict(nodes=[{**card, 'x': 500, 'y': 90}]))  # a moved card is hand-made
-        self.assertFalse(verdict(nodes=[{**card, 'y': 40}]))
-        self.assertFalse(verdict(nodes=[card, card]))  # duplicate ids
-        self.assertFalse(verdict(edges=[{**edge, 'toNode': 'ghost'}]))
-        self.assertFalse(verdict(nodes=[{**card, 'file': 'other.md'}]))  # stem differs from the id
-        self.assertFalse(verdict(nodes=[{**card, 'file': 'a.txt'}]))
-        self.assertTrue(verdict(nodes=[{**card, 'x': 1020, 'y': 240}, {**card, 'id': 'b', 'file': 'x/b.md', 'x': 340, 'y': 0}]))
-        self.assertFalse(verdict(edges=[{**edge, 'label': 'depends on'}]))
-        self.assertFalse(verdict(edges=[{**edge, 'color': '1'}]))
-        self.assertFalse(verdict(edges=[{**edge, 'fromSide': 'nowhere'}]))
-        self.assertFalse(verdict(edges=[{**edge, 'id': 'xyz'}]))
-        self.assertFalse(verdict(nodes=[card, {'id': 't', 'type': 'text', 'text': 'mine', 'x': 0, 'y': 0, 'width': 300, 'height': 200}]))
-        self.assertFalse(verdict(nodes=[{**card, 'color': '2'}]))
-        self.assertFalse(verdict(nodes=[{**card, 'width': 400}]))
 
     def test_markdown_links_to_failed_pages_keep_their_type(self):
         self.note('gaps/g/broken.md', 'gb', 'gap', status=None)  # fails, but declares itself a gap
@@ -1363,7 +1072,7 @@ class GapLayerTests(Fixture):
         status, _, err = self.run_cli('check', '--strict', '--ignore-dirty')
         self.assertEqual(status, 0, err)
         self.assertIn('(uncommitted change, not counted)', err)
-        for args in (('build', '--ignore-dirty'), ('snapshot', '--all', '--ignore-dirty')):
+        for args in (('serve', '--ignore-dirty'), ('snapshot', '--all', '--ignore-dirty')):
             with self.subTest(args=args), self.assertRaises(SystemExit) as exc, redirect_stderr(StringIO()):
                 self.run_cli(*args)
             self.assertEqual(exc.exception.code, 2)

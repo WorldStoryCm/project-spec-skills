@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 KNOWLEDGE = ROOT / 'skills/project-knowledge'
 EXAMPLE = ROOT / 'examples/parcel-desk'
 VAULT = EXAMPLE / 'knowledge/parcel-desk'
-SKILLS = ('project-knowledge', 'spec-audit', 'spec-change', 'spec-investigation', 'spec-plan')
+SKILLS = ('project-knowledge', 'spec-change')
 ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
 
 
@@ -89,39 +89,15 @@ def links():
     return errors
 
 
-def normalized_graph(path):
-    graph = json.loads(path.read_text(encoding='utf-8'))
-    graph.pop('generatedAt', None)
-    return graph
-
-
 def check_generated():
-    with tempfile.TemporaryDirectory(prefix='verify-knowledge-') as directory:
-        copy = Path(directory) / 'vault'
-        shutil.copytree(VAULT, copy)
-        command = [sys.executable, str(KNOWLEDGE / 'scripts/knowledge.py'), 'build',
-                   '--repo', str(EXAMPLE), '--vault', str(copy)]
-        result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, check=False, env=ENV)
-        if result.returncode:
-            return [f'temporary build failed (exit {result.returncode}): {result.stderr.strip()}']
-        errors = []
-        expected_graph = normalized_graph(copy / '.knowledge/graph.json')
-        if normalized_graph(VAULT / '.knowledge/graph.json') != expected_graph:
-            errors.append('graph.json differs from current notes and links')
-        for name in ('graph.html', 'Map.canvas'):
-            if (VAULT / name).exists():
-                errors.append(f'{name} is no longer generated; delete it from the example vault')
-        for name in ('AS-BUILT.md', 'GAPS.md'):
-            shipped = VAULT / name
-            if not shipped.is_file():
-                errors.append(f'{name} is missing from the example vault; run build')
-            elif shipped.read_bytes() != (copy / name).read_bytes():
-                errors.append(f'{name} differs from the generated copy; run build')
-        return errors
+    """The example vault holds pages and reviewed state only; nothing in it is generated any more."""
+    return [f'{name} is no longer generated; delete it from the example vault'
+            for name in ('AS-BUILT.md', 'GAPS.md', 'graph.html', 'Map.canvas', '.knowledge/graph.json', '01-coverage.md')
+            if (VAULT / name).exists()]
 
 
 GAP_RULES = KNOWLEDGE / 'references/gaps.md'
-GAP_RULE_COPIES = tuple(ROOT / 'skills' / name / 'references/gaps.md' for name in ('spec-audit', 'spec-change', 'spec-investigation', 'spec-plan'))
+GAP_RULE_COPIES = tuple(ROOT / 'skills' / name / 'references/gaps.md' for name in ('spec-change',))
 
 
 def check_gap_rules():
@@ -172,7 +148,7 @@ def main():
     results.append(run('knowledge helper tests', [sys.executable, '-m', 'unittest', 'discover', '-s', str(KNOWLEDGE / 'scripts'), '-p', 'test_*.py']))
     results.append(run('fictional fixture tests', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'], cwd=EXAMPLE))
     results.append(run('strict vault check', [sys.executable, str(KNOWLEDGE / 'scripts/knowledge.py'), 'check', '--strict', '--repo', str(EXAMPLE), '--vault', str(VAULT)]))
-    results.append(stage('generated graph artifacts', check_generated))
+    results.append(stage('no generated files in the example', check_generated))
     results.append(stage('gap rules copies', check_gap_rules))
     try:
         results.append(node_check())

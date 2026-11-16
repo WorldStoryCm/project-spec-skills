@@ -235,10 +235,10 @@
         top: 0;
         z-index: 5;
         display: flex;
-        flex-wrap: wrap;
         align-items: center;
         gap: 12px;
-        padding: 12px 32px;
+        height: 68px;
+        padding: 0 32px;
         border-bottom: 1px solid var(--line);
         background: var(--paper);
       }
@@ -255,15 +255,25 @@
         border-color: var(--line);
         color: var(--subtle);
       }
+      /* One line whatever the page is called, so the bar keeps its height from page to page. */
       .crumbs {
-        flex: 1 1 280px;
+        flex: 1 1 0;
         min-width: 0;
         display: flex;
-        flex-wrap: wrap;
         align-items: center;
-        gap: 4px 8px;
+        gap: 8px;
         font-size: 14px;
         color: var(--muted);
+        white-space: nowrap;
+      }
+      .crumbs > * {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .crumbs > span:not(.here) {
+        flex: none;
       }
       .crumbs button {
         border: 0;
@@ -271,6 +281,7 @@
         background: none;
         color: var(--muted);
         text-align: left;
+        max-width: 28ch;
       }
       .crumbs button:hover {
         color: var(--accent-ink);
@@ -281,6 +292,7 @@
         font-weight: 600;
       }
       .toast {
+        flex: none;
         font-size: 13px;
         color: var(--success);
         font-weight: 600;
@@ -1337,6 +1349,9 @@
           padding-left: 16px;
           padding-right: 16px;
         }
+        .topbar .btn {
+          padding: 0 12px;
+        }
         .title {
           font-size: 32px;
         }
@@ -2223,12 +2238,12 @@
             want = request.want.trim() || "[describe the change you want]";
           if (request.how === "plan")
             return (
-              "Use the spec-plan skill to plan this change. Plan only; do not implement it.\n\n" +
+              "Use the spec-change skill to plan this change. Plan only; do not implement it.\n\n" +
               "I want: " + want + "\n\nThis is about:\n" + about
             );
           if (request.how === "recheck")
             return (
-              "Use the spec-investigation skill to re-check these pages against the code. " +
+              "Use the project-knowledge skill to re-check these pages against the code. " +
               "Write each result into the page's Recheck section and leave the decisions to me.\n\n" +
               "Pages:\n" + about +
               (request.want.trim() ? "\n\nWhat I am wondering about: " + request.want.trim() : "")
@@ -2316,7 +2331,9 @@
           parts.forEach(([label, to], i) => {
             if (i) crumbs.append(el("span", "/"));
             const last = i === parts.length - 1;
-            crumbs.append(last ? el("span", label, "here") : button(label, null, () => go(to)));
+            const crumb = last ? el("span", label, "here") : button(label, null, () => go(to));
+            crumb.title = label; // a long name is cut to keep the bar one line
+            crumbs.append(crumb);
           });
           $("#copy-ai").hidden = !n;
           $("#copy-link").hidden = typeof location === "undefined";
@@ -2918,13 +2935,13 @@
               : [["question", "Ask a question"]];
         const INTENT_TEXT = {
           recheck:
-            "Use the spec-investigation skill to re-check this gap. Write the result into the gap's Recheck section and leave the decision to me.",
+            "Use the project-knowledge skill to re-check this gap against the code. Write the result into the gap's Recheck section and leave the decision to me.",
           options:
             "Lay out the options for this gap, with what each would mean, as an entry in its Discussion section. Do not decide it.",
-          plan: "Use the spec-plan skill to plan this gap. Plan it only if its decision is accepted; otherwise tell me what is missing.",
+          plan: "Use the spec-change skill to plan this gap. Plan only, do not build it, and only if its decision is accepted; otherwise tell me what is missing.",
           change:
             "Use the spec-change skill. I want to change the behavior this page describes. Ask your questions first, then edit the spec on a branch, build it and check every changed statement against the code.\n\nWhat I want: [describe the change]",
-          question: "Use the spec-investigation skill to answer a question about this page.\n\nQuestion: [your question]",
+          question: "Use the project-knowledge skill to investigate a question about this page.\n\nQuestion: [your question]",
           reread:
             "Use the project-knowledge skill to re-read this page against its sources and update it where the code now differs.",
         };

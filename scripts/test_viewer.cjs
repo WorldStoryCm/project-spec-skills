@@ -475,7 +475,7 @@ const queue = {
   assert.equal(v.q('#copydlg').hidden, false);
   assert.deepEqual(findAll(v.q('#copy-card'), e => has(e, 'pill')).map(text), ['Recheck it', 'Lay out options', 'Plan it', 'Change the spec']);
   assert.equal(preview(), [
-    "Use the spec-investigation skill to re-check this gap. Write the result into the gap's Recheck section and leave the decision to me.",
+    "Use the project-knowledge skill to re-check this gap against the code. Write the result into the gap's Recheck section and leave the decision to me.",
     '',
     'Gap: knowledge/parcel/gaps/g-open.md',
     'Title: Packed pickups',
@@ -493,7 +493,7 @@ const queue = {
   assert.ok(preview().endsWith('Text of the page:\n\n## Current behavior\n\nRefused.'));
   // what the agent should do
   v.pill(v.q('#copy-card'), 'Plan it').click();
-  assert.ok(preview().startsWith('Use the spec-plan skill to plan this gap.'));
+  assert.ok(preview().startsWith('Use the spec-change skill to plan this gap. Plan only, do not build it,'));
   v.pill(v.q('#copy-card'), 'Change the spec').click();
   assert.ok(preview().includes('What I want: [describe the change]'));
   findAll(v.q('#copy-card'), e => e.id === 'copy-do')[0].click();
@@ -554,9 +554,9 @@ const queue = {
     'Ask your questions first. Then edit the spec on a branch, build it and check every changed statement against the code.',
   ].join('\n'));
   v.pill(v.page(), 'Plan only').click();
-  assert.ok(brief().startsWith('Use the spec-plan skill to plan this change. Plan only; do not implement it.'));
+  assert.ok(brief().startsWith('Use the spec-change skill to plan this change. Plan only; do not implement it.'));
   v.pill(v.page(), 'Recheck only').click();
-  assert.ok(brief().startsWith('Use the spec-investigation skill to re-check these pages'));
+  assert.ok(brief().startsWith('Use the project-knowledge skill to re-check these pages'));
   assert.ok(brief().endsWith('What I am wondering about: Let customers cancel packed pickups.'));
   v.pill(v.page(), 'Questions first, then build').click();
   // copying is the one tracked step

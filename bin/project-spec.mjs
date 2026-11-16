@@ -13,8 +13,10 @@ const SKILLS = path.join(ROOT, 'skills');
 const PACKAGE = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const MARKER = '.project-spec.json'; // written into every copy: which version it is and what its files looked like
 const SKIP = new Set(['__pycache__', '.DS_Store', MARKER]);
-const KNOWLEDGE = new Set(['serve', 'check', 'build', 'snapshot']);
+const KNOWLEDGE = new Set(['serve', 'check', 'snapshot']);
 const MAINTAIN = new Set(['scan', 'receipt', 'finish']);
+// Skills earlier versions shipped; project-knowledge and spec-change took over what they did.
+const RETIRED = ['spec-audit', 'spec-investigation', 'spec-plan'];
 // Folders inside a project where a copy of the skills may live.
 const PROJECT_PLACES = ['knowledge/tooling', '.claude/skills', '.codex/skills', '.agents/skills'];
 
@@ -23,7 +25,7 @@ const USAGE = `project-spec ${PACKAGE.version}
 Read the spec
   project-spec serve [--repo DIR] [--vault DIR] [--port N] [--no-open]
       Open the viewer for the repository (default: the current folder).
-  project-spec check | build | snapshot [options]
+  project-spec check | snapshot [options]
       The knowledge helper; --repo defaults to the current folder.
   project-spec scan | receipt | finish [options]
       The sync helper; --repo defaults to the current folder.
@@ -34,7 +36,7 @@ Keep the skills current
   project-spec install [--claude] [--codex] [--dir DIR]... [--skills a,b] [--force]
       Copy the skills into ~/.claude/skills, ~/.codex/skills or a folder you name.
   project-spec update [--force]
-      Refresh every copy that status lists. Nothing new is added.
+      Refresh every copy that status lists and remove retired skills. Nothing new is added.
 
 A copy you edited by hand is never replaced unless you pass --force; the old files
 are kept under ~/.project-spec/backups first.`;
@@ -143,8 +145,19 @@ const homes = () => [path.join(os.homedir(), '.claude', 'skills'), path.join(os.
 // Every folder that holds at least one of the skills: the two home folders and the usual places in this project.
 function knownRoots() {
   const roots = [...homes(), ...PROJECT_PLACES.map(p => path.resolve(p))];
-  const names = skillNames();
+  const names = [...skillNames(), ...RETIRED];
   return [...new Set(roots)].filter(root => names.some(name => fs.existsSync(path.join(root, name, 'SKILL.md'))));
+}
+
+// A retired skill is recognised by its folder name and by the name its SKILL.md declares.
+function retiredIn(root) {
+  return RETIRED.filter(name => {
+    try {
+      return new RegExp(`^name:\\s*${name}\\s*$`, 'm').test(fs.readFileSync(path.join(root, name, 'SKILL.md'), 'utf8'));
+    } catch {
+      return false;
+    }
+  });
 }
 
 function take(args, flag) {
@@ -178,6 +191,10 @@ function status(args) {
       const found = inspect(path.join(root, name), name);
       if (found.state !== 'current' && found.state !== 'absent') behind++;
       console.log(`  ${name}: ${STATE_TEXT[found.state](found)}`);
+    }
+    for (const name of retiredIn(root)) {
+      behind++;
+      console.log(`  ${name}: retired, update removes it`);
     }
   }
   console.log(behind ? `\n${behind} to refresh: project-spec update` : '\nEverything installed is current.');
@@ -214,6 +231,12 @@ function update(args) {
     const lines = [];
     for (const name of skillNames()) {
       if (fs.existsSync(path.join(root, name, 'SKILL.md')) && apply(root, name, force, lines) === false) ok = false;
+    }
+    for (const name of retiredIn(root)) {
+      const dir = path.join(root, name);
+      const kept = backup(dir, name);
+      fs.rmSync(dir, { recursive: true, force: true });
+      lines.push(`  ${shorten(dir)}: removed, this skill is retired; the old copy is in ${shorten(kept)}`);
     }
     console.log(lines.join('\n'));
   }

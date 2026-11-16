@@ -20,7 +20,7 @@ For viewer changes, open a generated example and check search, filters, internal
 
 ## One shared reference
 
-`skills/project-knowledge/references/gaps.md` is copied byte for byte to the other four skills (`spec-audit`, `spec-change`, `spec-investigation`, `spec-plan`) so each is usable on its own. Edit the project-knowledge copy and re-copy it; compare with `cmp` before sending a change. Keep relative links out of it, since they would resolve from only one of the five places.
+`skills/project-knowledge/references/gaps.md` is copied byte for byte to `spec-change` so that skill is usable on its own. Edit the project-knowledge copy and re-copy it; compare with `cmp` before sending a change. Keep relative links out of it, since they would resolve from only one of the two places.
 
 The repository is also the `project-spec-skills` npm package: `bin/project-spec.mjs` starts the helpers and installs, updates and reports the copies of the skills. It has no dependencies and must keep none. Raise `version` in `package.json` when a change should reach installed copies, and keep `scripts/test_cli.cjs` passing; `python3 scripts/verify.py` runs it when Node is available.
 

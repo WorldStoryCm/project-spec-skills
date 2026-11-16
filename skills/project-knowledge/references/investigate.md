@@ -1,10 +1,4 @@
----
-name: spec-investigation
-description: Investigate one software behavior, discrepancy, or disputed claim using repository and runtime evidence. Use to answer a focused why or what-happens question, identify the check that would resolve it, or re-check one gap page in a project-knowledge vault.
-license: MIT
----
-
-# Spec Investigation
+# Investigate one question, or re-check one gap
 
 Answer one question under defined conditions. Read repository instructions, preserve existing edits and keep the work to diagnosis and the report.
 
@@ -29,9 +23,9 @@ Return the findings inline unless a destination is given, in English unless aske
 
 Keep existing evidence IDs stable in persisted reports and give new evidence short reusable IDs.
 
-## With a project-knowledge vault
+## Recording the result in the vault
 
-This is the tool for re-checking one gap. An existing vault or earlier report can guide discovery, but verify consequential claims against their sources. When asked to re-check a gap, or to record a result in the vault, follow [gaps.md](references/gaps.md). If that file or the vault is not available, return the ordinary report and say so.
+This is the tool for re-checking one gap. An existing vault or earlier report can guide discovery, but verify consequential claims against their sources. When asked to re-check a gap, or to record a result in the vault, follow [gaps.md](gaps.md). If that file or the vault is not available, return the ordinary report and say so.
 
 - Re-check what that gap actually asks, against the current code, and run what can be run. Write the outcome into the gap's `Recheck` section: what you did, when, what you found, with the usual `NOT RUN` honesty.
 - Every kind of gap is rechecked the same way, including proposals and research questions: the question is whether the gap's `Current behavior` section still describes the code. Set `recheck` to `confirmed` (confirmed, still holds: for a defect it is still there, for a proposal the capability is still absent, for a verification gap the evidence is still missing, for a conflict both sources still say what the page says, for a knowledge gap nothing answers it yet) or `not-reproduced` (not reproduced, no longer holds: the code now does it, the evidence exists, the sources agree or the question is answered). You never judge whether a proposal is a good idea; that stays with the person. For a proposal, checking that nothing already implements it is usually quick, and it is what lets the gap reach `needs-decision`. Also set `rechecked_by` to `agent` (a person's name goes there only when that person ran the check and told you so), and `rechecked_on` to today's date. This replaces an earlier `outdated` mark and its dated record; add a new dated entry to `Recheck` and keep the older ones. Update `updated`.

@@ -1,4 +1,4 @@
 interface:
   display_name: "Spec Change"
-  short_description: "Implement an edited spec: questions first, then code"
+  short_description: "Plan a change, or build it from an edited spec"
   default_prompt: "Use $spec-change to take my edits to the specification as the change request. Review the diff and ask your questions before writing code, then implement it and check every changed statement against the code."

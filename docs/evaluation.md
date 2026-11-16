@@ -12,11 +12,11 @@ Ask for an actual deliverable, not a review of the prompt. Preserve the output a
 
 | Skill | Request |
 | --- | --- |
-| `spec-audit` | Audit the cancellation section of the pickup spec against this repo. Tell me which contradictions need attention and what still needs a product decision. Leave the files alone. |
-| `spec-investigation` | Why does cancellation fail for my packed pickup? Compare the route and service paths, tell me what you actually verified, then name the smallest check that would settle what is still unclear. Leave project files alone. |
-| `spec-plan` | Plan support for customer cancellations before pickup, including packed parcels. Keep the partner variation undecided and tell me how we can accept the change. Don't implement it. |
-| `spec-change` | On a branch, edit the cancellation note so that it says the owner can cancel a packed pickup. Then: I edited the spec on this branch; the diff against main is the change request. Ask your questions first, then implement it and show me which statement is covered by which check. |
-| `project-knowledge` | Build an Obsidian-compatible project map for pickups and cancellations. Keep my existing note about QA handoffs. Show me which behavior comes from code and how I can open the graph. Put every doubt or missing piece in the gap layer, not in the notes. Set up the reviewed state so I can manually review new commits later. |
+| `project-knowledge` (audit) | Audit the cancellation section of the pickup spec against this repo. Tell me which contradictions need attention and what still needs a product decision. Leave the files alone. |
+| `project-knowledge` (investigate) | Why does cancellation fail for my packed pickup? Compare the route and service paths, tell me what you actually verified, then name the smallest check that would settle what is still unclear. Leave project files alone. |
+| `spec-change` (plan) | Plan support for customer cancellations before pickup, including packed parcels. Keep the partner variation undecided and tell me how we can accept the change. Don't implement it. |
+| `spec-change` (build) | On a branch, edit the cancellation note so that it says the owner can cancel a packed pickup. Then: I edited the spec on this branch; the diff against main is the change request. Ask your questions first, then implement it and show me which statement is covered by which check. |
+| `project-knowledge` (map) | Build an Obsidian-compatible project map for pickups and cancellations. Keep my existing note about QA handoffs. Show me which behavior comes from code and how I can open the graph. Put every doubt or missing piece in the gap layer, not in the notes. Set up the reviewed state so I can manually review new commits later. |
 
 For the knowledge request, initialize the disposable fixture as a Git repository. Add a small human-written note before the first run and keep a byte-for-byte copy. Use compatible frontmatter if the note is inside the vault. Allow vault writes, but keep the application and requirements read-only during the run.
 

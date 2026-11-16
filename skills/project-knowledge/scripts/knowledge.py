@@ -27,9 +27,7 @@ STATE_ORDER = ('needs-recheck', 'needs-decision', 'accepted', 'deferred', 'rejec
 GAP_ONLY = ('kind', 'recheck', 'rechecked_by', 'rechecked_on', 'decision', 'decided_by', 'decided_on', 'duplicate_of')
 GAP_SECTIONS = ('Current behavior', 'Gap', 'Evidence', 'Recheck', 'Discussion', 'Decision')
 LAYERS = {'area': 'spec', 'note': 'spec', 'gap': 'gap', 'plan': 'gap', 'index': 'nav', 'run': 'nav'}
-RESERVED = {'AS-BUILT.md', 'GAPS.md'}  # generated at the vault root; never notes
 UNCOUNTED = ' (uncommitted change, not counted)'  # suffix of a freshness warning that --ignore-dirty does not count
-GENERATED_NAMES = ('AS-BUILT.md', 'GAPS.md')  # matched case-insensitively
 CONTROL = re.compile('[\x00-\x1f\x7f\x85\u2028\u2029]')
 SCHEME = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:')
 MD_LINK = re.compile(r'\]\(\s*(<[^>]*>|[^\s)]*)')
@@ -274,15 +272,6 @@ def has_conflict_markers(content):
     return False
 
 
-def is_generated(file):
-    """A root file with a generated name is ours only if it starts with the generated banner."""
-    try:
-        with open(file, encoding='utf-8') as handle:
-            return handle.readline().rstrip('\r\n') == GENERATED
-    except (OSError, UnicodeDecodeError):
-        return False
-
-
 def tolerates_missing_source(meta, ids):
     """Missing sources only warn on stale/superseded pages, closed gaps and plans of done gaps."""
     if meta.get('status') in {'stale', 'superseded'}:
@@ -292,61 +281,6 @@ def tolerates_missing_source(meta, ids):
     if meta['type'] == 'plan':
         return ids.get(meta['gap'], {}).get('meta', {}).get('decision') == 'done'
     return False
-
-
-CANVAS_SIDES = {'top', 'right', 'bottom', 'left'}
-
-
-def stale_canvas(file):
-    """True for a Map.canvas in the exact shape the earlier generator wrote, so nothing hand-made is judged stale.
-
-    Cards sit on its grid (x in 0/340/680/1020, y a multiple of 80, 300x200), each id is a unique page id equal to
-    the file's stem, edges are e0..eN between those ids. Obsidian adds fromSide/toSide to edges when it saves a
-    canvas; those are layout, not content. A moved card counts as hand-made. Deleted cards or edges cannot be
-    detected here, which is why build moves a stale canvas aside instead of deleting it.
-    """
-    if file.is_symlink() or not file.is_file():
-        return False
-    try:
-        data = json.loads(file.read_text(encoding='utf-8'))
-        if set(data) != {'nodes', 'edges'} or not isinstance(data['nodes'], list) or not isinstance(data['edges'], list):
-            return False
-        ids = [n['id'] for n in data['nodes']]
-        return (len(set(ids)) == len(ids)
-                and all(set(n) == {'id', 'type', 'file', 'x', 'y', 'width', 'height'} and n['type'] == 'file'
-                        and (n['width'], n['height']) == (300, 200)
-                        and type(n['x']) is int and type(n['y']) is int and n['x'] in {0, 340, 680, 1020} and n['y'] >= 0 and n['y'] % 80 == 0
-                        and isinstance(n['file'], str) and n['file'].endswith('.md') and PurePosixPath(n['file']).stem == n['id']
-                        for n in data['nodes'])
-                and all({'id', 'fromNode', 'toNode'} <= set(e) <= {'id', 'fromNode', 'toNode', 'fromSide', 'toSide'}
-                        and e['id'] == f'e{i}' and e['fromNode'] in ids and e['toNode'] in ids
-                        and all(e.get(side, 'top') in CANVAS_SIDES for side in ('fromSide', 'toSide'))
-                        for i, e in enumerate(data['edges'])))
-    except (OSError, ValueError, TypeError, KeyError):
-        return False
-
-
-def stale_viewer(file):
-    """True for a graph.html written by an earlier build: the viewer page with its data block."""
-    if file.is_symlink() or not file.is_file():
-        return False
-    try:
-        return '<script id="knowledge-data" type="application/json">' in file.read_text(encoding='utf-8')
-    except (OSError, UnicodeDecodeError):
-        return False
-
-
-def move_aside(file, vault):
-    """Move file to .knowledge/<name>.removed (numeric suffix if taken, never overwriting); return the new path."""
-    target = vault / '.knowledge' / (file.name + '.removed')
-    n = 1
-    while target.exists() or target.is_symlink():
-        n += 1
-        target = vault / '.knowledge' / f'{file.name}.removed.{n}'
-    target.parent.mkdir(parents=True, exist_ok=True)
-    os.link(file, target)  # fails rather than replacing an existing file
-    file.unlink()
-    return target
 
 
 def markdown_target(rel, raw):
@@ -433,11 +367,6 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
         if any(part in {'.obsidian', '.trash', '.knowledge'} for part in relative.parts):
             continue
         rel = relative.as_posix()
-        if rel in RESERVED and is_generated(file):
-            continue
-        if len(relative.parts) == 1 and rel.casefold() in {n.casefold() for n in GENERATED_NAMES}:
-            errors.append(f'{rel}: this name is reserved for a generated file (AS-BUILT.md, GAPS.md); build would overwrite it, so rename the page')
-            continue
         meta = None
         try:
             safe_path(vault, rel)
@@ -618,201 +547,6 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
 
 def write_json(path, value):
     atomic_write(path, json.dumps(value, ensure_ascii=False, indent=2) + '\n')
-
-
-GENERATED = '> Generated by `knowledge.py build`. Do not edit; change the source pages and rebuild.'
-
-
-def esc(text):
-    """Make a property value safe for one line of generated Markdown: no breaks, no raw HTML, literal backslashes."""
-    return re.sub(r'\s+', ' ', str(text)).strip().replace('\\', '\\\\').replace('<', '&lt;')
-
-
-def tc(text):
-    """Text for a table cell."""
-    return esc(text).replace('|', '\\|')
-
-
-def para(text):
-    """A whole line of prose that cannot turn into a heading, list, quote or fence."""
-    t = esc(text)
-    if re.match(r'\d+[.)]', t):
-        return re.sub(r'^(\d+)([.)])', r'\1\\\2', t)
-    return '\\' + t if t[:1] in '#>-+*`~|=_:[!' else t
-
-
-def code(text):
-    """An inline code span that survives backticks inside the text."""
-    longest = max((len(run) for run in re.findall(r'`+', text)), default=0)
-    mark = '`' * (longest + 1)
-    return f'{mark} {text} {mark}' if longest else f'{mark}{text}{mark}'
-
-
-def alias(text):
-    return esc(text).translate(str.maketrans('[]|', '()/'))
-
-
-def link(note):
-    return f"[[{note['path'][:-3]}|{alias(note['meta']['title'])}]]"
-
-
-def tlink(note):
-    return link(note).replace('|', '\\|')
-
-
-def rebase_target(target, folder):
-    """Re-express a relative Markdown link written in folder/ so it works from the vault root."""
-    bare = target[1:-1] if target.startswith('<') and target.endswith('>') else target
-    path, mark, rest = re.split(r'([?#])', bare, maxsplit=1) if re.search(r'[?#]', bare) else (bare, '', '')
-    if not path or path.startswith('/') or SCHEME.match(path):
-        return target
-    moved = posixpath.normpath(posixpath.join(folder, path)) + mark + rest
-    if SCHEME.match(moved) or moved.startswith(('//', '\\', '/\\')):
-        return target  # e.g. ../javascript:x or ../\\host would become a live or UNC URL once the folder part collapses
-    return f'<{moved}>' if target.startswith('<') else moved
-
-
-def rebase_links(line, folder):
-    line = re.sub(r'(\]\()(<[^>]*>|[^\s)]*)', lambda m: m.group(1) + rebase_target(m.group(2), folder), line)
-    return re.sub(r'^(\s{0,3}\[[^\]\n]+\]:\s*)(<[^>]*>|\S+)', lambda m: m.group(1) + rebase_target(m.group(2), folder), line)
-
-
-SETEXT = re.compile(r'^ {0,3}(=+|-+)[ \t]*$')
-NOT_PARAGRAPH = (
-    re.compile(r'^(?: {4}|\t)'),                        # indented code
-    re.compile(r'^ {0,3}(?:[-+*]|\d+[.)])(?:\s|$)'),    # list item
-    re.compile(r'^ {0,3}(?:>|<|\|)'),                   # quote, HTML block, table row
-    re.compile(r'^ {0,3}([-*_])(?: *\1){2,} *$'),       # thematic break
-    re.compile(r'^ {0,3}\[[^\]\n]+\]:'),                # link reference definition
-    re.compile(r'^ {0,3}(?:=+|-+)[ \t]*$'),             # another underline
-)
-
-
-def plain_paragraph_line(line):
-    """Only unambiguous paragraph text may become Setext heading text; when unsure, leave the lines alone."""
-    return bool(line.strip()) and '|' not in line and not any(r.match(line) for r in NOT_PARAGRAPH)
-
-
-def neutralise_open_comment(out):
-    """Rewrite an HTML comment opener that never closes (outside code) so it cannot hide what follows."""
-    open_at = None
-    for index, item in enumerate(out):
-        if item[2]:
-            continue
-        masked = re.sub(r'(`+).*?\1', lambda m: ' ' * len(m.group()), item[0])
-        position = 0
-        while position < len(masked):
-            if open_at is None:
-                found = masked.find('<!--', position)
-                if found < 0:
-                    break
-                open_at, position = (index, found), found + 4
-            else:
-                found = masked.find('-->', position)
-                if found < 0:
-                    break
-                open_at, position = None, found + 3
-    if open_at:
-        line, column = out[open_at[0]][0], open_at[1]
-        out[open_at[0]][0] = line[:column] + '&lt;!--' + line[column + 4:]
-
-
-def demote(body, folder=''):
-    """Drop the leading H1 and nest every other heading below ###, leaving code fences alone.
-
-    ATX and Setext headings are both demoted. Relative Markdown links are rewritten from the
-    note's folder to the vault root, where AS-BUILT.md lives. A fence or HTML comment left open
-    by the note is closed or neutralised so it cannot swallow the rest of the document.
-    """
-    out, dropped, state = [], False, {}  # out holds [line, is_plain_paragraph_line, in_code]
-    for line, in_code in lines_with_code(body, state):
-        if in_code:
-            out.append([line, False, True])
-            continue
-        line = rebase_links(line, folder)
-        head = heading_of(line)
-        under = SETEXT.match(line)
-        if under and out and out[-1][1]:
-            start = len(out)
-            while start > 0 and out[start - 1][1]:
-                start -= 1
-            level = 1 if under.group(1)[0] == '=' else 2
-            title = ' '.join(x[0].strip() for x in out[start:])
-            del out[start:]
-            if level == 1 and not dropped and not ''.join(x[0] for x in out).strip():
-                dropped = True
-                continue
-            out.append(['#' * min(6, max(4, level + 2)) + ' ' + title, False, False])
-            continue
-        if head and not dropped and not ''.join(x[0] for x in out).strip() and head[0] == 1:
-            dropped = True
-            continue
-        if head:
-            out.append(['#' * min(6, max(4, head[0] + 2)) + (' ' + head[1] if head[1] else ''), False, False])
-        else:
-            out.append([line, plain_paragraph_line(line), False])
-    neutralise_open_comment(out)
-    lines = [x[0] for x in out]
-    if state.get('fence'):
-        lines.append(state['fence'][0] * state['fence'][1])
-    return '\n'.join(lines).strip('\n')
-
-
-def render_as_built(notes, title):
-    by_id = {n['meta']['id']: n for n in notes}
-    areas = sorted((n for n in notes if n['meta']['type'] == 'area'), key=lambda n: (n['meta']['title'].casefold(), n['meta']['id']))
-    out = [GENERATED, '', f'# {esc(title)}: as-built specification', '',
-           'How the code is implemented today. Plans, open questions and proposals live in the gap queue, not here.']
-    for area in areas:
-        out += ['', f"## {esc(area['meta']['title'])}"]
-        if area['meta'].get('summary', '').strip():
-            out += ['', para(area['meta']['summary'])]
-        members = sorted((n for n in notes if n['meta']['type'] == 'note' and n['meta']['status'] != 'superseded'),
-                         key=lambda n: (n['meta']['title'].casefold(), n['meta']['id']))
-        for note in (n for n in members if n['meta']['areas'][0] == area['meta']['id']):
-            m = note['meta']
-            sources = ', '.join(code(x) for x in m['sources']) or 'none'
-            out += ['', f"### {esc(m['title'])}", '', f"**id:** `{m['id']}` · **status:** {m['status']} · **updated:** {m['updated']} · **sources:** {sources}"]
-            text = demote(note['body'], posixpath.dirname(note['path']))
-            if text:
-                out += ['', text]
-        refs = [n for n in members if area['meta']['id'] in n['meta']['areas'][1:]]
-        if refs:
-            out.append('')
-            out += [f"- See also {link(n)} (described under {esc(by_id[n['meta']['areas'][0]]['meta']['title'])})" for n in refs]
-    return '\n'.join(out).rstrip('\n') + '\n'
-
-
-def render_gaps(notes, title):
-    by_id = {n['meta']['id']: n for n in notes}
-    gaps = [n for n in notes if n['meta']['type'] == 'gap']
-    plans = {}
-    for n in notes:
-        if n['meta']['type'] == 'plan':
-            plans.setdefault(n['meta']['gap'], []).append(n)
-    out = [GENERATED, '', f'# {esc(title)}: gap queue', '',
-           'Derived state: needs-recheck (open and not rechecked, or recheck outdated), needs-decision (open, rechecked), otherwise the decision itself.']
-    if not gaps:
-        out += ['', 'No gaps recorded.']
-    for state in STATE_ORDER:
-        rows = sorted((g for g in gaps if g['state'] == state), key=lambda g: (g['meta']['title'].casefold(), g['meta']['id']))
-        if not rows:
-            continue
-        out += ['', f'## {state}', '', '| Gap | Kind | Areas | Recheck | Decision | Priority | Plan |', '| --- | --- | --- | --- | --- | --- | --- |']
-        for g in rows:
-            m = g['meta']
-            recheck = m['recheck'] if m['recheck'] == 'not-checked' else f"{RECHECK_WORDS.get(m['recheck'], m['recheck'])} ({m['rechecked_by']}, {m['rechecked_on']})"
-            recheck = tc(recheck)
-            if recheck_marker(g):
-                recheck += ' · sources changed since'
-            decision = tc(m['decision'] + (f" ({m.get('decided_by', '')}, {m.get('decided_on', '')})" if 'decided_by' in m or 'decided_on' in m else ''))
-            if m['decision'] == 'duplicate' and m.get('duplicate_of') in by_id:
-                decision = 'duplicate of ' + tlink(by_id[m['duplicate_of']])
-            area_titles = tc(', '.join(by_id[a]['meta']['title'] for a in m['areas'] if a in by_id))
-            plan = ', '.join(tlink(p) for p in sorted(plans.get(m['id'], []), key=lambda p: p['meta']['id']))
-            out.append('| ' + ' | '.join(c or '-' for c in [tlink(g), tc(m['kind']), area_titles, recheck, decision,
-                                                              tc(m.get('priority', '')), plan]) + ' |')
-    return '\n'.join(out) + '\n'
 
 
 def recheck_marker(note):
@@ -1061,7 +795,7 @@ def make_server(repo, vault, port):
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['check', 'snapshot', 'build', 'serve'])
+    parser.add_argument('command', choices=['check', 'snapshot', 'serve'])
     parser.add_argument('--repo', required=True, type=Path)
     parser.add_argument('--vault', type=Path, help='default: the single vault under knowledge/ in the repository')
     parser.add_argument('--strict', action='store_true', help='fail check when freshness warnings exist')
@@ -1157,35 +891,6 @@ def main(argv=None):
                 baseline[meta['id']] = hashes
         dest = output_path(vault, '.knowledge/sources.json')
         write_json(dest, dict(sorted(baseline.items())))
-    elif args.command == 'build':
-        graph = graph_of(notes, edges, warnings)
-        title = graph['title']
-        for path in ('.knowledge/graph.json', 'AS-BUILT.md', 'GAPS.md'):
-            output_path(vault, path)
-        for entry in vault.iterdir():
-            for name in GENERATED_NAMES:
-                if entry.name != name and entry.name.casefold() == name.casefold():
-                    raise ValueError(f'{entry.name} collides with generated {name} on a case-insensitive filesystem; rename it')
-        for name in RESERVED:
-            if (vault / name).is_file() and not is_generated(vault / name):
-                raise ValueError(f'{name} is a hand-written page but this name is reserved for a generated file; build would overwrite it, so rename the page')
-        write_json(vault / '.knowledge/graph.json', graph)
-        atomic_write(vault / 'AS-BUILT.md', render_as_built(notes, title))
-        atomic_write(vault / 'GAPS.md', render_gaps(notes, title))
-        if stale_canvas(vault / 'Map.canvas'):
-            try:
-                moved = move_aside(vault / 'Map.canvas', vault)
-            except OSError as error:  # e.g. no hard links on this filesystem; never fall back to deleting
-                print(f'build: Map.canvas is no longer generated but could not be moved aside ({error}); left it in place, delete it by hand if nobody needs it')
-            else:
-                print(f"build: Map.canvas is no longer generated; moved it to {moved.relative_to(vault).as_posix()} (delete it if nobody needs it)")
-        if stale_viewer(vault / 'graph.html'):
-            try:
-                moved = move_aside(vault / 'graph.html', vault)
-            except OSError as error:
-                print(f'build: graph.html is no longer generated but could not be moved aside ({error}); left it in place, it shows an old copy of the spec')
-            else:
-                print(f"build: graph.html is no longer generated (use the serve command to read the spec); moved the old copy to {moved.relative_to(vault).as_posix()}")
     uncounted = len(warnings) - len(counted)
     print(f'{args.command}: {len(notes)} notes, {len(edges)} links, {len(warnings)} warnings' + (f' ({uncounted} uncommitted, not counted)' if uncounted else ''))
     return 0

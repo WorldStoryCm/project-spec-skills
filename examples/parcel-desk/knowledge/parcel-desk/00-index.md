@@ -15,7 +15,7 @@ A small **fictional** pickup service. The vault has two layers. The **as-built s
 
 ## The spec
 
-Read it as one document in [AS-BUILT](AS-BUILT.md) (generated), or page by page:
+Start from an area:
 
 - **[[areas/pickups|Pickup cancellation]]** covers the state transition and the response mapping.
 - [[areas/access|Customer access]] covers whose pickup can be changed.
@@ -24,10 +24,12 @@ Start with [[notes/cancellation-boundary|the cancellation boundary]], then [[not
 
 ## The gap queue
 
-[GAPS](GAPS.md) (generated) lists every gap by state. In this example:
+One question per page. In this example:
 
 - [[gaps/packed-cancellation|Packed cancellation]] is accepted, with [[plans/packed-cancellation|a plan]].
 - [[gaps/partner-decision|Partner cancellation]] has been rechecked and awaits a person's decision.
 - [[gaps/deployment-evidence|Deployment evidence]] has not been rechecked yet.
 
-See [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. `AS-BUILT.md` and `GAPS.md` appear after `build`; the `serve` command shows the vault in a browser.
+## Limits
+
+Each area page says what was read and what the fixture does not model. No real service, logs or customer data were inspected, and the fixture's source fingerprints describe the files shipped with this example; [[runs/example-survey|the example survey]] records the pass. The `serve` command shows the vault in a browser.

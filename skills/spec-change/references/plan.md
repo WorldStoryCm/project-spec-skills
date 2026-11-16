@@ -1,10 +1,4 @@
----
-name: spec-plan
-description: Plan an intended software change against the current repository. Use to define scope, affected modules, implementation order, decision gates, and observable acceptance criteria before implementation. In a project-knowledge vault, plans only gaps that a person has accepted.
-license: MIT
----
-
-# Spec Plan
+# Plan a change without building it
 
 Turn a requested future behavior into a plan someone else can implement and verify. Read repository instructions and use the project's planning format if it has one. The deliverable is the plan; implementing it is separate.
 
@@ -36,9 +30,9 @@ Return the plan inline unless a destination is given, in English unless asked ot
 
 Use stable requirement, evidence and check IDs when a persistent report calls for them.
 
-## With a project-knowledge vault
+## Recording the plan in the vault
 
-When asked to plan a gap, or to add the plan to the vault, follow [gaps.md](references/gaps.md). If that file or the vault is not available, return the ordinary plan and say so.
+When asked to plan a gap, or to add the plan to the vault, follow [gaps.md](gaps.md). If that file or the vault is not available, return the ordinary plan and say so.
 
 - Plan only a gap whose `decision` is `accepted`, because the plan spends effort on something a person chose to pursue. Write it to `plans/<gap-id>.md` with `type: "plan"`, `gap: "<gap-id>"`, the gap's areas and `status: "planned"`. Link the spec notes that describe current behavior; do not add plan content to spec notes.
 - If the gap is `open` (whether `needs-recheck` or `needs-decision`), say that a decision is needed first and stop. You may lay out the options, with their consequences, as an `agent` entry in that gap's `Discussion`. If the gap is `rejected`, `deferred` or `duplicate`, say that and write no plan.

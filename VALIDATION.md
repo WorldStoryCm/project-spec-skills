@@ -1,5 +1,7 @@
 # Release validation
 
+> The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet; `spec-change` has not been run on a real change.
+
 ## 2026-11-15: first real use, and fixes since
 
 Observed facts, with their limits:

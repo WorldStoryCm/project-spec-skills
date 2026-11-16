@@ -1,6 +1,6 @@
 # Audit: cancellation requirements CAN-1 to CAN-3 and DEC-1
 
-A hand-authored example of the report shape in the `spec-audit` skill, not a transcript of an agent run.
+A hand-authored example of the audit report shape in the `project-knowledge` skill, not a transcript of an agent run.
 
 ## Basis
 

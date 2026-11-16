@@ -386,10 +386,10 @@ def finish(repo, vault, plan_path, review_path):
             shutil.copytree(vault, staged, symlinks=True)
             if accepted and knowledge.main(['snapshot', '--repo', str(repo), '--vault', str(staged), '--notes', *sorted(accepted)]) != 0:
                 raise ValueError('snapshot validation failed')
-            if knowledge.main(['check', '--repo', str(repo), '--vault', str(staged)]) != 0 or knowledge.main(['build', '--repo', str(repo), '--vault', str(staged)]) != 0:
-                raise ValueError('structural check or build failed')
+            if knowledge.main(['check', '--repo', str(repo), '--vault', str(staged)]) != 0:
+                raise ValueError('structural check failed')
             # Validate all output destinations before publishing anything.
-            outputs = ['.knowledge/sources.json', '.knowledge/graph.json', 'AS-BUILT.md', 'GAPS.md', '.knowledge/review.json']
+            outputs = ['.knowledge/sources.json', '.knowledge/review.json']
             destinations = [knowledge.output_path(vault, p) for p in outputs]
             cursor = json.loads((vault / '.knowledge/review.json').read_text())
             checkpoint = cursor['reviewed_through']

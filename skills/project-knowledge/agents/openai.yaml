@@ -1,4 +1,4 @@
 interface:
   display_name: "Project Knowledge"
-  short_description: "Build an as-built spec of the code and a separate queue of gaps for people to decide"
+  short_description: "Keep an as-built spec of the code, audit it, and track gaps for people to decide"
   default_prompt: "Use $project-knowledge to document how this project is implemented, from source only, in an English linked vault, and record every doubt or missing piece as its own gap for a person to re-check and decide. Run manually; do not set up a schedule."

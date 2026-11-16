@@ -1,6 +1,6 @@
 ---
 name: spec-change
-description: Develop from an edited specification. A person edits the spec text on a branch; the diff is the change request. Use to review that diff for contradictions, ambiguity and missing cases before any code is written, then implement it and check every changed statement against the code. Works on a project-knowledge vault or on any specification kept as Markdown in Git.
+description: Change the product, starting from the specification. A person edits the spec text on a branch and the diff is the change request; use to review that diff for contradictions, ambiguity and missing cases before any code is written, then implement it and check every changed statement against the code. Also use to plan a change without building it, with scope, ordered steps, decision gates and observable acceptance criteria. Works on a project-knowledge vault or on any specification kept as Markdown in Git.
 license: MIT
 ---
 
@@ -8,11 +8,15 @@ license: MIT
 
 The person describes what they want by editing the specification, not by describing code. Your job is to make the code say what the edited spec says, and to tell them where their text cannot be built as written. They follow the work by reading the spec and your questions, so write for a reader who does not open the source.
 
-This skill changes application code. It is the only one in this bundle that does. Read the repository's instructions first, work on the branch that holds the spec edits, and leave committing, pushing and merging to the person unless they ask.
+This skill changes application code. It is the only one in this bundle that does; a plan-only request changes none. Read the repository's instructions first, work on the branch that holds the spec edits, and leave committing, pushing and merging to the person unless they ask.
+
+## Plan only
+
+When the person asks for a plan and no code, or wants to plan a gap they accepted, follow [the planning guide](references/plan.md) and stop there. The deliverable is the plan; nothing below this section applies until they ask for the change itself.
 
 ## Read the change request
 
-- Find the base the person branched from (ask if it is not obvious) and read the spec diff against it: committed and uncommitted edits to the spec pages. In a project-knowledge vault these are `areas/` and `notes/`; ignore generated files (`AS-BUILT.md`, `GAPS.md`, `.knowledge/`).
+- Find the base the person branched from (ask if it is not obvious) and read the spec diff against it: committed and uncommitted edits to the spec pages. In a project-knowledge vault these are `areas/` and `notes/`; ignore `.knowledge/`.
 - The base spec must describe the base code. If it is behind (a pending sync, freshness warnings), the diff mixes the person's intent with ordinary drift; say so and separate the two before going on.
 - Restate every changed statement as one line in plain language: what happens today, what should happen instead. A removed sentence is a change too. Edits that only reword a page without changing behavior are listed as such and need no code.
 - Do not treat anything outside the diff as a request. An idea in a chat message or a gap page becomes part of the change only when the person puts it into the spec text.
@@ -32,7 +36,7 @@ Stop and wait for answers while any question is open. Each answer goes into the 
 
 ## Implement
 
-- For more than a small change, lay out the ordered steps first: shared contracts before their callers, each step with the check that verifies it.
+- For more than a small change, lay out the ordered steps first, as [the planning guide](references/plan.md) describes: shared contracts before their callers, each step with the check that verifies it.
 - Every changed statement gets a check that would fail on the old behavior, at the boundary the statement describes. Follow the project's conventions and keep the change inside the scope of the diff. If you find something else wrong on the way, report it; do not fix it silently.
 - If the code shows that a statement cannot hold as written, stop and return to the person with the reason and options. Do not reword their spec to match what was easy to build.
 
@@ -42,7 +46,7 @@ When the code is done, read it again as if you had not written it and compare it
 
 - A statement that holds: note the file and symbol that implement it and the check that ran. Reading a test is not running it; mark checks you did not run `NOT RUN`.
 - A statement that does not hold: fix the code, or bring it to the person. The spec changes only on their word.
-- In a vault, update each changed page's `sources` to the files it now rests on, then run `check`, `snapshot --notes` for the pages you re-read, and `build`, as the project-knowledge skill describes. No spec page may be left describing behavior the branch does not implement: before the work is called done, such text goes back to its as-built wording and the intent moves to a gap.
+- In a vault, update each changed page's `sources` to the files it now rests on, then run `check` and `snapshot --notes` for the pages you re-read, as the project-knowledge skill describes. No spec page may be left describing behavior the branch does not implement: before the work is called done, such text goes back to its as-built wording and the intent moves to a gap.
 
 ## Report
 

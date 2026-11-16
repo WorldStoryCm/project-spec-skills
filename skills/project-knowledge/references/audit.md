@@ -1,10 +1,4 @@
----
-name: spec-audit
-description: Audit a set of software requirements against repository evidence. Use to find missing behavior, conflicting specs, unverified coverage, and product decisions across a feature or document. In a project-knowledge vault, each finding that needs action becomes its own gap page for people to re-check and decide.
-license: MIT
----
-
-# Spec Audit
+# Audit a specification against the code
 
 Compare a bounded set of requirements with what the code does, and show where the evidence supports a decision. Follow repository instructions, stay within the requested scope and preserve existing edits. This skill inspects and reports; changing the application or creating tickets is a separate task.
 
@@ -47,9 +41,9 @@ Return the report inline unless a destination is given, in English unless asked 
 
 Lead with the findings that most affect the next decision. In a persistent report keep finding and evidence IDs stable so later reviews can update them.
 
-## With a project-knowledge vault
+## Recording the audit in the vault
 
-An existing vault is a pointer to sources, not evidence: verify against the cited code. If the user wants the audit recorded in a vault that uses gap pages (it has a `gaps/` folder), follow [gaps.md](references/gaps.md); otherwise return the ordinary report and say the vault format was not available.
+An existing vault is a pointer to sources, not evidence: verify against the cited code. If the user wants the audit recorded in a vault that uses gap pages (it has a `gaps/` folder), follow [gaps.md](gaps.md); otherwise return the ordinary report and say the vault format was not available.
 
 - Each finding that needs action becomes **its own gap page** with `decision: "open"`, `recheck: "not-checked"` and the classification as `kind`. The audit that found it is not its recheck. Split a finding with two aspects that have different next steps.
 - Requirements confirmed as implemented are not gaps. They belong in the report's Confirmed section; if the vault's spec notes are missing or wrong about them, say so, but do not turn that into a gap unless something is actually in doubt.

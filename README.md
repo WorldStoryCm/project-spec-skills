@@ -2,7 +2,7 @@
 
 **Turn a repository into knowledge you can navigate, question, and maintain.**
 
-Five agent skills for understanding existing software, comparing it with its specification, investigating uncertainty, planning the next change, and building it from the spec. Start with the code you already have. Keep explanations in English Markdown with links to the evidence.
+Two agent skills: one to understand existing software and keep that understanding true, one to change it starting from the spec. Start with the code you already have. Keep explanations in English Markdown with links to the evidence.
 
 The knowledge skill produces an **Obsidian-compatible vault** with two clearly separated layers:
 
@@ -15,13 +15,10 @@ To read it there is a small **local viewer**: one command opens the spec as a pl
 
 ## Pick a skill
 
-| Category | Skill | What you get |
+| For | Skill | What you get |
 | --- | --- | --- |
-| Knowledge | [project-knowledge](skills/project-knowledge/SKILL.md) | An as-built spec of capabilities and behavior, a separate queue of individually tracked gaps, coverage notes; incremental Git review and reconciliation of concurrent vault updates. |
-| Quality | [spec-audit](skills/spec-audit/SKILL.md) | A scoped comparison of requirements and implementation, with evidence, priorities and next actions; in a vault, one gap page per finding. |
-| Investigation | [spec-investigation](skills/spec-investigation/SKILL.md) | An answer to one question, competing explanations, checks actually performed and the smallest useful next check; the way to re-check a single gap. |
-| Development (experimental) | [spec-change](skills/spec-change/SKILL.md) | Development driven by the spec: you edit the spec on a branch, the agent reviews the diff and asks its questions before any code, then implements it and checks each changed statement against the code. |
-| Planning | [spec-plan](skills/spec-plan/SKILL.md) | A source-grounded implementation plan with dependencies, decision gates and observable acceptance criteria; in a vault, only for a gap a person accepted. |
+| Understand | [project-knowledge](skills/project-knowledge/SKILL.md) | An as-built spec of capabilities and behavior and a separate queue of individually tracked gaps. It also audits written requirements against the code, answers one question or re-checks one gap, keeps the spec in step with Git history and reconciles concurrent vault updates. It never changes application code. |
+| Change (experimental) | [spec-change](skills/spec-change/SKILL.md) | A source-grounded plan with decision gates and observable acceptance criteria, or the change itself: you edit the spec on a branch, the agent reviews the diff and asks its questions before any code, then implements it and checks each changed statement against the code. |
 
 Each skill is independently usable. A useful sequence is:
 
@@ -36,7 +33,7 @@ flowchart LR
   F --> A
 ```
 
-Implementation is a separate task, except in `spec-change`, which starts from your edits to the spec instead of from a gap. Reading a test establishes what it expects; only running it produces a test result.
+`project-knowledge` never changes application code; `spec-change` is the one that does, and only after it has asked its questions. Reading a test establishes what it expects; only running it produces a test result.
 
 ## Read the spec, then work from it
 
@@ -132,13 +129,10 @@ Ask the built-in skill installer:
 ```text
 Install these skills from WorldStoryCm/project-spec-skills:
 skills/project-knowledge
-skills/spec-audit
 skills/spec-change
-skills/spec-investigation
-skills/spec-plan
 ```
 
-If you already have a skill with the same name, compare versions before replacing it. The installer in Codex handles its own destination. In Codex you can name a skill with `$name`, for example `$spec-audit`.
+If you already have a skill with the same name, compare versions before replacing it. The installer in Codex handles its own destination. In Codex you can name a skill with `$name`, for example `$spec-change`.
 
 ### Claude Code
 
@@ -151,10 +145,10 @@ Copy the whole skill folder (it contains the references and helper scripts) to o
 git clone https://github.com/WorldStoryCm/project-spec-skills.git
 mkdir -p ~/.claude/skills
 cp -R project-spec-skills/skills/project-knowledge ~/.claude/skills/
-# repeat for spec-audit, spec-change, spec-investigation and spec-plan
+cp -R project-spec-skills/skills/spec-change ~/.claude/skills/
 ```
 
-Then ask in plain language, or invoke a skill by name with `/<name>`, for example `/spec-audit`. Claude Code finds a skill from its description, so an ordinary request often picks the right one.
+Then ask in plain language, or invoke a skill by name with `/<name>`, for example `/spec-change`. Claude Code finds a skill from its description, so an ordinary request often picks the right one.
 
 ### Example prompts
 
@@ -167,18 +161,18 @@ as its own gap.
 ```
 
 ```text
-Use the spec-audit skill to compare docs/checkout.md with the checkout implementation.
+Use the project-knowledge skill to audit docs/checkout.md against the checkout implementation.
 Prioritize real mismatches; record each as a separate open gap.
 ```
 
 ```text
-Use the spec-investigation skill to re-check the gap "cancelled order still reserves stock".
+Use the project-knowledge skill to re-check the gap "cancelled order still reserves stock".
 Read the call path and relevant tests, write the result into the gap's Recheck
 section, and leave the decision to me.
 ```
 
 ```text
-Use the spec-plan skill to plan the accepted gap "reservation-release".
+Use the spec-change skill to plan the accepted gap "reservation-release".
 Include affected modules, concurrency checks and acceptance criteria. Plan only.
 ```
 
@@ -208,7 +202,7 @@ Start the viewer on the example:
 python3 skills/project-knowledge/scripts/knowledge.py serve --repo examples/parcel-desk --open
 ```
 
-Search for **cancellation**, open a gap, follow its links and try "Copy for AI" on it. [Read the spec, then work from it](#read-the-spec-then-work-from-it) describes every screen. `build` (see the example's README) writes `AS-BUILT.md` and `GAPS.md`, the same content as two Markdown files for reading on a Git host.
+Search for **cancellation**, open a gap, follow its links and try "Copy for AI" on it. [Read the spec, then work from it](#read-the-spec-then-work-from-it) describes every screen.
 
 To use Obsidian, choose **Open folder as vault** and select `examples/parcel-desk/knowledge/parcel-desk`. Open `00-index`, then **Graph view: Open graph view** from the command palette (Cmd/Ctrl+G). In graph settings, **Existing files only** hides unresolved source links outside the vault. Pages cluster around their area because each page links to it; run pages carry no links, so they do not pull the clusters together. To see the spec alone, put `-path:gaps -path:plans -path:runs` in the graph's search filter, and add a color group per folder (`path:areas`, `path:notes`, `path:gaps`) under **Groups**. **Open local graph** shows only the neighbours of the page you are reading. Gap properties are searchable, for example `[decision:open]` or `[kind:verification-gap]`. See [Obsidian's graph guide](https://help.obsidian.md/plugins/graph).
 
@@ -219,7 +213,7 @@ Source links point outside the vault into the repository. Some hosts do not open
 ```text
 Use the project-knowledge skill to sync: review all integrated changes since the last
 reviewed checkpoint, update the affected spec notes, and revisit gaps whose
-sources changed. Then rebuild the graph.
+sources changed.
 ```
 
 Or narrow the work:
@@ -239,7 +233,7 @@ Everything is manual and nothing is published: the bundle installs no schedule o
 
 ### Gaps are decided by people
 
-A gap starts open. Anyone can re-check it (`spec-investigation` is built for that) and the result is written into the gap with who did it and when. Then a person accepts, rejects or defers it, or the agent finds the code already closes it and marks it done. Only an accepted gap gets a plan. Each gap page has its own `Discussion` and `Decision` sections, and `GAPS.md` lists the queue by state. A recheck means the same thing for every kind of gap, proposals included: it asks only whether the page's description of current behavior still holds in the code ("confirmed (still holds)" or "not reproduced (no longer holds)"), never whether the proposal is a good idea. Details are in [gaps.md](skills/project-knowledge/references/gaps.md).
+A gap starts open. Anyone can re-check it (ask `project-knowledge` to recheck it) and the result is written into the gap with who did it and when. Then a person accepts, rejects or defers it, or the agent finds the code already closes it and marks it done. Only an accepted gap gets a plan. Each gap page has its own `Discussion` and `Decision` sections, and the viewer lists the queue by state. A recheck means the same thing for every kind of gap, proposals included: it asks only whether the page's description of current behavior still holds in the code ("confirmed (still holds)" or "not reproduced (no longer holds)"), never whether the proposal is a good idea. Details are in [gaps.md](skills/project-knowledge/references/gaps.md).
 
 ### When two people update the vault
 
@@ -258,15 +252,12 @@ Use separate branches or worktrees, or one writer per page, for concurrent work.
 ```text
 knowledge/<project>/
   00-index.md           start here
-  01-coverage.md        depth reached per area and next actions
-  AS-BUILT.md           generated: the as-built specification in one document
-  GAPS.md               generated: the gap queue by state
   areas/                maps of related capabilities (spec)
   notes/                source-backed behaviors and rules (spec)
   gaps/                 one question per page (gap)
   plans/                one plan per accepted gap (gap)
   runs/                 review history and evidence limits
-  .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint), graph.json (generated view data)
+  .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint)
 ```
 
 Spec pages never link to gaps; a gap links to the spec notes it is about. A gap that needs attention is a reason to look, not a defect list: it can mean unverified behavior, an unmet requirement or an undecided proposal. The [format contract](skills/project-knowledge/references/format.md) explains the page types, properties and evidence model. Helpers support this format; they are not a general Obsidian vault importer.
