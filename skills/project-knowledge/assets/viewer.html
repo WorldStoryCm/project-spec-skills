@@ -95,9 +95,11 @@
         padding: 0 10px;
       }
       .brand strong {
-        font: 800 21px/1.1 var(--display);
+        font: 800 19px/1.2 var(--display);
         letter-spacing: -0.05em;
-        overflow-wrap: anywhere;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .mono-label,
       .eyebrow {
@@ -174,6 +176,9 @@
       .tree-row .label {
         flex: 1;
         min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .nav-link .meta,
       .tree-row .meta {
@@ -534,6 +539,95 @@
       }
       .row:last-child {
         border-bottom: 0;
+      }
+      .row.slim {
+        min-height: 44px;
+        padding: 6px 20px;
+      }
+      .row.slim .grow {
+        flex: 1 1 200px;
+      }
+      .row.slim .rowlink,
+      .row.slim .grow > span {
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .row.slim .path {
+        flex: 0 1 auto;
+        max-width: 38%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tag {
+        flex: none;
+        width: 64px;
+        font: 500 11px/1.4 var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .tag.added {
+        color: var(--success);
+      }
+      .tag.removed {
+        text-decoration: line-through;
+      }
+      details.what {
+        flex: none;
+        font-size: 13px;
+      }
+      details.what > summary {
+        cursor: pointer;
+        color: var(--accent-ink);
+      }
+      details.what[open] {
+        flex: 1 1 100%;
+        order: 9;
+      }
+      details.what[open] > summary {
+        margin-bottom: 6px;
+      }
+      .group {
+        padding: 12px 20px 4px;
+      }
+      .commit summary.card-head {
+        cursor: pointer;
+        list-style: none;
+        border-bottom: 0;
+        flex-wrap: nowrap;
+      }
+      .commit summary.card-head::-webkit-details-marker {
+        display: none;
+      }
+      .commit summary.card-head:hover {
+        background: var(--raised);
+      }
+      .commit summary.card-head svg {
+        flex: none;
+        color: var(--muted);
+        transition: transform 0.12s;
+      }
+      .commit details[open] > summary.card-head {
+        border-bottom: 1px solid var(--line);
+      }
+      .commit details[open] > summary.card-head svg {
+        transform: rotate(90deg);
+      }
+      .commit .grow {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .h3 {
+        font: 600 16px/1.3 var(--sans);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .row .grow {
         flex: 1 1 260px;
@@ -1269,7 +1363,7 @@
         </div>
         <button type="button" class="searchbox" id="open-search">
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-          <span>Search pages, gaps, files</span><kbd>⌘K</kbd>
+          <span>Search</span><kbd>⌘K</kbd>
         </button>
         <div class="nav-links" id="nav-links"></div>
         <div class="eyebrow">Spec</div>
@@ -1485,6 +1579,7 @@
         };
         const areas = nodes.filter((n) => n.type === "area").sort(byTitle);
         $("#project-title").textContent = projectTitle;
+        $("#project-title").title = projectTitle;
         $("#header-note").textContent = live ? "Spec · live from disk" : "Spec";
         // Small things kept in this browser only: where you were, what you picked. Never required.
         const store = {
@@ -2167,6 +2262,7 @@
             const b = button(null, "tree-row note", () => openNode(f)),
               open = waiting(f).length;
             b.append(el("span", f.title, "label"));
+            b.title = f.title; // the row shows one line; the full name is a hover away
             if (open) b.append(el("span", open + " open", "meta"));
             b.setAttribute("aria-current", selected === f ? "page" : "false");
             return b;
@@ -2187,6 +2283,7 @@
             twist.setAttribute("aria-expanded", String(open));
             twist.setAttribute("aria-label", (open ? "Collapse " : "Expand ") + a.title);
             name.append(el("span", a.title, "label"));
+            name.title = a.title;
             name.setAttribute("aria-current", selected === a ? "page" : "false");
             line.append(twist, name);
             tree.append(line);
@@ -2550,25 +2647,46 @@
             : changeFilter === "gaps"
               ? /^(gaps|plans)\//.test(path)
               : true;
+        // One line per page: what happened, its name (a link when the page exists), its file.
         const pageRow = (entry) => {
-          const row = el("div", null, "row"),
+          const row = el("div", null, "row slim"),
             grow = el("div", null, "grow"),
             n = pageByFile(entry.path);
+          if (entry.status) row.append(el("span", statusWord[entry.status] || str(entry.status), "tag " + str(entry.status)));
           grow.append(n ? button(n.title, "rowlink", () => openNode(n)) : el("span", str(entry.path)));
-          if (n) grow.append(el("span", str(entry.path), "path"));
           row.append(grow);
-          if (entry.status) row.append(el("span", statusWord[entry.status] || str(entry.status), "badge plain"));
+          if (n) row.append(el("span", str(entry.path), "path"));
           if (str(entry.was) && str(entry.now)) {
-            const box = el("div", null, "wasnow"),
+            const what = el("details", null, "what"),
+              box = el("div", null, "wasnow"),
               was = el("div", null, "was"),
               now = el("div");
             was.append(el("b", "was"), el("span", entry.was));
             now.append(el("b", "now"), el("span", entry.now));
             box.append(was, now);
-            row.append(box);
+            what.append(el("summary", "What changed"), box);
+            row.append(what);
           }
           return row;
         };
+        const GROUPS = [
+          ["Spec pages", /^(areas|notes)\//],
+          ["Gaps and plans", /^(gaps|plans)\//],
+          ["Other pages", /^/],
+        ];
+        // Rows sorted into spec, gaps and the rest, with a label per group when there is more than one.
+        function groupedRows(parent, entries) {
+          const left = entries.slice(),
+            groups = GROUPS.map(([label, test]) => {
+              const mine = left.filter((p) => test.test(str(p.path)));
+              mine.forEach((p) => left.splice(left.indexOf(p), 1));
+              return [label, mine];
+            }).filter(([, mine]) => mine.length);
+          groups.forEach(([label, mine]) => {
+            if (groups.length > 1) parent.append(el("div", label + " · " + mine.length, "mono-label group"));
+            mine.forEach((p) => parent.append(pageRow(p)));
+          });
+        }
         const rereadBrief = () =>
           "Use the project-knowledge skill. These pages cite sources that changed since the last review. " +
           "Re-read each page against its sources, update the text where the code now differs, and accept the fingerprints only for pages you re-read.\n\n" +
@@ -2628,31 +2746,41 @@
             card.id = "pending";
             head.append(el("h2", "Not committed yet", "h2"), el("span", plural(waitingCommit.length, "page"), "path"));
             card.append(head);
-            waitingCommit.forEach((p) => card.append(pageRow(p)));
+            groupedRows(card, waitingCommit);
             box.append(card);
           }
-          box.append(el("h2", "History", "h2"));
-          let any = false;
+          box.append(
+            el("h2", "History", "h2"),
+            el("p", "One line per commit. Open a commit to see its pages; a page name opens the page.", "muted small"),
+          );
+          let any = false,
+            shownCommits = 0;
           historyLog.forEach((c, i) => {
             if (changeFilter === "new" && i >= newCommits) return;
             const pages = (Array.isArray(c.pages) ? c.pages : []).filter((p) => p && inFilter(str(p.path)));
             if (!pages.length) return;
             any = true;
-            const card = el("article", null, "card"),
-              head = el("div", null, "card-head"),
-              text = el("div", null, "grow");
+            const card = el("article", null, "card commit"),
+              open = el("details"),
+              head = el("summary", null, "card-head"),
+              text = el("div", null, "grow"),
+              more = c.more && changeFilter === "all" ? c.more : 0;
+            // New commits and the newest one start open; the rest are one line each.
+            open.open = i < newCommits || shownCommits === 0;
+            shownCommits++;
             text.append(
               el("div", str(c.date) + " · commit " + str(c.sha).slice(0, 7) + (i < newCommits ? " · new" : ""), "eyebrow"),
-              el("h3", str(c.subject), "h2"),
+              el("h3", str(c.subject), "h3"),
             );
-            head.append(text);
-            card.append(head);
-            pages.forEach((p) => card.append(pageRow(p)));
-            if (c.more && changeFilter === "all") {
-              const more = el("div", null, "row");
-              more.append(el("span", "and " + plural(c.more, "more page"), "muted small"));
-              card.append(more);
+            head.append(text, el("span", plural(pages.length + more, "page"), "path"), icon(ICON.chevron));
+            open.append(head);
+            groupedRows(open, pages);
+            if (more) {
+              const rest = el("div", null, "row slim");
+              rest.append(el("span", "and " + plural(more, "more page"), "muted small"));
+              open.append(rest);
             }
+            card.append(open);
             box.append(card);
           });
           if (!any)

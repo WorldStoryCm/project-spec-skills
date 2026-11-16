@@ -632,8 +632,18 @@ const queue = {
   const subjects = () => commits().map(c => findAll(c, e => e.tag === 'h3')[0].textContent);
   assert.deepEqual(subjects(), ['Third', 'Second', 'First']);
   assert.ok(commits()[0].textContent.startsWith('2026-11-16 · commit c3c3c3c'));
-  assert.deepEqual(findAll(commits()[0], e => has(e, 'wasnow'))[0].children.map(text), ['wasOld line.', 'nowNew line.']);
-  assert.deepEqual(titles(commits()[1]), ['Packed pickups', 'notes/dropped.md', 'and 4 more pages']);
+  // one line per commit: the newest starts open, the rest open on demand
+  assert.deepEqual(commits().map(c => findAll(c, e => e.tag === 'details')[0].open === true), [true, false, false]);
+  assert.deepEqual(commits().map(c => findAll(c, e => e.tag === 'summary')[0].textContent.replace(/^.*?(\d+ pages?)$/, '$1')), ['1 page', '6 pages', '1 page']);
+  // what a summary said before and after sits behind "What changed"
+  const what = findAll(commits()[0], e => cls(e) === 'what')[0];
+  assert.equal(what.children[0].textContent, 'What changed');
+  assert.deepEqual(findAll(what, e => has(e, 'wasnow'))[0].children.map(text), ['wasOld line.', 'nowNew line.']);
+  // pages are sorted into spec and gaps, each row saying what happened to the page
+  assert.deepEqual(titles(commits()[1]), ['notes/dropped.md', 'Packed pickups', 'and 4 more pages']);
+  assert.deepEqual(findAll(commits()[1], e => has(e, 'group')).map(text), ['Spec pages · 1', 'Gaps and plans · 1']);
+  assert.deepEqual(findAll(commits()[1], e => has(e, 'tag')).map(text), ['Removed', 'New']);
+  assert.deepEqual(findAll(commits()[0], e => has(e, 'group')), [], 'no label for a single group');
   assert.ok(commits()[1].textContent.includes('New') && commits()[1].textContent.includes('Removed'));
   assert.deepEqual(titles(commits()[2]), ['Index page']);
   // a page in the history opens
