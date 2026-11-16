@@ -389,7 +389,27 @@
       }
       .map-head .pill,
       .map-head select {
-        height: 36px;
+        height: 34px;
+      }
+      .map-head .pill {
+        padding: 0 12px;
+        font-size: 13px;
+      }
+      .map-head select {
+        max-width: 220px;
+      }
+      .map-head .pillrow {
+        gap: 6px;
+      }
+      .view:has(> .compact) {
+        padding-top: 18px;
+      }
+      .stack.compact {
+        gap: 14px;
+        max-width: none;
+      }
+      .stack.compact > .card {
+        max-width: 1100px;
       }
       .stack {
         display: flex;
@@ -2544,8 +2564,10 @@
               );
             main.append(markdown(bodyOf(n), n));
           } else if (layer === "spec") {
+            // A reference note's table is what the reader came for, so it is shown, not folded away.
+            const reference = n.type === "note" && /^ {0,3}\|?[ \t]*:?-+:?[ \t]*\|/m.test(bodyOf(n));
             if (n.type === "area") main.append(featureList(featuresOf(n)));
-            else if (!summary) main.append(markdown(bodyOf(n), n)); // nothing plainer to show yet
+            else if (!summary || reference) main.append(markdown(bodyOf(n), n)); // nothing plainer to show yet
             const related = neighbours(n, "spec").filter(
               (r) => r.id !== parent?.id && !(n.type === "area" && primaryArea(r) === n.id),
             );
@@ -2564,7 +2586,7 @@
               main.append(card);
             }
             const folds = el("div");
-            if (n.type === "area" || summary)
+            if (n.type === "area" || (summary && !reference))
               folds.append(fold(n.type === "area" ? "More about this area" : "How it works in the code", markdown(bodyOf(n), n)));
             const sources = (Array.isArray(n.sources) ? n.sources : []).filter(str);
             if (sources.length) {
@@ -2599,23 +2621,27 @@
           return s;
         };
         const areaOptions = () => [["", "All areas"], ...areas.map((a) => [a.id, a.title])];
+        // The queue is a work list: one row of title and filters, then the gaps.
         function viewGaps(view) {
-          const box = el("div", null, "stack");
-          box.append(
-            header(
-              "Gap queue",
-              "Gaps",
-              "Questions about what is missing, unverified or could be added. Each one is rechecked and then decided by a person.",
-            ),
-          );
+          const box = el("div", null, "stack compact"),
+            head = el("div", null, "map-head");
+          head.append(el("h1", "Gaps"));
+          head.title = "Questions about what is missing, unverified or could be added. Each one is rechecked and then decided by a person.";
+          box.append(head);
           const pool = nodes.filter(
               (n) => isGap(n) && inArea(n, gapArea) && (!gapKind || n.kind === gapKind),
             ),
             again = () => show();
-          box.append(
+          head.append(
             pills(
               "State",
-              [["all", "All", pool.length], ...STATES.map((s) => [s, stateLabels[s], pool.filter((g) => stateOf(g) === s).length])],
+              // A state with no gaps under the current filters is left out, unless it is the one selected.
+              [
+                ["all", "All", pool.length],
+                ...STATES.map((s) => [s, stateLabels[s], pool.filter((g) => stateOf(g) === s).length]).filter(
+                  ([s, , count]) => count || s === gapState,
+                ),
+              ],
               gapState,
               (s) => {
                 gapState = s;
@@ -2628,8 +2654,7 @@
           nodes.forEach((n) => {
             if (isGap(n) && str(n.kind) && !kinds.includes(n.kind)) kinds.push(n.kind);
           });
-          const filters = el("div", null, "pillrow");
-          filters.append(
+          head.append(
             selectOf("Area", areaOptions(), gapArea, (v) => {
               gapArea = v;
               again();
@@ -2639,7 +2664,6 @@
               again();
             }),
           );
-          box.append(filters);
           const shown = pool
             .filter((g) => gapState === "all" || stateOf(g) === gapState)
             .sort((a, b) => stateRank(a) - stateRank(b) || byTitle(a, b));

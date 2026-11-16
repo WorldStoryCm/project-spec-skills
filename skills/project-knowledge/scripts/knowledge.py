@@ -31,6 +31,8 @@ UNCOUNTED = ' (uncommitted change, not counted)'  # suffix of a freshness warnin
 CONTROL = re.compile('[\x00-\x1f\x7f\x85\u2028\u2029]')
 SCHEME = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:')
 MD_LINK = re.compile(r'\]\(\s*(<[^>]*>|[^\s)]*)')
+# The delimiter row of a GFM table: | --- | :-: |, with or without the outer pipes, at least one pipe.
+TABLE_RULE = re.compile(r'^ {0,3}\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*$|^ {0,3}\|[ \t]*:?-+:?[ \t]*\|?[ \t]*$')
 MD_REF = re.compile(r'^ {0,3}\[[^\]\n]+\]:\s*(<[^>]*>|\S+)', re.M)
 GAP_PAGE_ONLY = ('priority', 'confidence')
 ARRAYS = {'areas', 'sources', 'tags', 'aliases', 'task_ids'}
@@ -487,8 +489,17 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
                 errors.append(f"{rel}: spec pages must not link to the gap layer ({'embed ' if embed else ''}{target}); link from the gap to this page instead")
             elif meta['type'] == 'run':
                 run_links += 1
+            elif meta['type'] == 'area' and choices[0]['meta']['type'] == 'note' and re.search(r'[#^]', re.split(r'\\?\|', link, maxsplit=1)[0]):
+                errors.append(f"{rel}: an area page links whole notes, not a part of one ({link.split('|')[0].replace(chr(92), '')}); "
+                              "if that part needs its own link, make it its own note and list it here")
             else:
                 edges.add((meta['id'], choices[0]['meta']['id']))
+        if meta['type'] == 'area':
+            # An area page is a map of its notes. A table on it is behavior written in the wrong place.
+            tables = sum(1 for line in text.split('\n') if TABLE_RULE.match(line))
+            if tables:
+                errors.append(f"{rel}: an area page is a map and holds no table ({tables} found); a table describes behavior: "
+                              "write a note for each thing it describes and list the notes on the area page")
         if meta['type'] in {'area', 'note'}:
             gap_files = {n['path'].casefold() for n in notes if n['meta']['type'] in {'gap', 'plan'}} | {'gaps.md'}
             gap_files |= {f.casefold() for f, kind in failed_kind.items() if kind in {'gap', 'plan'}}

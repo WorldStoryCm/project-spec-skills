@@ -232,6 +232,15 @@ const parcel = () => ({
   assert.ok(v.btn(v.page(), 'Cancelling a pickup') && v.btn(v.page(), 'Responses') && !v.btn(v.page(), 'Old rule'));
   assert.deepEqual(v.crumbs(), ['Parcel Desk', '/', 'Pickups']);
 
+  // a reference note shows its table even though it has a summary
+  const ref = load({ title: 'Ref', nodes: [
+    spec('a', 'Area', 'area', []),
+    spec('jobs', 'Background jobs', 'note', ['a'], { summary: 'Two jobs, both on a schedule.', body: '# Background jobs\n\nEvery job registered in `worker.ts`: 2.\n\n| Job | Starts | Does |\n| --- | --- | --- |\n| digest | daily at 06:00 UTC | emails the digest |\n| purge | hourly | deletes expired links |' }),
+  ], edges: [] }, { hash: '#/page/notes/jobs' });
+  assert.deepEqual(findAll(ref.page(), e => e.tag === 'td').map(text).slice(0, 3), ['digest', 'daily at 06:00 UTC', 'emails the digest']);
+  assert.deepEqual(ref.folds(), [], 'the table is not folded away');
+  assert.equal(findAll(ref.page(), e => cls(e) === 'lead')[0].textContent, 'Two jobs, both on a schedule.');
+
   // a gap reached from a page
   v.treeRow('Cancelling a pickup').click();
   v.btn(v.page(), 'Packed pickups').click();
@@ -306,7 +315,7 @@ const queue = {
   v.select('Kind').value = 'product-plan';
   v.select('Kind').fire('change');
   assert.deepEqual(v.rowTitles(), ['Gap deferred']);
-  assert.deepEqual(counts().slice(0, 2), ['All1', 'Needs recheck0'], 'counts follow the other filters');
+  assert.deepEqual(counts(), ['All1', 'Deferred1'], 'counts follow the other filters, and empty states are left out');
   v.select('Kind').value = '';
   v.select('Kind').fire('change');
   v.select('Area').value = 'areas/other';

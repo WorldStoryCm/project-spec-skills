@@ -15,6 +15,6 @@ updated: "2026-11-14"
 The adapter accepts a customer identifier supplied by its caller, and the service compares it with the pickup's owner before looking at state. This is a policy check on a supplied value; nothing in the fixture authenticates a request.
 
 - [[notes/ownership-check|Ownership rule]] constrains [[areas/pickups|pickup cancellation]].
-- [[notes/route-responses|Route responses]] shows how a refusal is reported as status 403.
+- [[notes/route-responses|What a cancellation request returns]] (reference) shows how a refusal is reported as status 403.
 
 Read: [service](../../../src/pickups.py), [adapter](../../../src/routes.py), and [tests](../../../tests/test_pickups.py). The other-customer test passed in the example check. Identity providers, sessions and any partner identity are not present in the fixture.

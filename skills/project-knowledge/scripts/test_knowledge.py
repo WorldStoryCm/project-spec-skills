@@ -603,6 +603,26 @@ class GapLayerTests(Fixture):
             self.assertEqual(k.main(['check', '--repo', str(self.repo)]), 0)
         self.assertIn('check: 1 notes', out.getvalue())
 
+    def test_area_pages_are_maps_without_tables_or_links_into_notes(self):
+        table = '| Screen | What it does |\n| --- | --- |\n| Profile | Edits the name. [[notes/n|Profile]] |\n'
+        for body in (table, '| a | b |\n|:-|-:|\n| 1 | 2 |', 'a | b\n--- | ---\n1 | 2', '| one column |\n| --- |\n| x |'):
+            with self.subTest(body=body):
+                self.note('areas/a.md', 'a', 'area', areas=[], body=body)
+                self.assertInvalid('an area page is a map and holds no table (1 found)')
+        for link in ('[[notes/n#Profile]]', '[[n#Profile|the profile part]]', '[[notes/n#^block]]', '| [[notes/n#Profile\\|alias]] |'):
+            with self.subTest(link=link):
+                self.note('areas/a.md', 'a', 'area', areas=[], body=f'See {link}.')
+                self.assertInvalid('an area page links whole notes, not a part of one')
+        self.note('areas/a.md', 'a', 'area', areas=[], body='See [[notes/n#Profile|it]].')
+        self.assertIn('not a part of one (notes/n#Profile);', self.errors()[1])
+        # what stays allowed: whole notes, tables in code, lists, and tables or heading links on other pages
+        self.note('areas/a.md', 'a', 'area', areas=[], body='- [[notes/n|The rule]]: one line about it.\n\n```\n| a | b |\n| - | - |\n```\n\nA line with a | pipe.')
+        self.note('notes/n.md', 'n', sources=['source.txt'], body=table + '\nSee [[areas/a#Coverage]].')
+        self.note('notes/m.md', 'm', sources=['source.txt'], body='Part of [[notes/n#Profile]].')
+        self.gap(body=section_body() + '\nSee [[notes/n#Profile]].')
+        status, err = self.errors()
+        self.assertEqual(status, 0, err)
+
     def test_run_pages_cannot_link_to_vault_pages(self):
         for body in ('[[notes/n]]', 'see [[n|the note]] and [[areas/a]]', '![[notes/n]]', '[n](../notes/n.md)', '[n]: ../00-index.md'):
             with self.subTest(body=body):

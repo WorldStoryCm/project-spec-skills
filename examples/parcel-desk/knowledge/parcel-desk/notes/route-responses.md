@@ -1,19 +1,27 @@
 ---
 id: "route-responses"
-title: "Cancellation exceptions become adapter statuses"
+title: "What a cancellation request returns"
 type: "note"
 status: "current"
 areas: ["pickups", "access"]
 sources: ["src/routes.py", "src/pickups.py", "tests/test_pickups.py"]
-tags: ["knowledge", "contract"]
+tags: ["knowledge", "contract", "reference"]
 summary: "A cancellation request gets one of three answers: cancelled, refused because the pickup belongs to someone else, or refused because it can no longer be cancelled."
-updated: "2026-11-14"
+updated: "2026-11-16"
 ---
 
-# Cancellation exceptions become adapter statuses
+# What a cancellation request returns
 
 Areas: [[areas/pickups|Pickup cancellation]] and [[areas/access|Customer access]].
 
-The in-process `cancel_request` adapter calls `cancel_pickup` and returns a dictionary: `{"status": 403, "error": "forbidden"}` for `PermissionError`, `{"status": 409, "error": "cancellation_conflict"}` for `ValueError`, and `{"status": 200, "state": <new state>}` on success. See [the adapter](../../../src/routes.py) and [the called service](../../../src/pickups.py).
+Every answer of `cancel_request`, the in-process adapter in [routes.py](../../../src/routes.py): three, one for each way out of `cancel_pickup` in [pickups.py](../../../src/pickups.py). The checks run in the order of the rows, and the first one that fails decides the answer.
 
-[[notes/ownership-check|Ownership]] decides the 403 case and [[notes/cancellation-boundary|state eligibility]] decides the 409 case, so a `packed` pickup owned by the caller reaches the 409 branch. The [existing tests](../../../tests/test_pickups.py) exercise the three branches with a requested, an other-customer and a collected pickup, and passed in the example check. The values are dictionaries returned in-process, not observed HTTP responses.
+| Case | Condition | Answer | Pickup state afterwards |
+| --- | --- | --- | --- |
+| Another customer's pickup | `pickup.customer_id` is not the caller's | `{"status": 403, "error": "forbidden"}` | unchanged |
+| Can no longer be cancelled | the caller's pickup, in any state but `requested` (for example `packed` or `picked_up`) | `{"status": 409, "error": "cancellation_conflict"}` | unchanged |
+| Cancelled | the caller's pickup, in state `requested` | `{"status": 200, "state": "cancelled"}` | `cancelled` |
+
+There is no fourth answer: the adapter catches only `PermissionError` and `ValueError`, and any other exception propagates to its caller. Because [[notes/ownership-check|the owner check]] runs first, the answer for another customer's pickup does not depend on its state. [[notes/cancellation-boundary|The state rule]] decides the second row, so a `packed` pickup of the caller's own is refused.
+
+The [existing tests](../../../tests/test_pickups.py) cover each row once (another customer, `picked_up`, `requested`); the first two assert the status and the unchanged state but not the `error` text. They passed in the example check. The answers are dictionaries returned in-process, not observed HTTP responses.
