@@ -365,14 +365,31 @@
       }
 
       /* Page */
-      .view,
-      .mapview {
+      .view {
         padding: 40px 32px 80px;
       }
+      /* The map takes the rest of the window: one row of controls, then the map, no page scroll. */
       .mapview {
+        height: calc(100vh - 68px);
+        padding: 14px 32px 20px;
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 12px;
+      }
+      .map-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 16px;
+      }
+      .map-head h1 {
+        font: 700 22px/1.2 var(--display);
+        letter-spacing: -0.03em;
+        white-space: nowrap;
+      }
+      .map-head .pill,
+      .map-head select {
+        height: 36px;
       }
       .stack {
         display: flex;
@@ -961,8 +978,8 @@
       /* Map */
       .graph-wrap {
         position: relative;
-        height: min(72vh, 760px);
-        min-height: 420px;
+        flex: 1;
+        min-height: 320px;
         border: 1px solid var(--line);
         border-radius: 20px;
         background: var(--raised);
@@ -1395,6 +1412,13 @@
           padding-left: 16px;
           padding-right: 16px;
         }
+        .mapview {
+          height: auto;
+        }
+        .graph-wrap {
+          flex: none;
+          height: 70vh;
+        }
         .topbar .btn {
           padding: 0 12px;
         }
@@ -1444,10 +1468,8 @@
         </div>
         <div class="view" id="view"></div>
         <section class="mapview" id="mapview" aria-labelledby="map-title" hidden>
-          <div class="stack">
-            <div class="eyebrow">Map</div>
-            <h1 class="title" id="map-title">Map</h1>
-            <p class="lead" id="map-desc"></p>
+          <div class="map-head">
+            <h1 id="map-title">Map</h1>
             <div class="pillrow" id="map-controls" role="group" aria-label="Map layer"></div>
           </div>
           <div class="graph-wrap">
@@ -1458,7 +1480,6 @@
               ><button type="button" id="reset" aria-label="Reset view">↺</button>
             </div>
           </div>
-          <p class="muted small" id="graph-hint"></p>
         </section>
       </main>
     </div>
@@ -2635,12 +2656,12 @@
         function viewMap() {
           const gaps = mode === "gap";
           $("#map-title").textContent = gaps ? "Gap map" : "Spec map";
-          $("#map-desc").textContent = gaps
-            ? "Gaps and their plans, with the spec pages they refer to. Gaps are questions, not facts about the code."
-            : "How the pages of the spec connect. One frame per area.";
-          $("#graph-hint").textContent = gaps
-            ? "Filled circles are gaps, squares are plans, dashed outlines are spec pages the gaps refer to. Drag to pan; select a node to open it."
-            : "Lines are links between pages, dashed when they cross areas. Drag to pan; select a node to open it.";
+          graph.setAttribute(
+            "aria-label",
+            gaps
+              ? "Map of gaps and their plans, with the spec pages they refer to, one frame per area. Every page is also in the tree."
+              : "Map of how the spec pages link, one frame per area. Every page is also in the tree.",
+          );
           const controls = $("#map-controls");
           controls.replaceChildren(
             ...pills("Map layer", [["spec", "Spec"], ["gap", "Gaps"]], mode, (m) => {
@@ -3341,8 +3362,8 @@
           initialBox = {
             x: 0,
             y: 0,
-            w: Math.min(1500, Math.max(700, maxW)),
-            h: Math.min(950, Math.max(430, y + rowH + GAP)),
+            w: Math.max(700, maxW),
+            h: Math.max(430, y + rowH + GAP),
           };
           if (!preserveView) box = { ...initialBox };
           applyBox();
