@@ -2,14 +2,16 @@
 
 **Turn a repository into knowledge you can navigate, question, and maintain.**
 
-Four agent skills for understanding existing software, comparing it with its specification, investigating uncertainty, and planning the next change. Start with the code you already have. Keep explanations in English Markdown with links to the evidence.
+Five agent skills for understanding existing software, comparing it with its specification, investigating uncertainty, planning the next change, and building it from the spec. Start with the code you already have. Keep explanations in English Markdown with links to the evidence.
 
 The knowledge skill produces an **Obsidian-compatible vault** with two clearly separated layers:
 
 - an **as-built spec**: exactly how the code is implemented now, derived only from source. What people or agents agreed in chats is not part of it.
 - a **gap queue**: the agent's guesses about what is missing, doubtful or worth adding, one question per page. People re-check each gap and decide it, with a separate discussion and decision for every item.
 
-To read it there is a small **local viewer**: one command shows the spec as a plain document, a map of how the pages connect and the gap queue, straight from the files on disk. Obsidian works too and is optional. The other skills work with ordinary repository files, with or without a vault.
+To read it there is a small **local viewer**: one command opens the spec as a plain document in your browser, straight from the files on disk, and turns what you read into a request for your agent. [See how it works](#read-the-spec-then-work-from-it). Obsidian works too and is optional. The other skills work with ordinary repository files, with or without a vault.
+
+![A feature page in the viewer: a plain-language summary first, the open questions about it, and the code detail folded away](docs/images/viewer-page.png)
 
 ## Pick a skill
 
@@ -25,14 +27,69 @@ Each skill is independently usable. A useful sequence is:
 
 ```mermaid
 flowchart LR
-  A[Map the project] --> B[Audit a specification]
-  B --> C[Re-check a gap]
+  A[Map the project] --> B[Read it in the viewer]
+  B --> C[Audit a spec or re-check a gap]
   C --> D[A person decides, then plan]
-  D --> E[Implement and verify]
-  E --> A
+  B --> E[Edit the spec: spec-change]
+  D --> F[Implement and verify]
+  E --> F
+  F --> A
 ```
 
 Implementation is a separate task, except in `spec-change`, which starts from your edits to the spec instead of from a gap. Reading a test establishes what it expects; only running it produces a test result.
+
+## Read the spec, then work from it
+
+The vault is plain Markdown: easy for an agent to write, tiring for a person to read file by file. The viewer is the reading side. It is one local page that reads the vault from disk every time it loads, so there is nothing to build first.
+
+It is made for one loop:
+
+1. **Read.** A tree lists the areas and the features in each. A page says in plain words what the product does; the code detail, the source files and the properties are folded away. A breadcrumb, Back and Forward and a "You are here" card say where you are.
+2. **Find.** Search (Cmd/Ctrl+K) covers pages, gaps and the text of the files the pages cite.
+3. **Ask for a change.** "Copy for AI" on any page copies a request that names the page file: recheck this gap, lay out the options, plan it, change this behavior. The Requests page collects several pages and your own words into one brief.
+4. **Let the agent work.** Paste the brief into your agent. With `spec-change` it asks its questions first, edits the spec on a branch, builds the change and checks every changed statement against the code.
+5. **See what moved.** Recent changes lists the pages whose cited sources changed since the last review, the pages not committed yet, and the vault's Git history with what each summary said before and after.
+
+| Search | Copy for AI |
+| --- | --- |
+| ![Search results grouped into features, gaps and files](docs/images/viewer-search.png) | ![The Copy for AI dialog with the exact text that will be copied](docs/images/viewer-copy.png) |
+| **Requests** | **Recent changes** |
+| ![A request with two pages, the reader's own words and the brief for the agent](docs/images/viewer-request.png) | ![The vault's Git history, page by page](docs/images/viewer-changes.png) |
+| **Gap queue** | **Map** |
+| ![The gap queue filtered by state, kind and area](docs/images/viewer-gaps.png) | ![The map of pages, one frame per area](docs/images/viewer-map.png) |
+
+The screenshots show the fictional [Parcel Desk](examples/parcel-desk/README.md) example. The viewer only reads: it listens on `127.0.0.1`, makes no network requests and writes nothing to the repository. "Copy for AI" and Requests put text on your clipboard, and a draft request stays in your browser. A link to a file in the repository opens inside the viewer, Markdown rendered and code with the cited lines marked.
+
+### Open it with one command
+
+With the [package](#as-a-package) in your project, add a script to `package.json`:
+
+```json
+{
+  "scripts": {
+    "spec": "project-spec serve"
+  }
+}
+```
+
+`npm run spec` then opens the viewer for that project. Without the package, the command is the helper itself, where `<skill>` is the `project-knowledge` folder (`~/.claude/skills/project-knowledge`, `~/.codex/skills/project-knowledge`, or a copy kept inside the repository):
+
+```sh
+python3 <skill>/scripts/knowledge.py serve --repo . --open
+```
+
+Give that a short name once, as a `Makefile` target (the second line starts with a tab) or a shell alias:
+
+```make
+spec:
+	python3 <skill>/scripts/knowledge.py serve --repo . --open
+```
+
+```sh
+alias spec='python3 ~/.claude/skills/project-knowledge/scripts/knowledge.py serve --open --repo'
+```
+
+The vault is found by itself when the repository has one under `knowledge/`; otherwise add `--vault PATH`. The page is served on port 8757, or another free port when that one is taken; `--port N` picks one. `project-spec serve` opens the browser unless you add `--no-open`; the helper opens it only with `--open`. If the vault has errors, the page lists them.
 
 ## Why use this?
 
@@ -46,6 +103,27 @@ The graph records relationships between explanations. It does not infer a comple
 ## Install and run
 
 These are [Agent Skills](https://agentskills.io/specification): each folder has a `SKILL.md` entry point. They require an agent that can read your repository. The knowledge helpers need **Python 3.10+** and **Git**; they have no package dependencies. No MCP server, cloud service, paid API or Obsidian plugin is required by the bundle.
+
+### As a package
+
+The repository is also an npm package with one command, `project-spec`. It needs Node 18+ in addition to Python. It is installed from GitHub; it is not on the npm registry.
+
+```sh
+npm install --save-dev github:WorldStoryCm/project-spec-skills
+npx project-spec install --claude      # or --codex, or --dir knowledge/tooling
+npx project-spec serve                 # the viewer for this project
+```
+
+The lockfile pins the version for everyone on the project, and `npm update project-spec-skills` moves it forward. The command then keeps every copy of the skills in step with that version:
+
+```sh
+npx project-spec status    # where the copies are and whether each is current
+npx project-spec update    # refresh every copy that status lists
+```
+
+`status` and `update` look in `~/.claude/skills`, `~/.codex/skills` and the usual folders of the current project (`knowledge/tooling`, `.claude/skills`, `.codex/skills`, `.agents/skills`). `update` refreshes what is there and adds nothing new; `install` adds. A copy you edited by hand is not replaced unless you pass `--force`, and the old files are kept under `~/.project-spec/backups` first. `--skills project-knowledge` limits an install to the skills you name.
+
+Outside any project, `npx github:WorldStoryCm/project-spec-skills status` runs the same command without installing it.
 
 ### Codex
 
@@ -130,16 +208,7 @@ Start the viewer on the example:
 python3 skills/project-knowledge/scripts/knowledge.py serve --repo examples/parcel-desk --open
 ```
 
-It serves one page on `127.0.0.1` only, reads the vault from disk on every page load and writes nothing, so there is no build step before reading: edit a page, reload. `--vault` is needed only when the repository has more than one vault under `knowledge/`. The page makes no network requests.
-
-- **A tree on the left** lists the areas and the features in each, with a count of open questions; **search** (Cmd/Ctrl+K) finds pages, gaps and cited files.
-- **A page** leads with its plain-language summary; the code detail, the source files and the properties are folded away, and the questions still open about it are listed. A breadcrumb, Back and Forward, a "You are here" card and a list of recently viewed pages say where you are.
-- **Gaps** is the queue, filtered by state, kind and area, with who rechecked and decided and when, and a "recheck outdated" badge when the cited sources changed. **Map** shows how the pages connect, one frame per area.
-- **Recent changes** lists the pages whose cited sources changed since the last review, the pages not committed yet, and the Git history of the vault with what each summary said before and after.
-- **Copy for AI** on any page copies a ready request for your agent with the path of the page file: recheck this gap, plan it, change this behavior. **Requests** collects several pages and your own words into one brief. Nothing is sent anywhere; both go to your clipboard, and a draft request stays in your browser.
-- A link to a file in the repository opens inside the viewer: Markdown documents rendered (tables included), code with line numbers and the cited lines marked.
-
-Search for **cancellation**, open a gap, and follow its links. `build` (see the example's README) writes `AS-BUILT.md` and `GAPS.md`, the same content as two Markdown files for reading on a Git host.
+Search for **cancellation**, open a gap, follow its links and try "Copy for AI" on it. [Read the spec, then work from it](#read-the-spec-then-work-from-it) describes every screen. `build` (see the example's README) writes `AS-BUILT.md` and `GAPS.md`, the same content as two Markdown files for reading on a Git host.
 
 To use Obsidian, choose **Open folder as vault** and select `examples/parcel-desk/knowledge/parcel-desk`. Open `00-index`, then **Graph view: Open graph view** from the command palette (Cmd/Ctrl+G). In graph settings, **Existing files only** hides unresolved source links outside the vault. Pages cluster around their area because each page links to it; run pages carry no links, so they do not pull the clusters together. To see the spec alone, put `-path:gaps -path:plans -path:runs` in the graph's search filter, and add a color group per folder (`path:areas`, `path:notes`, `path:gaps`) under **Groups**. **Open local graph** shows only the neighbours of the page you are reading. Gap properties are searchable, for example `[decision:open]` or `[kind:verification-gap]`. See [Obsidian's graph guide](https://help.obsidian.md/plugins/graph).
 

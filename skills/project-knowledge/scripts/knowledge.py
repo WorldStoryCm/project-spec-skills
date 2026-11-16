@@ -1063,7 +1063,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('command', choices=['check', 'snapshot', 'build', 'serve'])
     parser.add_argument('--repo', required=True, type=Path)
-    parser.add_argument('--vault', type=Path, help='required except for serve, which finds a single vault under knowledge/')
+    parser.add_argument('--vault', type=Path, help='default: the single vault under knowledge/ in the repository')
     parser.add_argument('--strict', action='store_true', help='fail check when freshness warnings exist')
     parser.add_argument('--port', type=int, default=8757, help='serve: port on 127.0.0.1 (another free port is used if it is taken)')
     parser.add_argument('--open', action='store_true', help='serve: open the page in the default browser')
@@ -1079,8 +1079,6 @@ def main(argv=None):
         parser.error('--ignore-dirty is only for check')
     if args.open and args.command != 'serve':
         parser.error('--open is only for serve')
-    if args.vault is None and args.command != 'serve':
-        parser.error('--vault is required')
     if args.command == 'snapshot' and not (args.all or args.notes):
         parser.error('snapshot requires --all or --notes')
     if args.command != 'snapshot' and (args.all or args.notes):

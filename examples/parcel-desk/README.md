@@ -4,6 +4,8 @@ The spec, Python source, tests and customer IDs are invented for this repository
 
 Read it with the viewer (from the repository root: `python3 skills/project-knowledge/scripts/knowledge.py serve --repo examples/parcel-desk --open`) or open `knowledge/parcel-desk` as an Obsidian vault. The Markdown claims cite the files alongside this README, and the viewer opens those files in place.
 
+![The Parcel Desk gap queue in the viewer](../../docs/images/viewer-gaps.png)
+
 The vault shows the two layers the skills produce. The **as-built spec** (`areas/`, `notes/`, generated `AS-BUILT.md`) describes only what the code does. The **gap queue** (`gaps/`, `plans/`, generated `GAPS.md`) holds three questions, one per page, at different points of the lifecycle:
 
 | Gap | State | What it shows |

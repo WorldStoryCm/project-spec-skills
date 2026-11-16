@@ -1,0 +1,25 @@
+{
+  "name": "project-spec-skills",
+  "version": "0.3.0",
+  "description": "Agent skills that keep an as-built spec of a repository, plus a local viewer and one command to install and update them.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WorldStoryCm/project-spec-skills.git"
+  },
+  "bin": {
+    "project-spec": "bin/project-spec.mjs"
+  },
+  "files": [
+    "bin",
+    "skills",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "python3 scripts/verify.py"
+  }
+}

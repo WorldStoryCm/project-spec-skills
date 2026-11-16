@@ -151,7 +151,7 @@ def stage(label, check):
 def node_check():
     node = shutil.which('node')
     if not node:
-        print('NOT RUN: viewer syntax and inline rendering (optional; Node not installed)', flush=True)
+        print('NOT RUN: viewer syntax, inline rendering and the package command (optional; Node not installed)', flush=True)
         return True
     html = (KNOWLEDGE / 'assets/viewer.html').read_text(encoding='utf-8')
     scripts = re.findall(r'<script>\s*(.*?)\s*</script>', html, re.S)
@@ -163,7 +163,8 @@ def node_check():
         script.write_text(scripts[0], encoding='utf-8')
         syntax = run('viewer JavaScript syntax', [node, '--check', str(script)])
         rendering = run('viewer inline rendering', [node, str(ROOT / 'scripts/test_viewer.cjs')])
-        return syntax and rendering
+        package = run('package command', [node, str(ROOT / 'scripts/test_cli.cjs')])
+        return syntax and rendering and package
 
 
 def main():

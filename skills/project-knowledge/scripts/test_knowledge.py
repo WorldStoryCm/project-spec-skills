@@ -619,9 +619,15 @@ class GapLayerTests(Fixture):
         (self.repo / 'knowledge/two/00-index.md').write_text('x', encoding='utf-8')
         with self.assertRaisesRegex(ValueError, r'several vaults found \(knowledge/one, knowledge/two\); pass --vault'):
             k.find_vault(self.repo)
-        with self.assertRaises(SystemExit):
-            with redirect_stderr(StringIO()):
-                k.main(['check', '--repo', str(self.repo)])
+        # every command finds the vault the same way
+        with self.assertRaisesRegex(ValueError, 'several vaults found'):
+            k.main(['check', '--repo', str(self.repo)])
+        (self.repo / 'knowledge/two/00-index.md').unlink()
+        (self.repo / 'knowledge/one/00-index.md').write_text('---\nid: "index"\ntitle: "T"\ntype: "index"\nstatus: "current"\nareas: []\nsources: []\nupdated: "2026-11-14"\n---\n', encoding='utf-8')
+        out = StringIO()
+        with redirect_stdout(out), redirect_stderr(StringIO()):
+            self.assertEqual(k.main(['check', '--repo', str(self.repo)]), 0)
+        self.assertIn('check: 1 notes', out.getvalue())
 
     def test_build_removes_only_a_canvas_an_earlier_build_wrote(self):
         canvas = self.vault / 'Map.canvas'
