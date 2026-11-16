@@ -50,7 +50,7 @@ When `recheck` is not `not-checked`, the Recheck section must have text; when `d
 
 ## What a recheck means
 
-A recheck asks one question of every gap, whatever its kind: **does the page's `Current behavior` section still describe the code?** It is not a verdict on the gap's worth. The reason to ask is that a person decides on the gap only after someone has confirmed the page still describes reality, and that needs to be possible for proposals and research questions too, not only for defects.
+A recheck asks one question of every gap, whatever its kind: **does the page's `Current behavior` section still describe the code?** It is not a verdict on the gap's worth. The reason to ask is that a person decides on the gap only after someone has confirmed the page still describes reality, and that needs to be possible for proposals and questions about unexplained behavior too, not only for defects.
 
 - `confirmed` ("confirmed (still holds)"): yes. What `Current behavior` says, including what it says is absent, is what the code does now.
 - `not-reproduced` ("not reproduced (no longer holds)"): no. The code no longer matches the description: the capability exists, the defect is gone, the sources stopped disagreeing. The usual next step is `decision: "done"`, or rewriting the gap around what is true now.
@@ -65,7 +65,7 @@ What that means for each kind:
 | `conflict` | Both sources still say what the page says, and they still disagree. | One source changed or the claims no longer clash. |
 | `knowledge-gap` | The thing is still unexplained or undocumented: no code, comment or document answers it. | The code or a source now answers the question. |
 
-A recheck never judges whether a proposal is worth doing, whether a requirement is right or which side of a conflict should win. That is the person's decision, made afterwards. For a proposal or a research question the recheck is usually quick, for example reading the code to confirm the capability is absent, and it is still required: without it the gap stays in `needs-recheck` and cannot reach `needs-decision`. Write what you read in `Recheck` so the person can see the page was checked, not assumed.
+A recheck never judges whether a proposal is worth doing, whether a requirement is right or which side of a conflict should win. That is the person's decision, made afterwards. For a proposal or a question about unexplained behavior the recheck is usually quick, for example reading the code to confirm the capability is absent, and it is still required: without it the gap stays in `needs-recheck` and cannot reach `needs-decision`. Write what you read in `Recheck` so the person can see the page was checked, not assumed.
 
 ## Discussion entries
 
@@ -104,7 +104,7 @@ Computed by the helper, never written into Markdown:
 | `open` | `confirmed` or `not-reproduced` | `needs-decision` |
 | anything else | any | the `decision` value |
 
-Every open gap passes through a recheck before `needs-decision`, including proposals (`product-plan`) and research questions (`knowledge-gap`). Rechecking a proposal means confirming the capability is still absent, not judging the proposal.
+Every open gap passes through a recheck before `needs-decision`, including proposals (`product-plan`) and questions about unexplained behavior (`knowledge-gap`). Rechecking a proposal means confirming the capability is still absent, not judging the proposal.
 
 ## Example gap page (illustrative)
 

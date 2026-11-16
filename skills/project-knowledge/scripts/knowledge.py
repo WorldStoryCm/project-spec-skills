@@ -20,7 +20,6 @@ SPEC_STATUSES = {'current', 'partial', 'stale', 'superseded'}
 NAV_STATUSES = SPEC_STATUSES | {'planned'}
 KINDS = ('product-gap', 'verification-gap', 'product-plan', 'conflict', 'knowledge-gap')
 RECHECKS = ('not-checked', 'confirmed', 'not-reproduced', 'outdated')
-RECHECK_WORDS = {'confirmed': 'confirmed (still holds)', 'not-reproduced': 'not reproduced (no longer holds)'}  # shown in GAPS.md only
 DECISIONS = ('open', 'accepted', 'rejected', 'deferred', 'done', 'duplicate')
 DECIDED = ('accepted', 'rejected', 'deferred')
 STATE_ORDER = ('needs-recheck', 'needs-decision', 'accepted', 'deferred', 'rejected', 'done', 'duplicate')

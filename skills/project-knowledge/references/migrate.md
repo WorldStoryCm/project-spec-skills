@@ -25,11 +25,22 @@ Do these in order, rerunning `check` between steps. Each step removes a class of
 4. **Clean the spec pages.** Remove links, embeds and summaries that point from `areas/` and `notes/` to gaps or plans, and remove requirements documents from their `sources`. If a spec sentence is only intent, move it to the matching gap's `Evidence`, labelled as documented intent, and leave the spec to what the code does.
 5. **Replace audit and plan index pages.** An audit or implementation-plan index becomes a `run` page that records the pass, plus a dated entry in each gap's `Discussion` carrying the options the old page listed. Do not keep a combined page of findings; the gaps are the findings.
 6. **Plans.** `plans/` holds a plan only for a gap a person accepted. In the real migration it stayed empty, because no person had decided anything. Do not infer an acceptance from an old priority, a task, or an existing implementation plan.
-7. **Fingerprints and views.** Run `snapshot --notes ID...` only for pages you actually re-read against their sources, and delete the files earlier versions generated (see below). `snapshot --notes` is blocked only by errors on the pages you select (or by an unknown or duplicated id, or an error that belongs to no page, such as a damaged `sources.json`), so it works on fixed pages while other pages still fail and tells you how many other errors it ignored; `snapshot --all` and `build` need the whole vault valid. Accepting a fingerprint says "I read this page against these bytes", so never use it to clear a warning on a page you did not re-read.
+7. **Fingerprints and views.** Run `snapshot --notes ID...` only for pages you actually re-read against their sources, and delete the files earlier versions generated (see below). `snapshot --notes` is blocked only by errors on the pages you select (or by an unknown or duplicated id, or an error that belongs to no page, such as a damaged `sources.json`), so it works on fixed pages while other pages still fail and tells you how many other errors it ignored; `snapshot --all` needs the whole vault valid. Accepting a fingerprint says "I read this page against these bytes", so never use it to clear a warning on a page you did not re-read.
 
 ## Run pages that link to everything
 
 Older run pages linked every page they touched, and `check` now reports `run pages are history, not part of the map` with the number of links. Those links made each run a hub in Obsidian's graph and pulled all areas into one ball. The fix is mechanical and changes no claim: in each `runs/*.md` replace `[[notes/example|the example rule]]` with the label and the path in code formatting, `the example rule (`notes/example`)`, and do the same for embeds and Markdown links to vault pages. Links to source files and URLs stay. Nothing is generated into the vault any more: read it with the `serve` command, which always shows the current files. Delete what earlier versions generated: `AS-BUILT.md`, `GAPS.md`, `.knowledge/graph.json`, `graph.html` and `Map.canvas`. Until they are gone, `check` reads an old `AS-BUILT.md` or `GAPS.md` as a page and reports its missing frontmatter. A `01-coverage.md` page is no longer asked for; move what it says about each area into that area's page, or leave it as an ordinary index page.
+
+## Vaults written before the rules and reference notes
+
+A vault written before version 0.5.0 of this skill usually describes mechanisms ("a worker runs durable jobs") rather than the rules a person looks up, and has no reference notes. `check` cannot see this, so it does not fail; sync and update fill it in only for the pages they pass ("Leave each page better" in the skill). To bring the whole vault up at once, work through it one area at a time, as **explore <area>**:
+
+1. Find where the code registers each kind of thing the area has (jobs, routes, forms and their schemas, actions, emails, permissions, flags) and write one reference note per kind, with every item and the registration point in `sources`.
+2. Add the business rules with their values to the area's notes: required fields, limits, defaults, formats, when actions are available or disabled, empty states, error messages, who may do it.
+3. List the reference notes first on the area page and name the kinds not listed yet.
+4. Run `snapshot --notes` for the notes you re-read and `check`, and record the pass on a run page.
+
+This changes content, not structure, so it is not part of a format migration: do it as its own pass, area by area, and keep the claims you did not re-read as they are.
 
 ## Rules that kept the migration honest
 

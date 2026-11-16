@@ -17,7 +17,7 @@ knowledge/<project>/
   .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint)
 ```
 
-Nothing in the vault is generated: every file is a page someone wrote or the reviewed state under `.knowledge/`. The viewer shows the spec and the gap queue from the pages themselves.
+Nothing in the vault is generated for reading: every file is a page someone wrote or the reviewed state under `.knowledge/`. The local reports of a sync scan (`sync.html`, `.knowledge/sync-plan.json`, `.knowledge/sync-status.md`) are ignored by Git and are not part of the vault's content. The viewer shows the spec and the gap queue from the pages themselves.
 
 Wikilinks are vault-relative without `.md`; use full paths to avoid ambiguity. Filenames avoid `# | ^ :` and brackets. Code links are relative to the note location, URL-encoded as necessary. Source metadata paths are relative to the **repository**, not the vault.
 
@@ -71,7 +71,7 @@ Gap-only properties are errors on any other page type, `gap` is an error on a pa
 
 Spec pages state facts about the code, and the facts a person looks up are the concrete rules: limits, required fields, defaults, formats, when an action is available or disabled, what an empty list shows, which message appears, who may do it, what starts a job and how often. A note gives these values, not only the mechanism that applies them.
 
-There are two shapes of note. A **behavior note** explains one rule or flow in prose, usually 150-350 words and shorter when sufficient. A **reference note** lists every item of one kind in an area (jobs, forms and their fields, the actions on a screen, routes, emails, notifications, roles and permissions, flags, states, limits) as one Markdown table, one row per item, with the count and the place in the code the list comes from, which is also in `sources`; it is as long as the table needs. Include for a note:
+There are two shapes of note. A **behavior note** explains one rule or flow in prose, usually 150-350 words and shorter when sufficient; when its rules need more, split it by behavior rather than leaving rules out. A **reference note** lists every item of one kind in an area (jobs, forms and their fields, the actions on a screen, routes, emails, notifications, roles and permissions, flags, states, limits) as one Markdown table, one row per item, with the count and the place in the code the list comes from, which is also in `sources`; it is as long as the table needs. Include for a note:
 
 - A precise title and `Area: [[areas/collections|Collections]]`.
 - When the note is useful; behavior and boundaries; explicit labels on inference.
@@ -80,11 +80,51 @@ There are two shapes of note. A **behavior note** explains one rule or flow in p
 - Semantic links to other spec pages with reasons, e.g. depends on `[[notes/another-rule|rule]]` because ...
 - For a reference note: the table, how many rows it has and why that is all of them ("every job registered in `worker/index.ts`"). Columns name the facts a reader asks about; a cell holds a value from the code ("60 characters", "daily at 06:00 UTC", "disabled while the list is empty"), not a description. Inside a table a wikilink's alias separator is written `\|`.
 
+A behavior note (illustrative), with the rules and their values in the text:
+
+```markdown
+---
+id: "team-invitations"
+title: "A teammate is invited by email and joins on the first sign-in with it"
+type: "note"
+status: "current"
+areas: ["identity"]
+sources: ["src/server/teams/invite.ts", "src/features/team/InviteForm.tsx"]
+summary: "An owner or admin invites someone by email. The invitation is valid for 7 days and is used up when that address signs in."
+updated: "2026-11-16"
+---
+
+# A teammate is invited by email and joins on the first sign-in with it
+
+Area: [[areas/identity|Accounts, teams and access]].
+
+Only an owner or an admin sees **Invite**; for a member it is hidden. The email is required, trimmed and lower-cased, at most 254 characters, and must not already belong to the team ("This person is already on the team"). The form's **Send** stays disabled until the address is valid. A team on the Free plan can have 3 members; the fourth invitation is refused with "Your plan allows 3 members".
+
+An invitation expires after 7 days (`INVITE_TTL_DAYS`), and resending it starts the 7 days again. ... evidence, checks and related notes follow.
+```
+
+A reference note (illustrative): one table, every item, the count and where the list comes from:
+
+```markdown
+# Background jobs
+
+Area: [[areas/automation|Background jobs and notifications]].
+
+All 4 jobs registered in [`worker/index.ts`](../../../src/worker/index.ts), the only place jobs are registered.
+
+| Job | Starts | Does | Runs when | On failure |
+| --- | --- | --- | --- | --- |
+| `send-digest` | daily at 06:00 UTC | emails each member the day's open items | `DIGEST_ENABLED` is set | retried 3 times, 5 minutes apart |
+| `purge-links` | hourly | deletes share links expired more than 30 days ago | always | next run picks them up |
+| `finalize-upload` | an upload completes | checks size and type, moves the file to storage | always | the upload is marked failed |
+| `rollover-period` | a person completes a period | opens the next period from the series plan | the series repeats | the period stays complete, the next one is not opened |
+```
+
 All sample paths and symbols are illustrative. Area pages list their notes with one line each and the reviewed, discovered and deferred scope; they describe no behavior themselves. The index links all areas. Scope is stated as what was read and what comes next, never as an invented completeness percentage. Runs record revision, dirty scope, bounds and outcomes.
 
 The validator enforces these body rules:
 
-1. An `area` or `note` page may not reference the gap layer in any form: a wikilink, an embed (`![[...]]`) or a Markdown link to a `gap` or `plan` page, a Markdown link to `GAPS.md`, or any link inside its `title` or `summary`. Link from the gap to the note instead. Links from gaps, plans and index pages to anything are fine.
+1. An `area` or `note` page may not reference the gap layer in any form: a wikilink, an embed (`![[...]]`) or a Markdown link to a `gap` or `plan` page, or any link inside its `title` or `summary`. Link from the gap to the note instead. Links from gaps, plans and index pages to anything are fine.
 2. A `run` page links to no vault page, by wikilink, embed or Markdown link. It names the pages it touched by path in code formatting (`notes/example`). A run touches many pages; as links they would make every run a hub and the area clusters would collapse into one ball in Obsidian's graph. Links to source files and URLs are fine, and the index may link to a run.
 3. An `area` page holds no table and links whole notes only, never a heading or block inside one (`[[notes/x#Part]]`). Behavior is described in notes; a part that needs its own link is its own note. Tables and links to parts of a note are fine on other pages, and a table inside a code fence does not count.
 4. A gap has six `##` sections with exactly these headings, each once: `Current behavior`, `Gap`, `Evidence`, `Recheck`, `Discussion`, `Decision`. Headings inside code fences do not count.
@@ -130,9 +170,9 @@ Extract prose wikilinks, excluding inline and fenced code examples. Resolve full
 
 Canonical Markdown must not contain raw merge conflicts. Validation rejects complete Git groups with a labeled opening marker, matching marker widths (including configured widths), and an optional diff3 base section, even inside code fences. Unlabeled or custom conflict formats are outside this detector; also inspect unresolved Git index entries. A `conflict` gap that records attributed claims and a next check is valid; it does not resolve them. See [concurrent merges](merge.md).
 
-`serve` shows the vault in a browser: `knowledge.py serve --repo REPO [--vault VAULT] [--port N] [--open]`. Without `--vault`, this and every other command use the single vault under `knowledge/` (`knowledge/00-index.md` or `knowledge/*/00-index.md`) and stop with a message when there is none or several. It listens on `127.0.0.1` only (port 8757, or a free one when that is taken), answers only `/` and only when addressed as this machine, never writes, and builds the page again from disk on every request, so a reload shows the current files. When the vault has errors the page lists them. The page data is the graph above plus `live: true`, `vaultPath` (the vault's path relative to the repository), `history`, `pending` and `files`. `history` is the last 30 commits that touched vault pages (not the generated files or `.knowledge/`), newest first, each `{"sha", "date", "subject", "pages", "more"}`; a page entry is `{"path", "status"}` with `status` `added`, `changed` or `removed`, plus `was` and `now` when the commit changed the page's `summary` (or, failing that, its `title`); at most 80 pages are listed per commit and `more` counts the rest. `pending` lists vault pages with uncommitted changes in the same `{"path", "status"}` shape. Both are empty outside a Git work tree. `files` is the text of the repository files that pages cite in `sources` or link to, keyed by repository-relative path, each `{"text", "truncated"}`. A file is included only when it is inside the repository and outside the vault, is not a credential path, and is UTF-8 text; one file is cut at 300,000 characters and all files together at 4,000,000, after which the rest stay ordinary links. The viewer opens a link to an included file in place: Markdown rendered, anything else as numbered lines, with the lines of a `#L10` or `#L10-L20` fragment marked.
+`serve` shows the vault in a browser: `knowledge.py serve --repo REPO [--vault VAULT] [--port N] [--open]`. Without `--vault`, this and every other command use the single vault under `knowledge/` (`knowledge/00-index.md` or `knowledge/*/00-index.md`) and stop with a message when there is none or several. It listens on `127.0.0.1` only (port 8757, or a free one when that is taken), answers only `/` and only when addressed as this machine, never writes, and builds the page again from disk on every request, so a reload shows the current files. When the vault has errors the page lists them. The page data is the graph above plus `live: true`, `vaultPath` (the vault's path relative to the repository), `history`, `pending` and `files`. `history` is the last 30 commits that touched vault pages (not `.knowledge/`), newest first, each `{"sha", "date", "subject", "pages", "more"}`; a page entry is `{"path", "status"}` with `status` `added`, `changed` or `removed`, plus `was` and `now` when the commit changed the page's `summary` (or, failing that, its `title`); at most 80 pages are listed per commit and `more` counts the rest. `pending` lists vault pages with uncommitted changes in the same `{"path", "status"}` shape. Both are empty outside a Git work tree. `files` is the text of the repository files that pages cite in `sources` or link to, keyed by repository-relative path, each `{"text", "truncated"}`. A file is included only when it is inside the repository and outside the vault, is not a credential path, and is UTF-8 text; one file is cut at 300,000 characters and all files together at 4,000,000, after which the rest stay ordinary links. The viewer opens a link to an included file in place: Markdown rendered, anything else as numbered lines, with the lines of a `#L10` or `#L10-L20` fragment marked.
 
-`assets/viewer.html` has exactly one `__KNOWLEDGE_DATA__` placeholder for script-safe JSON. Treat contents as untrusted text: no raw Markdown HTML execution, unsafe URL schemes, external scripts, fonts, analytics or fetches. Render readable basic Markdown, pipe tables and wikilinks; leave unsupported syntax as text. The viewer has a tree of areas with their notes (a note is listed under its first area; superseded notes are not listed), a search over pages, gaps and the cited files, and five places: the overview, a page, the gap queue, the map and recent changes. A spec page shows its title, `summary`, related pages and the gaps about it that are not closed, then folded sections for the page text (shown unfolded when the page has no `summary` or holds a table, as a reference note does) and its source files. Navigation keeps a trail for Back and Forward and writes the place into the address (`#/page/notes/example`, `#/gaps`), so a reload or a copied link returns to it. The map draws one frame per primary area (the area page, or the first entry of `areas`) with its pages inside; an edge between a page and its primary area is not drawn because the frame says it, links inside one area are solid and links across areas dashed; `nav` pages are not drawn. Recent changes reads `history`, `pending` and the "changed source" lines of `warnings`. "Copy for AI" only composes text from the page, a choice of what the agent should do and the reader's own words, and copies it to the clipboard. The reader's name, the recently viewed pages and the last commit seen are kept in the browser's `localStorage`, and the viewer works without it. Generated filenames are reserved.
+`assets/viewer.html` has exactly one `__KNOWLEDGE_DATA__` placeholder for script-safe JSON. Treat contents as untrusted text: no raw Markdown HTML execution, unsafe URL schemes, external scripts, fonts, analytics or fetches. Render readable basic Markdown, pipe tables and wikilinks; leave unsupported syntax as text. The viewer has a tree of areas with their notes (a note is listed under its first area; superseded notes are not listed), a search over pages, gaps and the cited files, and five places: the overview, a page, the gap queue, the map and recent changes. A spec page shows its title, `summary`, related pages and the gaps about it that are not closed, then folded sections for the page text (shown unfolded when the page has no `summary` or holds a table, as a reference note does) and its source files. Navigation keeps a trail for Back and Forward and writes the place into the address (`#/page/notes/example`, `#/gaps`), so a reload or a copied link returns to it. The map draws one frame per primary area (the area page, or the first entry of `areas`) with its pages inside; an edge between a page and its primary area is not drawn because the frame says it, links inside one area are solid and links across areas dashed; `nav` pages are not drawn. Recent changes reads `history`, `pending` and the "changed source" lines of `warnings`. "Copy for AI" only composes text from the page, a choice of what the agent should do and the reader's own words, and copies it to the clipboard. The reader's name, the recently viewed pages and the last commit seen are kept in the browser's `localStorage`, and the viewer works without it.
 
 ## Format references
 

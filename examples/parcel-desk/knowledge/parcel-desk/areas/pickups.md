@@ -17,4 +17,6 @@ This area covers the in-memory cancellation transition and the adapter response 
 - [[notes/route-responses|What a cancellation request returns]] (reference): every answer, with the condition behind it.
 - [[notes/cancellation-boundary|Cancellation boundary]]: the service cancels only pickups whose state is `requested`.
 
+Not listed yet: the states a pickup can be in.
+
 Read: [service](../../../src/pickups.py), [adapter](../../../src/routes.py) and [tests](../../../tests/test_pickups.py). The three existing tests passed in the example check. Not modeled: real transport, persistence, concurrent requests and deployment.
