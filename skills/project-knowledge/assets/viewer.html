@@ -915,6 +915,8 @@
         width: 100%;
         font-size: 14px;
         line-height: 1.5;
+        /* Whole words set the column widths; a table that is too wide scrolls instead of breaking words letter by letter. */
+        overflow-wrap: break-word;
       }
       .article th,
       .article td {
