@@ -294,7 +294,7 @@ def status(vault, plan):
             '<title>Knowledge sync status</title><style>body{font:16px/1.6 system-ui,sans-serif;'
             'max-width:70rem;margin:auto;padding:1.5rem;color:#222}pre{font:inherit;white-space:pre-wrap;'
             'overflow-wrap:anywhere}a{color:#164cb5}</style><h1>Knowledge sync status</h1>'
-            '<p><a href="graph.html">Open the knowledge map</a></p><pre>' + html.escape('\n'.join(lines)) + '</pre></html>')
+            '<p>To read the spec, run <code>knowledge.py serve --repo .</code></p><pre>' + html.escape('\n'.join(lines)) + '</pre></html>')
     for name, content in [('.knowledge/sync-plan.json', data), ('.knowledge/sync-status.md', safe_bytes(text)), ('sync.html', safe_bytes(page))]:
         atomic(knowledge.output_path(vault, name), content)
 
@@ -389,7 +389,7 @@ def finish(repo, vault, plan_path, review_path):
             if knowledge.main(['check', '--repo', str(repo), '--vault', str(staged)]) != 0 or knowledge.main(['build', '--repo', str(repo), '--vault', str(staged)]) != 0:
                 raise ValueError('structural check or build failed')
             # Validate all output destinations before publishing anything.
-            outputs = ['.knowledge/sources.json', '.knowledge/graph.json', 'graph.html', 'AS-BUILT.md', 'GAPS.md', '.knowledge/review.json']
+            outputs = ['.knowledge/sources.json', '.knowledge/graph.json', 'AS-BUILT.md', 'GAPS.md', '.knowledge/review.json']
             destinations = [knowledge.output_path(vault, p) for p in outputs]
             cursor = json.loads((vault / '.knowledge/review.json').read_text())
             checkpoint = cursor['reviewed_through']

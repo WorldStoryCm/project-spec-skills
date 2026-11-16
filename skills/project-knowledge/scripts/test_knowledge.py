@@ -95,7 +95,7 @@ class KnowledgeTests(Fixture):
         note = self.vault / 'notes/n.md'
         original = note.read_bytes()
         try:
-            for name in ('graph.html', '.knowledge/graph.json'):
+            for name in ('.knowledge/graph.json',):
                 with self.subTest(name=name):
                     output = self.vault / name
                     output.parent.mkdir(parents=True, exist_ok=True)
@@ -229,10 +229,11 @@ class KnowledgeTests(Fixture):
         k.__file__ = str(fake_script)
         try:
             self.assertEqual(self.run_cli('build')[0], 0)
+            html = k.live_page(self.repo.resolve(), self.vault.resolve())
         finally:
             k.__file__ = original
         self.assertEqual(baseline, (self.vault / '.knowledge/sources.json').read_bytes())
-        html = (self.vault / 'graph.html').read_text(encoding='utf-8')
+        self.assertFalse((self.vault / 'graph.html').exists())
         self.assertIn('Привет', html)
         self.assertIn('\\u003c/script\\u003e', html)
         graph = json.loads((self.vault / '.knowledge/graph.json').read_text())
@@ -435,7 +436,7 @@ class GapLayerTests(Fixture):
                  decided_by='Ann', decided_on='2026-11-16', body=section_body())
         self.note('plans/p.md', 'p', 'plan', status='planned', gap='acc')
         self.assertEqual(self.build()[0], 0)
-        for name in ('AS-BUILT.md', 'GAPS.md', 'graph.html', '.knowledge/graph.json'):
+        for name in ('AS-BUILT.md', 'GAPS.md', '.knowledge/graph.json'):
             self.assertTrue((self.vault / name).is_file(), name)
         nodes = {n['id']: n for n in json.loads((self.vault / '.knowledge/graph.json').read_text())['nodes']}
         fields = {'kind', 'recheck', 'recheckedBy', 'recheckedOn', 'decision', 'decidedBy', 'decidedOn', 'state', 'gap', 'layer'}
@@ -445,9 +446,114 @@ class GapLayerTests(Fixture):
         self.assertEqual((nodes['p']['gap'], nodes['p']['layer'], nodes['p']['status']), ('acc', 'gap', 'planned'))
         self.assertEqual((nodes['n']['layer'], nodes['n']['state'], nodes['n']['kind']), ('spec', '', ''))
         self.assertEqual(nodes['index']['layer'], 'nav')
-        html = (self.vault / 'graph.html').read_text()
-        self.assertIn('needs-recheck', html)
+        self.assertFalse((self.vault / 'graph.html').exists())
         self.assertFalse((self.vault / 'Map.canvas').exists())
+
+    def test_build_moves_an_old_generated_viewer_aside_and_leaves_other_html(self):
+        page = self.vault / 'graph.html'
+        page.write_text('<html><script id="knowledge-data" type="application/json">{}</script></html>', encoding='utf-8')
+        status, out, _ = self.build()
+        self.assertEqual(status, 0)
+        self.assertFalse(page.exists())
+        self.assertTrue((self.vault / '.knowledge/graph.html.removed').is_file())
+        self.assertIn('graph.html is no longer generated', out)
+        page.write_text('<html>my own page</html>', encoding='utf-8')
+        self.assertEqual(self.build()[0], 0)
+        self.assertEqual(page.read_text(encoding='utf-8'), '<html>my own page</html>')
+
+    def test_cited_files_are_repository_text_files_only(self):
+        (self.repo / 'docs').mkdir()
+        (self.repo / 'docs/plan.md').write_text('# План\n\n| a | b |\n', encoding='utf-8')
+        (self.repo / 'logo.bin').write_bytes(b'\x00\x01')
+        (self.repo / 'latin.txt').write_bytes(b'caf\xe9')
+        (self.repo / '.env').write_text('SECRET=1', encoding='utf-8')
+        (self.root / 'outside.txt').write_text('outside', encoding='utf-8')
+        (self.repo / 'escape.txt').symlink_to(self.root / 'outside.txt')
+        (self.repo / 'big.txt').write_text('line\n' * 100_000, encoding='utf-8')
+        self.vault.rename(self.repo / 'vault')
+        self.vault = self.repo / 'vault'
+        self.note('notes/n.md', 'n', sources=['source.txt'], body=(
+            '[plan](../../docs/plan.md#L3) [logo](../../logo.bin) [latin](../../latin.txt) [env](../../.env) '
+            '[out](../../../outside.txt) [esc](../../escape.txt) [big](../../big.txt) [area](../areas/a.md) '
+            '[web](https://example.com/x.md) [gone](../../missing.md) `[code](../../docs/hidden.md)`'))
+        repo, vault = self.repo.resolve(), self.vault.resolve()
+        notes, _, errors, _, _ = k.load_vault(repo, vault)
+        self.assertEqual(errors, [])
+        files, skipped = k.cited_files(repo, vault, notes)
+        self.assertEqual(sorted(files), ['big.txt', 'docs/plan.md', 'source.txt'])
+        self.assertEqual(files['docs/plan.md'], {'text': '# План\n\n| a | b |\n', 'truncated': False})
+        self.assertEqual(files['source.txt']['text'], 'evidence')
+        self.assertTrue(files['big.txt']['truncated'])
+        self.assertLessEqual(len(files['big.txt']['text']), k.FILE_LIMIT)
+        self.assertEqual(skipped, [])
+        original = k.FILES_LIMIT
+        k.FILES_LIMIT = 100
+        try:
+            files, skipped = k.cited_files(repo, vault, notes)
+        finally:
+            k.FILES_LIMIT = original
+        self.assertEqual((sorted(files), skipped), (['docs/plan.md', 'source.txt'], ['big.txt']))
+
+    def serve(self):
+        import threading
+        server = k.make_server(self.repo.resolve(), self.vault.resolve(), 0)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(5)))
+        return server.server_address[1]
+
+    def fetch(self, port, path='/', host=None):
+        import http.client
+        connection = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
+        self.addCleanup(connection.close)
+        connection.request('GET', path, headers={'Host': host} if host else {})
+        response = connection.getresponse()
+        return response.status, response.read().decode('utf-8'), dict(response.getheaders())
+
+    def test_serve_shows_the_vault_as_it_is_on_disk(self):
+        port = self.serve()
+        status, page, headers = self.fetch(port)
+        self.assertEqual(status, 200)
+        self.assertEqual(headers['Content-Type'], 'text/html; charset=utf-8')
+        self.assertEqual(headers['Cache-Control'], 'no-store')
+        data = json.loads(re.search(r'<script id="knowledge-data" type="application/json">\s*(.*?)\s*</script>', page, re.S).group(1))
+        self.assertTrue(data['live'])
+        self.assertEqual(data['files']['source.txt']['text'], 'evidence')
+        self.assertEqual(data['vaultPath'], '../vault')
+        self.assertEqual({n['id'] for n in data['nodes']}, {'a', 'index', 'n'})
+        # nothing was written, and a change on disk shows on the next load without a build
+        self.assertFalse((self.vault / 'graph.html').exists() or (self.vault / '.knowledge').exists())
+        (self.repo / 'source.txt').write_text('changed </script>', encoding='utf-8')
+        self.note('notes/new.md', 'new', sources=['source.txt'])
+        page = self.fetch(port, '/index.html?x=1')[1]
+        self.assertIn('"id": "new"', page)
+        self.assertIn('changed \\u003c/script\\u003e', page)
+        # only the page itself, and only when addressed as this machine
+        self.assertEqual(self.fetch(port, '/notes/n.md')[0], 404)
+        self.assertEqual(self.fetch(port, '/../repo/source.txt')[0], 404)
+        self.assertEqual(self.fetch(port, '/', host='evil.example')[0], 403)
+        self.assertEqual(self.fetch(port, '/', host='localhost:1')[0], 200)
+        # a broken vault is explained instead of failing
+        self.note('notes/bad.md', 'bad', sources=['source.txt'], body='[[<absent>]]')
+        status, page, _ = self.fetch(port)
+        self.assertEqual(status, 200)
+        self.assertIn('The spec has 1 error', page)
+        self.assertIn('missing wikilink &lt;absent&gt;', page)
+        self.assertNotIn('knowledge-data', page)
+
+    def test_serve_finds_the_single_vault_and_asks_when_unsure(self):
+        with self.assertRaisesRegex(ValueError, 'no vault found under knowledge/; pass --vault'):
+            k.find_vault(self.repo)
+        (self.repo / 'knowledge/one').mkdir(parents=True)
+        (self.repo / 'knowledge/one/00-index.md').write_text('x', encoding='utf-8')
+        self.assertEqual(k.find_vault(self.repo), self.repo / 'knowledge/one')
+        (self.repo / 'knowledge/two').mkdir()
+        (self.repo / 'knowledge/two/00-index.md').write_text('x', encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, r'several vaults found \(knowledge/one, knowledge/two\); pass --vault'):
+            k.find_vault(self.repo)
+        with self.assertRaises(SystemExit):
+            with redirect_stderr(StringIO()):
+                k.main(['check', '--repo', str(self.repo)])
 
     def test_build_removes_only_a_canvas_an_earlier_build_wrote(self):
         canvas = self.vault / 'Map.canvas'

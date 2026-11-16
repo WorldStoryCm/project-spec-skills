@@ -63,7 +63,7 @@ A Markdown-only merge may have no applicable application paths, so `finish` leav
 
 ## Rebuild and report
 
-`graph.html`, `.knowledge/graph.json`, `AS-BUILT.md` and `GAPS.md` are derived. Regenerate them from the resolved Markdown rather than merging them line by line. Local scan reports and receipts are ignored; if a `sync.lock` exists, check who holds it rather than deleting it.
+`.knowledge/graph.json`, `AS-BUILT.md` and `GAPS.md` are derived (so is a `graph.html` from an earlier version; delete it). Regenerate them from the resolved Markdown rather than merging them line by line. Local scan reports and receipts are ignored; if a `sync.lock` exists, check who holds it rather than deleting it.
 
 Run `knowledge.py check`, rebuild, and use `check --strict` to see remaining freshness warnings. Confirm no unresolved index entries remain. Duplicate IDs, broken links and conflict markers must be fixed; semantic conflicts may stay as explicit `conflict` gaps.
 

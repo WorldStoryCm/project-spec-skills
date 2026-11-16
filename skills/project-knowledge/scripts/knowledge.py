@@ -3,6 +3,7 @@
 import argparse
 import datetime as dt
 import hashlib
+import html
 import json
 import os
 import posixpath
@@ -11,7 +12,7 @@ import sys
 import subprocess
 import tempfile
 import unicodedata
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 from pathlib import Path, PurePosixPath
 
 TYPES = {'index', 'area', 'note', 'gap', 'plan', 'run'}
@@ -28,7 +29,7 @@ GAP_SECTIONS = ('Current behavior', 'Gap', 'Evidence', 'Recheck', 'Discussion', 
 LAYERS = {'area': 'spec', 'note': 'spec', 'gap': 'gap', 'plan': 'gap', 'index': 'nav', 'run': 'nav'}
 RESERVED = {'AS-BUILT.md', 'GAPS.md'}  # generated at the vault root; never notes
 UNCOUNTED = ' (uncommitted change, not counted)'  # suffix of a freshness warning that --ignore-dirty does not count
-GENERATED_NAMES = ('AS-BUILT.md', 'GAPS.md', 'graph.html')  # matched case-insensitively
+GENERATED_NAMES = ('AS-BUILT.md', 'GAPS.md')  # matched case-insensitively
 CONTROL = re.compile('[\x00-\x1f\x7f\x85\u2028\u2029]')
 SCHEME = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:')
 MD_LINK = re.compile(r'\]\(\s*(<[^>]*>|[^\s)]*)')
@@ -322,6 +323,16 @@ def stale_canvas(file):
                         and all(e.get(side, 'top') in CANVAS_SIDES for side in ('fromSide', 'toSide'))
                         for i, e in enumerate(data['edges'])))
     except (OSError, ValueError, TypeError, KeyError):
+        return False
+
+
+def stale_viewer(file):
+    """True for a graph.html written by an earlier build: the viewer page with its data block."""
+    if file.is_symlink() or not file.is_file():
+        return False
+    try:
+        return '<script id="knowledge-data" type="application/json">' in file.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
         return False
 
 
@@ -809,6 +820,51 @@ def recheck_marker(note):
     return note['meta']['recheck'] in {'confirmed', 'not-reproduced'} and bool(note.get('changed'))
 
 
+FILE_LIMIT = 300_000    # characters of one cited file sent to the viewer
+FILES_LIMIT = 4_000_000  # characters of all cited files together
+
+
+def cited_files(repo, vault, notes):
+    """Text of the repository files the pages cite, so the viewer can show them instead of sending the reader to a raw file.
+
+    Keys are repository-relative paths. Only files inside the repository and outside the vault are taken, never
+    credential paths, binaries or symlinks that leave the repository. Returns (files, skipped paths).
+    """
+    wanted = set()
+    for note in notes:
+        for source in note['meta']['sources']:
+            wanted.add(posixpath.normpath(source))
+        text = prose(note['body'])
+        for raw in MD_LINK.findall(text) + MD_REF.findall(text):
+            target = markdown_target(note['path'], raw)
+            if target is not None:
+                wanted.add(Path(os.path.relpath(os.path.normpath(vault / target), repo)).as_posix())
+    files, skipped, total = {}, [], 0
+    for rel in sorted(wanted):
+        if rel.startswith('../') or rel in ('..', '.') or credential_path(rel):
+            continue
+        file = repo / rel
+        try:
+            resolved = file.resolve()
+            if not file.is_file() or not resolved.is_relative_to(repo) or resolved.is_relative_to(vault):
+                continue
+            data = file.read_bytes()
+            if b'\0' in data:
+                continue
+            text = data.decode('utf-8')
+        except (OSError, UnicodeDecodeError, ValueError):
+            continue
+        truncated = len(text) > FILE_LIMIT
+        if truncated:
+            text = text[:FILE_LIMIT].rsplit('\n', 1)[0]
+        if total + len(text) > FILES_LIMIT:
+            skipped.append(rel)
+            continue
+        total += len(text)
+        files[rel] = {'text': text, 'truncated': truncated}
+    return files, skipped
+
+
 def node_of(note):
     m = note['meta']
     gap = m['type'] == 'gap'
@@ -823,12 +879,85 @@ def node_of(note):
         'layer': LAYERS[m['type']]}
 
 
+def graph_of(notes, edges, warnings):
+    nodes = [node_of(note) for note in notes]
+    title = next((n['title'] for n in nodes if n['path'] == '00-index.md'), 'Project knowledge')
+    return {'title': title, 'generatedAt': dt.datetime.now(dt.timezone.utc).isoformat(), 'nodes': nodes,
+            'edges': [{'source': a, 'target': b} for a, b in edges], 'warnings': warnings}
+
+
+def viewer_html(payload):
+    template = (Path(__file__).resolve().parent.parent / 'assets/viewer.html').read_text(encoding='utf-8')
+    if template.count('__KNOWLEDGE_DATA__') != 1:
+        raise ValueError('viewer template must contain exactly one placeholder')
+    serialized = json.dumps(payload, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
+    return template.replace('__KNOWLEDGE_DATA__', serialized)
+
+
+def find_vault(repo):
+    """The vault of a repository when there is exactly one in the usual place."""
+    found = sorted(p.parent for p in repo.glob('knowledge/*/00-index.md'))
+    if (repo / 'knowledge/00-index.md').is_file():
+        found.append(repo / 'knowledge')
+    if len(found) != 1:
+        raise ValueError(('no vault found under knowledge/' if not found else
+                          'several vaults found (' + ', '.join(p.relative_to(repo).as_posix() for p in found) + ')') + '; pass --vault')
+    return found[0]
+
+
+def live_page(repo, vault):
+    """The viewer for the vault as it is on disk right now, or a page listing what stops it from loading."""
+    try:
+        notes, edges, errors, warnings, _ = load_vault(repo, vault)
+    except (OSError, ValueError) as exc:
+        notes, errors = [], [str(exc)]
+    if errors:
+        items = ''.join(f'<li>{html.escape(message)}</li>' for message in errors)
+        return ('<!doctype html><meta charset="utf-8"><title>Spec cannot be shown</title>'
+                '<body style="font:15px/1.5 system-ui,sans-serif;max-width:860px;margin:48px auto;padding:0 20px">'
+                f'<h1>The spec has {len(errors)} error{"s" if len(errors) != 1 else ""}</h1>'
+                '<p>Fix the pages below (the <code>check</code> command prints the same list), then reload.</p>'
+                f'<ul>{items}</ul></body>')
+    files, _ = cited_files(repo, vault, notes)
+    return viewer_html(graph_of(notes, edges, warnings) | {
+        'live': True, 'vaultPath': Path(os.path.relpath(vault, repo)).as_posix(), 'files': files})
+
+
+def make_server(repo, vault, port):
+    """A read-only viewer on this machine only. Each page load reads the vault and the cited files again."""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            # The page carries source code, so answer only when addressed as this machine (no DNS rebinding).
+            host = (self.headers.get('Host') or '').rsplit(':', 1)[0].strip('[]')
+            if host not in ('127.0.0.1', 'localhost', '::1'):
+                return self.send_error(403)
+            if urlsplit(self.path).path not in ('/', '/index.html'):
+                return self.send_error(404)
+            body = live_page(repo, vault).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    return ThreadingHTTPServer(('127.0.0.1', port), Handler)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['check', 'snapshot', 'build'])
+    parser.add_argument('command', choices=['check', 'snapshot', 'build', 'serve'])
     parser.add_argument('--repo', required=True, type=Path)
-    parser.add_argument('--vault', required=True, type=Path)
+    parser.add_argument('--vault', type=Path, help='required except for serve, which finds a single vault under knowledge/')
     parser.add_argument('--strict', action='store_true', help='fail check when freshness warnings exist')
+    parser.add_argument('--port', type=int, default=8757, help='serve: port on 127.0.0.1 (another free port is used if it is taken)')
+    parser.add_argument('--open', action='store_true', help='serve: open the page in the default browser')
     parser.add_argument('--ignore-dirty', action='store_true',
                         help='check: do not count freshness warnings for sources with uncommitted changes (needs a Git work tree)')
     group = parser.add_mutually_exclusive_group()
@@ -839,13 +968,37 @@ def main(argv=None):
         parser.error('--strict is only for check')
     if args.ignore_dirty and args.command != 'check':
         parser.error('--ignore-dirty is only for check')
+    if args.open and args.command != 'serve':
+        parser.error('--open is only for serve')
+    if args.vault is None and args.command != 'serve':
+        parser.error('--vault is required')
     if args.command == 'snapshot' and not (args.all or args.notes):
         parser.error('snapshot requires --all or --notes')
     if args.command != 'snapshot' and (args.all or args.notes):
         parser.error('--all and --notes are only for snapshot')
-    repo, vault = args.repo.resolve(), args.vault.resolve()
-    if not repo.is_dir() or not vault.is_dir():
+    repo = args.repo.resolve()
+    if not repo.is_dir():
+        parser.error('repo must be an existing directory')
+    vault = args.vault.resolve() if args.vault else find_vault(repo)
+    if not vault.is_dir():
         parser.error('repo and vault must be existing directories')
+    if args.command == 'serve':
+        try:
+            server = make_server(repo, vault, args.port)
+        except OSError:  # the usual port is taken
+            server = make_server(repo, vault, 0)
+        url = f'http://127.0.0.1:{server.server_address[1]}/'
+        print(f'serve: {url} shows {vault} as it is on disk; reload the page after a change, Ctrl+C to stop', flush=True)
+        if args.open:
+            import webbrowser
+            webbrowser.open(url)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            server.server_close()
+        return 0
     dirty = None
     if args.ignore_dirty:
         dirty = uncommitted_paths(repo)
@@ -898,15 +1051,9 @@ def main(argv=None):
         dest = output_path(vault, '.knowledge/sources.json')
         write_json(dest, dict(sorted(baseline.items())))
     elif args.command == 'build':
-        nodes = [node_of(note) for note in notes]
-        title = next((n['title'] for n in nodes if n['path'] == '00-index.md'), 'Project knowledge')
-        graph = {'title': title, 'generatedAt': dt.datetime.now(dt.timezone.utc).isoformat(), 'nodes': nodes,
-                 'edges': [{'source': a, 'target': b} for a, b in edges], 'warnings': warnings}
-        template = (Path(__file__).resolve().parent.parent / 'assets/viewer.html').read_text(encoding='utf-8')
-        if template.count('__KNOWLEDGE_DATA__') != 1:
-            raise ValueError('viewer template must contain exactly one placeholder')
-        serialized = json.dumps(graph, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
-        for path in ('.knowledge/graph.json', 'graph.html', 'AS-BUILT.md', 'GAPS.md'):
+        graph = graph_of(notes, edges, warnings)
+        title = graph['title']
+        for path in ('.knowledge/graph.json', 'AS-BUILT.md', 'GAPS.md'):
             output_path(vault, path)
         for entry in vault.iterdir():
             for name in GENERATED_NAMES:
@@ -916,7 +1063,6 @@ def main(argv=None):
             if (vault / name).is_file() and not is_generated(vault / name):
                 raise ValueError(f'{name} is a hand-written page but this name is reserved for a generated file; build would overwrite it, so rename the page')
         write_json(vault / '.knowledge/graph.json', graph)
-        atomic_write(vault / 'graph.html', template.replace('__KNOWLEDGE_DATA__', serialized))
         atomic_write(vault / 'AS-BUILT.md', render_as_built(notes, title))
         atomic_write(vault / 'GAPS.md', render_gaps(notes, title))
         if stale_canvas(vault / 'Map.canvas'):
@@ -926,6 +1072,13 @@ def main(argv=None):
                 print(f'build: Map.canvas is no longer generated but could not be moved aside ({error}); left it in place, delete it by hand if nobody needs it')
             else:
                 print(f"build: Map.canvas is no longer generated; moved it to {moved.relative_to(vault).as_posix()} (delete it if nobody needs it)")
+        if stale_viewer(vault / 'graph.html'):
+            try:
+                moved = move_aside(vault / 'graph.html', vault)
+            except OSError as error:
+                print(f'build: graph.html is no longer generated but could not be moved aside ({error}); left it in place, it shows an old copy of the spec')
+            else:
+                print(f"build: graph.html is no longer generated (use the serve command to read the spec); moved the old copy to {moved.relative_to(vault).as_posix()}")
     uncounted = len(warnings) - len(counted)
     print(f'{args.command}: {len(notes)} notes, {len(edges)} links, {len(warnings)} warnings' + (f' ({uncounted} uncommitted, not counted)' if uncounted else ''))
     return 0

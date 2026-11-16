@@ -2,7 +2,7 @@
 
 The spec, Python source, tests and customer IDs are invented for this repository. The source deliberately disagrees with one accepted requirement, so an audit has something concrete to find.
 
-Open `knowledge/parcel-desk/graph.html` in a browser or `knowledge/parcel-desk` as an Obsidian vault. The Markdown claims cite the files alongside this README. The graph can be opened offline; source links outside the vault may need your editor.
+Read it with the viewer (from the repository root: `python3 skills/project-knowledge/scripts/knowledge.py serve --repo examples/parcel-desk --open`) or open `knowledge/parcel-desk` as an Obsidian vault. The Markdown claims cite the files alongside this README, and the viewer opens those files in place.
 
 The vault shows the two layers the skills produce. The **as-built spec** (`areas/`, `notes/`, generated `AS-BUILT.md`) describes only what the code does. The **gap queue** (`gaps/`, `plans/`, generated `GAPS.md`) holds three questions, one per page, at different points of the lifecycle:
 

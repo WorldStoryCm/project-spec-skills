@@ -16,7 +16,6 @@ EXAMPLE = ROOT / 'examples/parcel-desk'
 VAULT = EXAMPLE / 'knowledge/parcel-desk'
 SKILLS = ('project-knowledge', 'spec-audit', 'spec-change', 'spec-investigation', 'spec-plan')
 ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
-DATA = re.compile(r'(<script id="knowledge-data" type="application/json">\s*)(.*?)(\s*</script>)', re.S)
 
 
 def run(label, command, cwd=ROOT):
@@ -96,17 +95,6 @@ def normalized_graph(path):
     return graph
 
 
-def html_parts(path):
-    html = path.read_text(encoding='utf-8')
-    matches = list(DATA.finditer(html))
-    if len(matches) != 1:
-        raise ValueError(f'{path.name}: expected one graph payload')
-    match = matches[0]
-    graph = json.loads(match.group(2))
-    graph.pop('generatedAt', None)
-    return graph, html[:match.start(2)] + '__DATA__' + html[match.end(2):]
-
-
 def check_generated():
     with tempfile.TemporaryDirectory(prefix='verify-knowledge-') as directory:
         copy = Path(directory) / 'vault'
@@ -120,14 +108,9 @@ def check_generated():
         expected_graph = normalized_graph(copy / '.knowledge/graph.json')
         if normalized_graph(VAULT / '.knowledge/graph.json') != expected_graph:
             errors.append('graph.json differs from current notes and links')
-        expected_html, expected_template = html_parts(copy / 'graph.html')
-        actual_html, actual_template = html_parts(VAULT / 'graph.html')
-        if actual_html != expected_graph or expected_html != expected_graph:
-            errors.append('graph.html payload differs from current notes and links')
-        if actual_template != expected_template:
-            errors.append('graph.html viewer differs from current template')
-        if (VAULT / 'Map.canvas').exists():
-            errors.append('Map.canvas is no longer generated; delete it from the example vault')
+        for name in ('graph.html', 'Map.canvas'):
+            if (VAULT / name).exists():
+                errors.append(f'{name} is no longer generated; delete it from the example vault')
         for name in ('AS-BUILT.md', 'GAPS.md'):
             shipped = VAULT / name
             if not shipped.is_file():

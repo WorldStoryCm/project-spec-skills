@@ -12,7 +12,7 @@ This skill changes application code. It is the only one in this bundle that does
 
 ## Read the change request
 
-- Find the base the person branched from (ask if it is not obvious) and read the spec diff against it: committed and uncommitted edits to the spec pages. In a project-knowledge vault these are `areas/` and `notes/`; ignore generated files (`AS-BUILT.md`, `GAPS.md`, `graph.html`, `.knowledge/`).
+- Find the base the person branched from (ask if it is not obvious) and read the spec diff against it: committed and uncommitted edits to the spec pages. In a project-knowledge vault these are `areas/` and `notes/`; ignore generated files (`AS-BUILT.md`, `GAPS.md`, `.knowledge/`).
 - The base spec must describe the base code. If it is behind (a pending sync, freshness warnings), the diff mixes the person's intent with ordinary drift; say so and separate the two before going on.
 - Restate every changed statement as one line in plain language: what happens today, what should happen instead. A removed sentence is a change too. Edits that only reword a page without changing behavior are listed as such and need no code.
 - Do not treat anything outside the diff as a request. An idea in a chat message or a gap page becomes part of the change only when the person puts it into the spec text.

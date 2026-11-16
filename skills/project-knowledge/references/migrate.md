@@ -29,7 +29,7 @@ Do these in order, rerunning `check` between steps. Each step removes a class of
 
 ## Run pages that link to everything
 
-Older run pages linked every page they touched, and `check` now reports `run pages are history, not part of the map` with the number of links. Those links made each run a hub in Obsidian's graph and pulled all areas into one ball. The fix is mechanical and changes no claim: in each `runs/*.md` replace `[[notes/example|the example rule]]` with the label and the path in code formatting, `the example rule (`notes/example`)`, and do the same for embeds and Markdown links to vault pages. Links to source files and URLs stay. An old `Map.canvas` is no longer generated; `build` removes it if nobody edited it, otherwise delete it yourself.
+Older run pages linked every page they touched, and `check` now reports `run pages are history, not part of the map` with the number of links. Those links made each run a hub in Obsidian's graph and pulled all areas into one ball. The fix is mechanical and changes no claim: in each `runs/*.md` replace `[[notes/example|the example rule]]` with the label and the path in code formatting, `the example rule (`notes/example`)`, and do the same for embeds and Markdown links to vault pages. Links to source files and URLs stay. `graph.html` is no longer generated either: read the vault with the `serve` command, which always shows the current files; `build` moves an old generated `graph.html` to `.knowledge/graph.html.removed`, and you can delete it. An old `Map.canvas` is no longer generated; `build` removes it if nobody edited it, otherwise delete it yourself.
 
 ## Rules that kept the migration honest
 

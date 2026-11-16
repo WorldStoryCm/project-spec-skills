@@ -1,6 +1,6 @@
 {
   "title": "Parcel Desk knowledge",
-  "generatedAt": "2026-11-16T07:57:51.157518+00:00",
+  "generatedAt": "2026-11-16T08:49:38.996315+00:00",
   "nodes": [
     {
       "id": "index",
@@ -14,7 +14,7 @@
         "knowledge"
       ],
       "path": "00-index.md",
-      "body": "# Parcel Desk knowledge\n\nA small **fictional** pickup service. The vault has two layers. The **as-built spec** says what the code does today and is derived only from source. The **gap queue** holds every question about what is missing, doubtful or proposed; people re-check and decide each one. This is a worked example, not a production readiness assessment.\n\n## The spec\n\nRead it as one document in [AS-BUILT](AS-BUILT.md) (generated), or page by page:\n\n- **[[areas/pickups|Pickup cancellation]]** covers the state transition and the response mapping.\n- [[areas/access|Customer access]] covers whose pickup can be changed.\n\nStart with [[notes/cancellation-boundary|the cancellation boundary]], then [[notes/route-responses|the route response mapping]]. The rule in [[notes/ownership-check|Customer ownership]] runs first.\n\n## The gap queue\n\n[GAPS](GAPS.md) (generated) lists every gap by state. In this example:\n\n- [[gaps/packed-cancellation|Packed cancellation]] is accepted, with [[plans/packed-cancellation|a plan]].\n- [[gaps/partner-decision|Partner cancellation]] has been rechecked and awaits a person's decision.\n- [[gaps/deployment-evidence|Deployment evidence]] has not been rechecked yet.\n\nSee [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. `AS-BUILT.md` and `GAPS.md` appear after `build`; open `graph.html` in a browser for the map.\n",
+      "body": "# Parcel Desk knowledge\n\nA small **fictional** pickup service. The vault has two layers. The **as-built spec** says what the code does today and is derived only from source. The **gap queue** holds every question about what is missing, doubtful or proposed; people re-check and decide each one. This is a worked example, not a production readiness assessment.\n\n## The spec\n\nRead it as one document in [AS-BUILT](AS-BUILT.md) (generated), or page by page:\n\n- **[[areas/pickups|Pickup cancellation]]** covers the state transition and the response mapping.\n- [[areas/access|Customer access]] covers whose pickup can be changed.\n\nStart with [[notes/cancellation-boundary|the cancellation boundary]], then [[notes/route-responses|the route response mapping]]. The rule in [[notes/ownership-check|Customer ownership]] runs first.\n\n## The gap queue\n\n[GAPS](GAPS.md) (generated) lists every gap by state. In this example:\n\n- [[gaps/packed-cancellation|Packed cancellation]] is accepted, with [[plans/packed-cancellation|a plan]].\n- [[gaps/partner-decision|Partner cancellation]] has been rechecked and awaits a person's decision.\n- [[gaps/deployment-evidence|Deployment evidence]] has not been rechecked yet.\n\nSee [[01-coverage|Coverage]] and [[runs/example-survey|the example survey]] for limits. `AS-BUILT.md` and `GAPS.md` appear after `build`; the `serve` command shows the vault in a browser.\n",
       "summary": "",
       "stale": false,
       "kind": "",

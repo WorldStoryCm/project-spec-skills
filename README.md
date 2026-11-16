@@ -9,7 +9,7 @@ The knowledge skill produces an **Obsidian-compatible vault** with two clearly s
 - an **as-built spec**: exactly how the code is implemented now, derived only from source. What people or agents agreed in chats is not part of it.
 - a **gap queue**: the agent's guesses about what is missing, doubtful or worth adding, one question per page. People re-check each gap and decide it, with a separate discussion and decision for every item.
 
-It also writes an **offline browser map** that groups pages by area. Obsidian is optional. The other skills work with ordinary repository files, with or without a vault.
+To read it there is a small **local viewer**: one command shows the spec as a plain document, a map of how the pages connect and the gap queue, straight from the files on disk. Obsidian works too and is optional. The other skills work with ordinary repository files, with or without a vault.
 
 ## Pick a skill
 
@@ -124,7 +124,20 @@ cd project-spec-skills
 python3 scripts/verify.py
 ```
 
-Open `examples/parcel-desk/knowledge/parcel-desk/graph.html` directly in your browser. It opens in **Read**, the spec as a plain document: areas, the features in each with a one-line summary, and on each page the code detail, open questions and properties folded away. **Map** shows how the pages connect (an open note lists "Gaps about this") and **Gaps** shows the queue (filtered by state, kind and area, with who rechecked and decided and when, and a "recheck outdated" badge when the cited sources changed; each gap links to its spec notes and plan). Search for **cancellation**, open a gap, and follow its links. After `python3 skills/project-knowledge/scripts/knowledge.py build ...` (see the example's README), `AS-BUILT.md` and `GAPS.md` sit beside the graph. The HTML contains its data and makes no network requests on load.
+Start the viewer on the example:
+
+```sh
+python3 skills/project-knowledge/scripts/knowledge.py serve --repo examples/parcel-desk --open
+```
+
+It serves one page on `127.0.0.1` only, reads the vault from disk on every page load and writes nothing, so there is no build step before reading: edit a page, reload. `--vault` is needed only when the repository has more than one vault under `knowledge/`. The page makes no network requests.
+
+- **Read** (the default) is the spec as a plain document: areas, the features in each with a one-line summary, and on each page the code detail, open questions and properties folded away.
+- **Map** shows how the pages connect, one frame per area; an open note lists "Gaps about this".
+- **Gaps** is the queue, filtered by state, kind and area, with who rechecked and decided and when, and a "recheck outdated" badge when the cited sources changed; each gap links to its spec notes and plan.
+- A link to a file in the repository opens inside the viewer: Markdown documents rendered (tables included), code with line numbers and the cited lines marked.
+
+Search for **cancellation**, open a gap, and follow its links. `build` (see the example's README) writes `AS-BUILT.md` and `GAPS.md`, the same content as two Markdown files for reading on a Git host.
 
 To use Obsidian, choose **Open folder as vault** and select `examples/parcel-desk/knowledge/parcel-desk`. Open `00-index`, then **Graph view: Open graph view** from the command palette (Cmd/Ctrl+G). In graph settings, **Existing files only** hides unresolved source links outside the vault. Pages cluster around their area because each page links to it; run pages carry no links, so they do not pull the clusters together. To see the spec alone, put `-path:gaps -path:plans -path:runs` in the graph's search filter, and add a color group per folder (`path:areas`, `path:notes`, `path:gaps`) under **Groups**. **Open local graph** shows only the neighbours of the page you are reading. Gap properties are searchable, for example `[decision:open]` or `[kind:verification-gap]`. See [Obsidian's graph guide](https://help.obsidian.md/plugins/graph).
 
@@ -182,7 +195,6 @@ knowledge/<project>/
   gaps/                 one question per page (gap)
   plans/                one plan per accepted gap (gap)
   runs/                 review history and evidence limits
-  graph.html            generated offline browser view
   .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint), graph.json (generated view data)
 ```
 

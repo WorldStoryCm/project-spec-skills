@@ -543,4 +543,85 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   assert.equal(findAll(v.q('#page'), e => e.tag === 'h1')[0].textContent, 'Owner check');
 }
 
-console.log('PASS: viewer markdown, modes, state derivation, legacy payloads, area clusters, read mode');
+// --- cited files open inside the viewer (the serve command sends their text) ---
+{
+  const v = load({
+    title: 'Files', live: true, vaultPath: 'knowledge/demo',
+    files: {
+      'docs/plan.md': { text: '# Plan\n\n| Task | Status |\n| --- | :-- |\n| CJ-01 — notes | Done \\| ok |\n| `a|b` | [[notes/n|N]] | extra |\n\nSee [code](../src/a.py#L2) and [web](https://example.com).', truncated: false },
+      'src/a.py': { text: 'one\ntwo\nthree', truncated: true },
+    },
+    nodes: [
+      node({ id: 'a', title: 'Area', type: 'area', layer: 'spec', status: 'current', path: 'areas/a.md', areas: [] }),
+      node({ id: 'n', title: 'N', type: 'note', layer: 'spec', status: 'current', path: 'notes/n.md', areas: ['a'], summary: 'Plain words.',
+        sources: ['src/a.py', 'src/missing.py'],
+        body: '[plan](../../../docs/plan.md#L3) and [raw](<../../../src/a.py#L2-L3>) and [gone](../../../docs/none.md) and [up](../../../../outside.md)' }),
+    ],
+    edges: [{ source: 'a', target: 'n' }],
+  });
+  assert.equal(v.q('#header-note').textContent, 'Live from disk · reload the page to refresh');
+  v.open('N');
+  const art = findAll(v.q('#detail'), e => cls(e) === 'article')[0];
+  const fileLinks = findAll(art, e => e.tag === 'button' && cls(e) === 'wiki');
+  assert.deepEqual(fileLinks.map(e => e.textContent), ['plan', 'raw']);
+  assert.deepEqual(findAll(art, e => e.tag === 'a').map(e => e.textContent), ['gone', 'up'], 'files that were not sent stay ordinary links');
+  const pane = v.q('#filepane'), body = v.q('#file-body');
+  const rows = () => findAll(body, e => cls(e).split(' ').includes('ln'));
+  const hits = () => rows().filter(e => cls(e).includes('hit')).map(e => findAll(e, x => cls(x) === 'txt')[0].textContent);
+  const actions = () => findAll(v.q('#file-actions'), e => e.tag === 'button');
+  // a Markdown document opens rendered, with its table
+  fileLinks[0].click();
+  assert.equal(pane.hidden, false);
+  assert.equal(v.q('#file-title').textContent, 'docs/plan.md');
+  assert.equal(v.q('#file-note').textContent, 'Line 3 · Read from disk when this page loaded');
+  assert.deepEqual(actions().map(e => [e.textContent, e.attrs['aria-pressed']]), [['Document', 'true'], ['Source lines', 'false']]);
+  assert.deepEqual(findAll(body, e => e.tag === 'th').map(e => e.textContent), ['Task', 'Status']);
+  assert.deepEqual(findAll(body, e => e.tag === 'td').map(e => e.textContent), ['CJ-01 — notes', 'Done | ok', 'a|b', 'N']);
+  assert.equal(findAll(body, e => e.tag === 'h1')[0].textContent, 'Plan');
+  // its source lines, with the cited line marked
+  actions()[1].click();
+  assert.equal(rows().length, 8);
+  assert.deepEqual(hits(), ['| Task | Status |']);
+  actions()[0].click();
+  // links inside the document resolve from the document's own folder; web links stay links
+  assert.deepEqual(findAll(body, e => e.tag === 'a').map(e => e.textContent), []);
+  const inner = findAll(body, e => e.tag === 'button' && cls(e) === 'wiki').find(e => e.textContent === 'code');
+  inner.click();
+  assert.equal(v.q('#file-title').textContent, 'src/a.py');
+  assert.equal(v.q('#file-note').textContent, 'Line 2 · Read from disk when this page loaded · only the beginning of the file is shown');
+  assert.deepEqual(actions(), []);
+  assert.deepEqual(rows().map(e => e.textContent), ['1one', '2two', '3three']);
+  assert.deepEqual(hits(), ['two']);
+  // closing
+  v.q('#file-close').click();
+  assert.equal(pane.hidden, true);
+  assert.equal(body.children.length, 0);
+  // a line range
+  fileLinks[1].click();
+  assert.equal(v.q('#file-note').textContent.startsWith('Lines 2–3 · '), true);
+  assert.deepEqual(hits(), ['two', 'three']);
+  pane.fire('keydown', { key: 'Escape' });
+  assert.equal(pane.hidden, true);
+  // Read: sources in the technical details open the same way
+  v.q('#mode-read').click();
+  const tech = findAll(v.q('#page'), e => cls(e) === 'tech')[0];
+  assert.deepEqual(findAll(tech, e => e.tag === 'button').map(e => e.textContent), ['src/a.py']);
+  assert.ok(tech.textContent.includes('src/missing.py'));
+  findAll(tech, e => e.tag === 'button')[0].click();
+  assert.equal(v.q('#file-title').textContent, 'src/a.py');
+  assert.deepEqual(hits(), []);
+}
+{
+  // without file text (an older or static payload) every file link is an ordinary link and nothing breaks
+  const v = load({ title: 'Static', nodes: [
+    node({ id: 'n', title: 'N', type: 'note', layer: 'spec', status: 'current', path: 'notes/n.md', body: '[plan](../docs/plan.md#L3)\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\nnot | a table' }),
+  ], edges: [] });
+  assert.equal(v.q('#header-note').textContent, '');
+  v.open('N');
+  const art = findAll(v.q('#detail'), e => cls(e) === 'article')[0];
+  assert.deepEqual(findAll(art, e => e.tag === 'a').map(e => e.textContent), ['plan']);
+  assert.deepEqual(findAll(art, e => e.tag === 'td').map(e => e.textContent), ['1', '2']);
+  assert.ok(findAll(art, e => e.tag === 'p').some(e => e.textContent === 'not | a table'));
+}
+
+console.log('PASS: viewer markdown, modes, state derivation, legacy payloads, area clusters, read mode, cited files');

@@ -269,7 +269,7 @@ class MaintainTests(unittest.TestCase):
         page = (self.vault / 'sync.html').read_text()
         self.assertIn('&lt;script&gt; &amp; ü.txt', page)
         self.assertNotIn('<script>', page)
-        self.assertIn('href="graph.html"', page)
+        self.assertIn('knowledge.py serve', page)
         self.assertNotIn('secret must not be read', page)
 
     def test_freshness_and_dirty_note_visible(self):
@@ -691,7 +691,7 @@ class MaintainTests(unittest.TestCase):
 
     def state(self):
         return {name: (self.vault / name).read_bytes() if (self.vault / name).exists() else None
-                for name in ('.knowledge/review.json', '.knowledge/sources.json', 'graph.html', 'GAPS.md', 'AS-BUILT.md')}
+                for name in ('.knowledge/review.json', '.knowledge/sources.json', 'GAPS.md', 'AS-BUILT.md')}
 
     def test_partial_finish_accepts_clean_notes_and_leaves_checkpoint(self):
         self.two_note_range()
@@ -708,7 +708,6 @@ class MaintainTests(unittest.TestCase):
         self.assertIn('deferred note other: waits for other.txt', result.stdout)
         after = self.state()
         self.assertEqual(after['.knowledge/review.json'], before['.knowledge/review.json'])
-        self.assertIsNotNone(after['graph.html'])
         self.assertIsNotNone(after['GAPS.md'])
         baseline = json.loads(after['.knowledge/sources.json'])
         self.assertEqual(baseline['note'], {'source.txt': self.sha(self.repo / 'source.txt')})
