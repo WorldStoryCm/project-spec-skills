@@ -89,12 +89,49 @@
         color: var(--muted);
         text-align: right;
       }
+      /* The list stays; the rest of the width is either the graph or the open page, chosen by the tabs. */
       .workspace {
         display: grid;
-        grid-template-columns: 270px minmax(340px, 1fr) 360px;
+        grid-template-columns: 270px minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
         height: calc(100vh - 70px - 48px);
         min-height: 0;
-        grid-template-rows: minmax(0, 1fr);
+      }
+      .workspace > aside {
+        grid-row: 1 / -1;
+      }
+      .workspace > .map,
+      .workspace > .reader {
+        grid-column: 2;
+        grid-row: 2;
+      }
+      .workspace[data-view="reader"] > .map,
+      .workspace:not([data-view="reader"]) > .reader {
+        display: none;
+      }
+      .viewtabs {
+        grid-column: 2;
+        grid-row: 1;
+        display: flex;
+        gap: 22px;
+        padding: 0 26px;
+        background: #fff;
+        border-bottom: 1px solid var(--line);
+      }
+      .viewtabs button {
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: none;
+        padding: 11px 2px 9px;
+        color: var(--muted);
+      }
+      .viewtabs button:hover {
+        color: var(--ink);
+      }
+      .viewtabs button[aria-selected="true"] {
+        border-color: var(--teal);
+        color: var(--teal);
+        font-weight: 650;
       }
       aside,
       .reader {
@@ -108,9 +145,14 @@
         min-height: 0;
       }
       .reader {
-        border-left: 1px solid var(--line);
         overflow: auto;
         min-height: 0;
+        padding: 34px 48px 80px;
+      }
+      .reader > * {
+        max-width: 780px;
+        margin-left: auto;
+        margin-right: auto;
       }
       h1,
       h2,
@@ -881,13 +923,10 @@
       }
       @media (max-width: 1000px) {
         .workspace {
-          grid-template-columns: 230px minmax(300px, 1fr);
-          grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
+          grid-template-columns: 230px minmax(0, 1fr);
         }
         .reader {
-          grid-column: 1/-1;
-          border-left: 0;
-          border-top: 1px solid var(--line);
+          padding: 26px 24px 60px;
         }
         .map {
           overflow: auto;
@@ -938,6 +977,9 @@
           display: block;
           height: auto;
           min-height: 0;
+        }
+        .viewtabs {
+          display: none;
         }
         .workspace > aside,
         .workspace > .map,
@@ -1057,6 +1099,10 @@
           <div class="list" id="nav-list"></div>
         </div>
       </aside>
+      <div class="viewtabs" role="tablist" aria-label="Graph or page">
+        <button type="button" data-view="map" data-alt="list" aria-selected="true">Graph</button
+        ><button type="button" data-view="reader" aria-selected="false">Page</button>
+      </div>
       <section class="map" aria-labelledby="map-title">
         <div class="map-head">
           <div>
@@ -1086,7 +1132,7 @@
         <div id="detail">
           <h2>Select an item</h2>
           <p class="subtle">
-            Open a node on the map or choose an item from the list.
+            Open a node on the graph or choose an item from the list.
           </p>
         </div>
       </article>
@@ -1230,16 +1276,18 @@
           Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
           return e;
         };
+        const viewButtons = () =>
+          document.querySelectorAll(".mobile-tabs button, .viewtabs button");
         function switchView(view) {
           workspace.dataset.view = view;
-          document
-            .querySelectorAll(".mobile-tabs button")
-            .forEach((b) =>
-              b.setAttribute("aria-selected", String(b.dataset.view === view)),
-            );
+          viewButtons().forEach((b) =>
+            b.setAttribute(
+              "aria-selected",
+              String(b.dataset.view === view || b.dataset.alt === view),
+            ),
+          );
         }
-        document
-          .querySelectorAll(".mobile-tabs button")
+        viewButtons()
           .forEach((b) =>
             b.addEventListener("click", () => switchView(b.dataset.view)),
           );
@@ -1342,6 +1390,8 @@
         function setMode(m) {
           if (m === mode) return;
           mode = m;
+          // A page left open from the other layer would hide the list's graph.
+          if (m !== "read") switchView("map");
           render(false);
         }
         modeButtons.read.addEventListener("click", () => {
@@ -1748,7 +1798,7 @@
               const text = kindLabels[tag] || (tag === "deferred" ? "Deferred" : "");
               if (text) detail.append(el("div", text, "stale-note"));
             }
-          detail.append(markdown(n.body, n));
+          detail.append(markdown(bodyOf(n), n));
           $("#reader-updated").textContent = n.path || "";
           render(true);
           switchView("reader");

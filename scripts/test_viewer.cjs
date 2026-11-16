@@ -523,6 +523,15 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   assert.equal(v.mode(), 'gap');
   assert.equal(v.q('#reading').hidden, true);
   assert.equal(v.q('.workspace').hidden, false);
+  // Graph and page share the width: opening an item shows the page, changing the layer goes back to the graph
+  const ws = v.q('.workspace');
+  assert.equal(ws.dataset.view, 'reader');
+  v.q('#mode-spec').click();
+  assert.equal(ws.dataset.view, 'map');
+  v.open('Cancelling a pickup');
+  assert.equal(ws.dataset.view, 'reader');
+  v.q('#mode-gaps').click();
+  assert.equal(ws.dataset.view, 'map');
   // Map keeps the page that was being read; Read returns to it
   v.q('#mode-read').click();
   v.pageButton('Parcel Desk').click();
