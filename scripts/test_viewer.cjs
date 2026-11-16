@@ -162,7 +162,7 @@ const parcel = () => ({
   const v = load(parcel());
   assert.equal(v.q('#project-title').textContent, 'Parcel Desk');
   assert.equal(v.q('#header-note').textContent, 'Spec');
-  assert.deepEqual(v.nav(), [['Overview', ''], ['Recent changes', ''], ['Gaps', '1 waiting'], ['Map', ''], ['Requests', '']]);
+  assert.deepEqual(v.nav(), [['Overview', ''], ['Recent changes', ''], ['Gaps', '1 waiting'], ['Map', '']]);
   // the tree lists areas; an area opens to its features, without index, runs, gaps or superseded notes
   assert.deepEqual(v.tree(), ['Access', 'Pickups']);
   v.twist('Pickups').click();
@@ -463,130 +463,111 @@ const queue = {
   assert.deepEqual(v.resultNames(), ['Packed pickups']);
 }
 
-// --- copy for AI ----------------------------------------------------------------
+// --- copy for AI: one dialog for everything you ask the agent ------------------------
 {
   const data = parcel();
   data.vaultPath = 'knowledge/parcel';
-  const v = load(data);
-  const preview = () => findAll(v.q('#copy-card'), e => e.id === 'copy-preview')[0].textContent;
-  const check = label => findAll(v.q('#copy-card'), e => has(e, 'check') && e.textContent === label)[0].children[0];
+  const storage = memory();
+  const v = load(data, { storage });
+  const card = () => v.q('#copy-card');
+  const preview = () => findAll(card(), e => e.id === 'copy-preview')[0].textContent;
+  const hint = () => findAll(card(), e => e.id === 'copy-hint')[0].textContent;
+  const field = id => findAll(card(), e => e.id === id)[0];
+  const type = (id, value) => { field(id).value = value; field(id).fire('input'); };
+  const check = label => findAll(card(), e => has(e, 'check') && e.textContent === label)[0].children[0];
+  const intents = () => findAll(findAll(card(), e => e.tag === 'fieldset')[0], e => has(e, 'pill') && !findAll(card(), x => x.id === 'copy-choice').some(c => findAll(c, y => y === e).length)).map(text);
+  const tail = ['', 'Gap: knowledge/parcel/gaps/g-open.md', 'Title: Packed pickups', 'State: needs decision · product gap · P1', '',
+    'It refers to:', '- knowledge/parcel/notes/cancel.md (Cancelling a pickup)'].join('\n');
   v.open('Packed pickups');
   v.q('#copy-ai').click();
   assert.equal(v.q('#copydlg').hidden, false);
-  assert.deepEqual(findAll(v.q('#copy-card'), e => has(e, 'pill')).map(text), ['Recheck it', 'Lay out options', 'Plan it', 'Change the spec']);
+  // a gap: what the agent can do, each choice explained
+  assert.deepEqual(intents(), ['Recheck it', 'I checked it myself', 'Record my decision', 'Lay out options', 'Plan it', 'Change the behavior', 'Remove this page']);
+  assert.ok(hint().startsWith('The agent reads the code and writes what it found into the gap.'));
+  assert.equal(preview(), "Use the project-knowledge skill to re-check this gap against the code. Write the result into the gap's Recheck section and leave the decision to me.\n" + tail);
+  assert.equal(field('copy-me'), undefined, 'a recheck by the agent needs no name');
+  // your own words go into the request as you type, without redrawing the field
+  const note = field('copy-note');
+  type('copy-note', 'the packed state in the service');
+  assert.ok(preview().includes('\n\nLook at: the packed state in the service\n'));
+  assert.equal(field('copy-note'), note, 'the field you type in is not replaced');
+
+  // "I checked it myself": your result, under your name, and the gap closed if that settles it
+  v.pill(card(), 'I checked it myself').click();
+  assert.ok(hint().startsWith('You already verified this.'));
+  assert.deepEqual(findAll(field('copy-choice'), e => has(e, 'pill')).map(e => [e.textContent, e.attrs['aria-pressed']]), [['It is fine now', 'true'], ['Still a gap', 'false']]);
+  assert.equal(field('copy-note').value, 'the packed state in the service', 'what you typed survives a change of mind');
+  type('copy-note', '');
+  assert.ok(preview().startsWith('Use the project-knowledge skill. I re-checked this gap myself and it no longer holds: [what you checked and saw]\n\nRecord my recheck in the gap as not reproduced, under my name ([your name]) and today\'s date'));
+  type('copy-note', 'Cancelled a packed pickup on staging; it went through.');
+  type('copy-me', 'Vadim');
   assert.equal(preview(), [
-    "Use the project-knowledge skill to re-check this gap against the code. Write the result into the gap's Recheck section and leave the decision to me.",
+    'Use the project-knowledge skill. I re-checked this gap myself and it no longer holds: Cancelled a packed pickup on staging; it went through.',
     '',
-    'Gap: knowledge/parcel/gaps/g-open.md',
-    'Title: Packed pickups',
-    'State: needs decision · product gap · P1',
-    '',
-    'It refers to:',
-    '- knowledge/parcel/notes/cancel.md (Cancelling a pickup)',
-  ].join('\n'));
-  // what to include
+    "Record my recheck in the gap as not reproduced, under my name (Vadim) and today's date, with what I found in its Recheck section. If that answers the question, close the gap as done and say why in its Decision section.",
+  ].join('\n') + '\n' + tail);
+  v.pill(field('copy-choice'), 'Still a gap').click();
+  assert.ok(preview().includes('it still holds: Cancelled a packed pickup on staging; it went through.'));
+  assert.ok(preview().includes('Record my recheck in the gap as confirmed, under my name (Vadim)') && preview().includes('Leave the decision open.'));
+
+  // "Record my decision": the agent writes down what you decided, nothing more
+  v.pill(card(), 'Record my decision').click();
+  assert.deepEqual(findAll(field('copy-choice'), e => has(e, 'pill')).map(text), ['Accept', 'Reject', 'Defer']);
+  assert.equal(field('copy-me').value, 'Vadim');
+  v.pill(field('copy-choice'), 'Defer').click();
+  type('copy-note', 'Not before the partner launch.');
+  assert.ok(preview().startsWith('Use the project-knowledge skill. I have decided this gap: deferred. Reason: Not before the partner launch.\n\nRecord the decision in the gap under my name (Vadim) with today\'s date'));
+  assert.ok(preview().includes('If the gap has not been rechecked yet, tell me before recording it.'));
+
+  // a page that is only noise can be removed; a real question is rejected instead, and the dialog says so
+  v.pill(card(), 'Remove this page').click();
+  assert.ok(hint().includes('record a decision to reject it instead'));
+  type('copy-note', '');
+  assert.ok(preview().startsWith('Use the project-knowledge skill to remove this page from the vault: I consider it noise.\n\nDelete the file, remove or reword every link to it on other pages, and run check.'));
+  type('copy-note', 'it is about the vault, not the product');
+  assert.ok(preview().startsWith('Use the project-knowledge skill to remove this page from the vault: it is about the vault, not the product.'));
+  type('copy-note', 'Not before the partner launch.');
+
+  // the other choices, and what to include
+  v.pill(card(), 'Plan it').click();
+  assert.ok(preview().startsWith('Use the spec-change skill to plan this gap. Plan only, do not build it,'));
+  assert.ok(preview().includes('Keep in mind: Not before the partner launch.'));
+  v.pill(card(), 'Change the behavior').click();
+  type('copy-note', '');
+  assert.ok(preview().includes('What I want: [describe the change]'));
   check('The 1 spec page it refers to').checked = false;
   check('The 1 spec page it refers to').fire('change');
   assert.ok(!preview().includes('It refers to:'));
   check('Full text of the page').checked = true;
   check('Full text of the page').fire('change');
   assert.ok(preview().endsWith('Text of the page:\n\n## Current behavior\n\nRefused.'));
-  // what the agent should do
-  v.pill(v.q('#copy-card'), 'Plan it').click();
-  assert.ok(preview().startsWith('Use the spec-change skill to plan this gap. Plan only, do not build it,'));
-  v.pill(v.q('#copy-card'), 'Change the spec').click();
-  assert.ok(preview().includes('What I want: [describe the change]'));
-  findAll(v.q('#copy-card'), e => e.id === 'copy-do')[0].click();
+  findAll(card(), e => e.id === 'copy-do')[0].click();
   assert.deepEqual(v.copied, [preview()], 'the clipboard gets exactly the preview');
-  assert.equal(v.q('#toast').textContent, 'Copied');
-  v.btn(v.q('#copy-card'), 'Close').click();
+  assert.equal(v.q('#toast').textContent, 'Copied. Paste it into your agent.');
+  assert.ok(!v.btn(card(), 'Add to a request'), 'there is one way to ask, not two');
+  v.btn(card(), 'Close').click();
   assert.equal(v.q('#copydlg').hidden, true);
+
   // a spec page offers what fits a spec page
   v.open('Cancelling a pickup');
   v.q('#copy-ai').click();
-  assert.deepEqual(findAll(v.q('#copy-card'), e => has(e, 'pill')).map(text), ['Change this', 'Ask a question', 'Re-read against the code']);
+  assert.deepEqual(intents(), ['Change the behavior', 'Ask a question', 'Re-read against the code', 'Remove this page']);
   assert.ok(preview().includes('Page: knowledge/parcel/notes/cancel.md'));
   assert.ok(preview().includes('Related pages:\n- knowledge/parcel/notes/owner.md (Owner check)'));
-  // and can go into a request instead
-  v.btn(v.q('#copy-card'), 'Add to a request').click();
-  assert.equal(v.q('#copydlg').hidden, true);
-  assert.deepEqual(v.crumbs(), ['Parcel Desk', '/', 'Request']);
-  assert.deepEqual(v.rowTitles(), ['Cancelling a pickup']);
-}
+  v.pill(card(), 'Ask a question').click();
+  type('copy-note', 'What happens to a packed pickup?');
+  assert.ok(preview().startsWith('Use the project-knowledge skill to investigate a question about this page.\n\nQuestion: What happens to a packed pickup?'));
+  v.btn(card(), 'Close').click();
 
-// --- request: pages, what you want, a brief ---------------------------------------
-{
-  const data = parcel();
-  data.vaultPath = 'knowledge/parcel';
-  const storage = memory();
-  const v = load(data, { storage });
-  const brief = () => findAll(v.page(), e => e.id === 'brief')[0].textContent;
-  const steps = () => findAll(v.page(), e => e.tag === 'li' && cls(e) === 'on').map(text);
-  v.go('Requests');
-  assert.deepEqual(v.rowTitles(), []);
-  assert.ok(v.page().textContent.includes('Nothing picked yet.'));
-  assert.ok(brief().includes('- [pick the pages this is about]') && brief().includes('I want: [describe the change you want]'));
-  assert.deepEqual(steps(), ['Draft']);
-  // pick pages through search
-  v.btn(v.page(), 'Add a page').click();
-  assert.equal(v.q('#palette-input').placeholder, 'Find a page to add to the request');
-  assert.deepEqual(findAll(v.q('#palette-filters'), e => has(e, 'pill')).map(text), ['Everything', 'Features', 'Gaps']);
-  v.search('pickup', 'typed').find(r => r.textContent.startsWith('Packed pickups')).click();
-  assert.deepEqual(v.crumbs(), ['Parcel Desk', '/', 'Request'], 'picking stays on the request');
-  assert.deepEqual(v.rowTitles(), ['Packed pickups']);
-  v.btn(v.page(), 'Add a page').click();
-  v.search('owner', 'typed')[0].click();
-  assert.deepEqual(v.rowTitles(), ['Packed pickups', 'Owner check']);
-  assert.deepEqual(v.nav()[4], ['Requests', '1 draft']);
-  // say what you want; the brief follows as you type
-  const want = () => findAll(v.page(), e => e.tag === 'textarea')[0];
-  want().value = 'Let customers cancel packed pickups.';
-  want().fire('input');
-  assert.equal(brief(), [
-    'Use the spec-change skill.',
-    '',
-    'I want: Let customers cancel packed pickups.',
-    '',
-    'This is about:',
-    '- knowledge/parcel/gaps/g-open.md (Packed pickups)',
-    '- knowledge/parcel/notes/owner.md (Owner check)',
-    '',
-    'Ask your questions first. Then edit the spec on a branch, build it and check every changed statement against the code.',
-  ].join('\n'));
-  v.pill(v.page(), 'Plan only').click();
-  assert.ok(brief().startsWith('Use the spec-change skill to plan this change. Plan only; do not implement it.'));
-  v.pill(v.page(), 'Recheck only').click();
-  assert.ok(brief().startsWith('Use the project-knowledge skill to re-check these pages'));
-  assert.ok(brief().endsWith('What I am wondering about: Let customers cancel packed pickups.'));
-  v.pill(v.page(), 'Questions first, then build').click();
-  // copying is the one tracked step
-  findAll(v.page(), e => e.id === 'copy-brief')[0].click();
-  assert.deepEqual(v.copied, [brief()]);
-  assert.equal(steps().length, 1);
-  assert.match(steps()[0], /^Brief copied on \d{4}-\d{2}-\d{2}$/);
-  assert.ok(v.page().textContent.includes('Request · brief copied'));
-  // the draft is kept in this browser
+  // your name is remembered in this browser, nothing else is
   const again = load(data, { storage });
-  assert.deepEqual(again.nav()[4], ['Requests', '1 draft']);
-  again.go('Requests');
-  assert.deepEqual(again.rowTitles(), ['Packed pickups', 'Owner check']);
-  assert.equal(findAll(again.page(), e => e.tag === 'textarea')[0].value, 'Let customers cancel packed pickups.');
-  assert.match(findAll(again.page(), e => e.tag === 'li' && cls(e) === 'on')[0].textContent, /^Brief copied on /);
-  // changing it makes it a draft again; removing and starting over
-  findAll(again.page(), e => has(e, 'xbtn'))[0].click();
-  assert.deepEqual(again.rowTitles(), ['Owner check']);
-  assert.deepEqual(findAll(again.page(), e => e.tag === 'li' && cls(e) === 'on').map(text), ['Draft']);
-  again.btn(again.page(), 'Start over').click();
-  assert.deepEqual(again.rowTitles(), []);
-  assert.deepEqual(again.nav()[4], ['Requests', '']);
-  // a page that no longer exists is dropped, and a broken store does not stop the viewer
-  storage.setItem('spec-viewer:Parcel Desk:request', JSON.stringify({ items: ['gone', 'owner'], want: 5, how: 'nonsense' }));
-  const cleaned = load(data, { storage });
-  cleaned.go('Requests');
-  assert.deepEqual(cleaned.rowTitles(), ['Owner check']);
-  storage.setItem('spec-viewer:Parcel Desk:request', '{not json');
-  assert.equal(load(data, { storage }).h1(), 'Parcel Desk');
-  assert.equal(load(data, { storage: { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } } }).h1(), 'Parcel Desk');
+  again.open('Packed pickups');
+  again.q('#copy-ai').click();
+  again.pill(again.q('#copy-card'), 'I checked it myself').click();
+  assert.equal(findAll(again.q('#copy-card'), e => e.id === 'copy-me')[0].value, 'Vadim');
+  assert.equal(findAll(again.q('#copy-card'), e => e.id === 'copy-note')[0].value, '');
+  // there is no separate request page any more
+  assert.equal(load(data, { hash: '#/request' }).h1(), 'Parcel Desk');
 }
 
 // --- recent changes ---------------------------------------------------------------
@@ -790,4 +771,4 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   assert.ok(findAll(hostile, e => e.tag === 'p').some(e => e.textContent === 'not | a table'));
 }
 
-console.log('PASS: viewer navigation, pages, gaps, map, search, copy, requests, changes, cited files, Markdown');
+console.log('PASS: viewer navigation, pages, gaps, map, search, copy for AI, changes, cited files, Markdown');

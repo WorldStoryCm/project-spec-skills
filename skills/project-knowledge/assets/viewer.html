@@ -275,6 +275,14 @@
       .crumbs > span:not(.here) {
         flex: none;
       }
+      /* When room runs out, the name of the page you are on gives way first, then the path before it. */
+      .crumbs .here {
+        flex-shrink: 50;
+        min-width: 12ch;
+      }
+      .crumbs button {
+        min-width: 4ch;
+      }
       .crumbs button {
         border: 0;
         padding: 0;
@@ -805,47 +813,6 @@
         color: var(--muted);
         text-decoration: line-through;
       }
-      .steps {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-        max-width: 520px;
-      }
-      .steps li {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding-top: 12px;
-        border-top: 3px solid var(--line);
-        color: var(--muted);
-        font-weight: 600;
-      }
-      .steps li.on {
-        border-color: var(--ink);
-        color: var(--ink);
-      }
-      .cols {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 32px;
-        align-items: flex-start;
-      }
-      .cols > .form {
-        flex: 999 1 420px;
-        min-width: 0;
-        max-width: 620px;
-        display: flex;
-        flex-direction: column;
-        gap: 28px;
-      }
-      .cols > .form section {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
       textarea {
         width: 100%;
         padding: 14px 16px;
@@ -876,12 +843,6 @@
         font: 13px/1.6 var(--mono);
         white-space: pre-wrap;
         overflow-wrap: anywhere;
-      }
-      .cols > .night {
-        flex: 1 1 360px;
-        max-width: 480px;
-        border-radius: 24px;
-        padding: 24px;
       }
       .xbtn {
         flex: none;
@@ -1229,6 +1190,26 @@
         font-size: 14px;
         font-weight: 600;
       }
+      .field-label {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .copy-card input[type="text"] {
+        width: 100%;
+        height: 44px;
+        padding: 0 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: 14px;
+        background: var(--paper);
+        font-size: 15px;
+      }
+      .copy-card textarea {
+        font-size: 15px;
+        margin-bottom: 4px;
+      }
+      .copy-card .night pre {
+        max-height: 260px;
+      }
       .check {
         display: flex;
         align-items: center;
@@ -1357,9 +1338,6 @@
         }
         .file-body {
           padding: 18px 16px 50px;
-        }
-        .steps {
-          grid-template-columns: 1fr;
         }
       }
       @media (prefers-reduced-motion: reduce) {
@@ -2128,7 +2106,7 @@
         const trail = []; // every place visited in this session, in order
         let at = -1, // trail[at] is what is on screen
           route = { name: "home", id: "" };
-        const ROUTES = ["home", "page", "gaps", "map", "changes", "request"];
+        const ROUTES = ["home", "page", "gaps", "map", "changes"];
         const sameRoute = (a, b) => a.name === b.name && a.id === b.id;
         const routeHash = (r) => {
           if (r.name === "home") return "#/";
@@ -2181,7 +2159,7 @@
         const routeLabel = (r) =>
           r.name === "page"
             ? str(byId.get(r.id)?.title)
-            : { home: "the overview", gaps: "the gap queue", map: "the map", changes: "recent changes", request: "the request" }[r.name];
+            : { home: "the overview", gaps: "the gap queue", map: "the map", changes: "recent changes" }[r.name];
 
         // Pages opened lately, newest first, kept across reloads.
         let recent = store.get("recent", []);
@@ -2210,49 +2188,8 @@
         const seenIndex = historyLog.findIndex((c) => c.sha === seenSha);
         const newCommits = !seenSha ? 0 : seenIndex < 0 ? historyLog.length : seenIndex;
 
-        // The request being put together: pages, what is wanted, how far the agent should go.
-        const HOWS = [
-          ["build", "Questions first, then build"],
-          ["plan", "Plan only"],
-          ["recheck", "Recheck only"],
-        ];
-        let request = store.get("request", null);
-        if (!request || typeof request !== "object") request = {};
-        request = {
-          items: (Array.isArray(request.items) ? request.items : []).filter((id) => byId.has(id)),
-          want: str(request.want),
-          how: HOWS.some(([k]) => k === request.how) ? request.how : "build",
-          copiedOn: str(request.copiedOn),
-        };
-        const saveRequest = () => store.set("request", request);
-        function addToRequest(n) {
-          if (!request.items.includes(n.id)) request.items.push(n.id);
-          request.copiedOn = "";
-          saveRequest();
-        }
         const pageLines = (list) =>
           list.map((n) => "- " + repoPath(n) + " (" + n.title + ")").join("\n");
-        function requestBrief() {
-          const pages = request.items.map((id) => byId.get(id)).filter(Boolean),
-            about = pages.length ? pageLines(pages) : "- [pick the pages this is about]",
-            want = request.want.trim() || "[describe the change you want]";
-          if (request.how === "plan")
-            return (
-              "Use the spec-change skill to plan this change. Plan only; do not implement it.\n\n" +
-              "I want: " + want + "\n\nThis is about:\n" + about
-            );
-          if (request.how === "recheck")
-            return (
-              "Use the project-knowledge skill to re-check these pages against the code. " +
-              "Write each result into the page's Recheck section and leave the decisions to me.\n\n" +
-              "Pages:\n" + about +
-              (request.want.trim() ? "\n\nWhat I am wondering about: " + request.want.trim() : "")
-            );
-          return (
-            "Use the spec-change skill.\n\nI want: " + want + "\n\nThis is about:\n" + about +
-            "\n\nAsk your questions first. Then edit the spec on a branch, build it and check every changed statement against the code."
-          );
-        }
 
         // --- Sidebar: places, then the spec as a tree ---------------------------------------------------
         const openAreas = new Set();
@@ -2264,7 +2201,6 @@
             ["Recent changes", rereads.length ? rereads.length + " to re-read" : newCommits ? newCommits + " new" : "", "changes"],
             ["Gaps", waitingGaps.length ? waitingGaps.length + " waiting" : "", "gaps"],
             ["Map", "", "map"],
-            ["Requests", request.items.length || request.want.trim() ? "1 draft" : "", "request"],
           ].forEach(([label, meta, name]) => {
             const b = button(null, "nav-link", () => go({ name, id: "" }));
             b.append(el("span", label), el("span", meta, "meta"));
@@ -2327,7 +2263,7 @@
             if (isPlan(n) && byId.get(n.gap)) parts.push([byId.get(n.gap).title, { name: "page", id: n.gap }]);
             parts.push([n.title, null]);
           } else if (route.name !== "home")
-            parts.push([{ gaps: "Gaps", map: "Map", changes: "Recent changes", request: "Request" }[route.name], null]);
+            parts.push([{ gaps: "Gaps", map: "Map", changes: "Recent changes" }[route.name], null]);
           parts.forEach(([label, to], i) => {
             if (i) crumbs.append(el("span", "/"));
             const last = i === parts.length - 1;
@@ -2344,7 +2280,7 @@
         $("#copy-link").addEventListener("click", () => {
           if (typeof location !== "undefined") copyText(String(location.href), "Link copied");
         });
-        $("#open-search").addEventListener("click", () => openPalette("open"));
+        $("#open-search").addEventListener("click", () => openPalette());
 
         // --- Pieces shared by the views ----------------------------------------------------------------
         const header = (eyebrow, title, lead) => {
@@ -2816,141 +2752,109 @@
           if (historyLog.length) store.set("seen", historyLog[0].sha);
         }
 
-        function viewRequest(view) {
-          const box = el("div"),
-            copied = !!request.copiedOn;
-          box.className = "stack";
-          box.style.maxWidth = "1100px";
-          box.append(
-            header(
-              "Request · " + (copied ? "brief copied" : "draft"),
-              ["Pick the pages.", "Say what you want."],
-              "The request becomes a brief your agent can act on, with a link to every page it is about.",
-            ),
-          );
-          const steps = el("ol", null, "steps");
-          steps.setAttribute("aria-label", "Where this request stands");
-          [["Draft", !copied], ["Brief copied" + (copied ? " on " + request.copiedOn : ""), copied]].forEach(([text, on]) => {
-            steps.append(el("li", text, on ? "on" : ""));
-          });
-          box.append(steps);
-
-          const cols = el("div", null, "cols"),
-            form = el("div", null, "form"),
-            brief = el("aside", null, "night"),
-            pre = el("pre", requestBrief());
-          pre.id = "brief";
-          const refresh = () => {
-            pre.textContent = requestBrief();
-          };
-
-          const about = el("section");
-          about.append(el("h2", "What it is about", "h2"));
-          const pages = request.items.map((id) => byId.get(id)).filter(Boolean);
-          if (pages.length) {
-            const card = el("div", null, "card");
-            card.id = "request-items";
-            pages.forEach((n) => {
-              const row = el("div", null, "row"),
-                grow = el("div", null, "grow"),
-                x = button(null, "xbtn", () => {
-                  request.items = request.items.filter((id) => id !== n.id);
-                  request.copiedOn = "";
-                  saveRequest();
-                  show();
-                });
-              x.setAttribute("aria-label", "Remove " + n.title + " from the request");
-              x.append(icon(ICON.close, 18));
-              grow.append(button(n.title, "rowlink", () => openNode(n)), el("span", repoPath(n), "path"));
-              row.append(grow, x);
-              card.append(row);
-            });
-            about.append(card);
-          } else about.append(el("p", "Nothing picked yet. Open a page and use Copy for AI, or add one here.", "empty"));
-          const add = button("Add a page", "btn", () => openPalette("pick"));
-          add.style.alignSelf = "flex-start";
-          about.append(add);
-
-          const want = el("section"),
-            label = el("label", "What you want", "h2"),
-            area = el("textarea");
-          label.setAttribute("for", "want");
-          area.id = "want";
-          area.rows = 5;
-          area.placeholder = "In your own words: what should be different, and for whom.";
-          area.value = request.want;
-          area.addEventListener("input", () => {
-            request.want = area.value;
-            request.copiedOn = "";
-            saveRequest();
-            refresh();
-          });
-          want.append(label, area, el("p", "Describe behavior, not code. The agent asks its questions before it builds.", "muted small"));
-
-          const how = el("section");
-          how.append(
-            el("h2", "How far to go", "h2"),
-            pills("How far to go", HOWS, request.how, (v) => {
-              request.how = v;
-              request.copiedOn = "";
-              saveRequest();
-              show();
-            }),
-          );
-          form.append(about, want, how);
-          if (pages.length || request.want.trim()) {
-            const clear = button("Start over", "btn", () => {
-              request = { items: [], want: "", how: "build", copiedOn: "" };
-              saveRequest();
-              show();
-            });
-            clear.style.alignSelf = "flex-start";
-            form.append(clear);
-          }
-
-          const copy = button(null, "btn accent large", () => {
-            copyText(requestBrief(), "Brief copied");
-            request.copiedOn = new Date().toISOString().slice(0, 10);
-            saveRequest();
-            show();
-          });
-          copy.id = "copy-brief";
-          copy.append(icon(ICON.copy, 18), document.createTextNode("Copy brief"));
-          const actions = el("div", null, "actions");
-          actions.append(copy, el("span", "Nothing is sent. The draft stays in this browser.", "small"));
-          brief.setAttribute("aria-label", "Brief for the agent");
-          brief.append(el("div", "Brief for the agent", "eyebrow"), pre, actions);
-          cols.append(form, brief);
-          box.append(cols);
-          view.append(box);
-        }
-
-        // --- Copy for AI: say what you want done with one page ------------------------------------------
-        let copyState = null;
+        // --- Copy for AI: one dialog that turns a page and your words into a request for the agent ----
+        // Each choice says what will happen, what to ask you for, and what the agent is told.
+        const INTENTS = {
+          recheck: {
+            label: "Recheck it",
+            hint: "The agent reads the code and writes what it found into the gap. You decide afterwards.",
+            ask: "Anything it should look at (optional)",
+            text: (c) =>
+              "Use the project-knowledge skill to re-check this gap against the code. Write the result into the gap's Recheck section and leave the decision to me." +
+              (c.note ? "\n\nLook at: " + c.note : ""),
+          },
+          checked: {
+            label: "I checked it myself",
+            hint: "You already verified this. The agent records your result under your name, and closes the gap if that settles it.",
+            ask: "What you checked and what you saw",
+            name: true,
+            choices: ["outcome", [["gone", "It is fine now"], ["holds", "Still a gap"]]],
+            text: (c) =>
+              c.outcome === "holds"
+                ? "Use the project-knowledge skill. I re-checked this gap myself and it still holds: " + (c.note || "[what you checked and saw]") +
+                  "\n\nRecord my recheck in the gap as confirmed, under my name (" + c.me + ") and today's date, with what I found in its Recheck section. Leave the decision open."
+                : "Use the project-knowledge skill. I re-checked this gap myself and it no longer holds: " + (c.note || "[what you checked and saw]") +
+                  "\n\nRecord my recheck in the gap as not reproduced, under my name (" + c.me + ") and today's date, with what I found in its Recheck section. " +
+                  "If that answers the question, close the gap as done and say why in its Decision section.",
+          },
+          decide: {
+            label: "Record my decision",
+            hint: "You have made up your mind. The agent writes your decision into the gap under your name; it does not decide anything itself.",
+            ask: "Why (one or two sentences)",
+            name: true,
+            choices: ["decision", [["accepted", "Accept"], ["rejected", "Reject"], ["deferred", "Defer"]]],
+            text: (c) =>
+              "Use the project-knowledge skill. I have decided this gap: " + c.decision + ". Reason: " + (c.note || "[why]") +
+              "\n\nRecord the decision in the gap under my name (" + c.me + ") with today's date, and my reason in its Decision section. Change nothing else. " +
+              "If the gap has not been rechecked yet, tell me before recording it.",
+          },
+          options: {
+            label: "Lay out options",
+            hint: "The agent writes the possible answers and what each would mean into the gap's Discussion. Nothing is decided.",
+            ask: "What matters to you here (optional)",
+            text: (c) =>
+              "Use the project-knowledge skill. Lay out the options for this gap, with what each would mean, as an entry in its Discussion section. Do not decide it." +
+              (c.note ? "\n\nWhat matters to me: " + c.note : ""),
+          },
+          plan: {
+            label: "Plan it",
+            hint: "The agent writes a plan for an accepted gap: steps, checks, what must be decided first. No code is changed.",
+            ask: "Limits or wishes for the plan (optional)",
+            text: (c) =>
+              "Use the spec-change skill to plan this gap. Plan only, do not build it, and only if its decision is accepted; otherwise tell me what is missing." +
+              (c.note ? "\n\nKeep in mind: " + c.note : ""),
+          },
+          change: {
+            label: "Change the behavior",
+            hint: "You want the product to work differently. The agent asks its questions first, then edits the spec on a branch, builds the change and checks it.",
+            ask: "What should be different, and for whom",
+            text: (c) =>
+              "Use the spec-change skill. I want to change the behavior this page describes. Ask your questions first, then edit the spec on a branch, build it and check every changed statement against the code." +
+              "\n\nWhat I want: " + (c.note || "[describe the change]"),
+          },
+          question: {
+            label: "Ask a question",
+            hint: "The agent investigates and answers from the code, saying what it actually checked.",
+            ask: "Your question",
+            text: (c) => "Use the project-knowledge skill to investigate a question about this page.\n\nQuestion: " + (c.note || "[your question]"),
+          },
+          remove: {
+            label: "Remove this page",
+            hint: "You think this page is noise. The agent deletes the file and fixes the pages that link to it. For a real question you disagree with, record a decision to reject it instead, so the answer is kept.",
+            ask: "Why it should go (optional)",
+            text: (c) =>
+              "Use the project-knowledge skill to remove this page from the vault: " + (c.note || "I consider it noise") +
+              ".\n\nDelete the file, remove or reword every link to it on other pages, and run check. Do not put another page in its place, and tell me what you removed.",
+          },
+          reread: {
+            label: "Re-read against the code",
+            hint: "The agent compares this page with its sources and updates the text where the code now differs.",
+            ask: "Anything that looks wrong to you (optional)",
+            text: (c) =>
+              "Use the project-knowledge skill to re-read this page against its sources and update it where the code now differs." +
+              (c.note ? "\n\nI suspect: " + c.note : ""),
+          },
+        };
         const intentsFor = (n) =>
           isGap(n)
-            ? [["recheck", "Recheck it"], ["options", "Lay out options"], ["plan", "Plan it"], ["change", "Change the spec"]]
+            ? ["recheck", "checked", "decide", "options", "plan", "change", "remove"]
             : layerOf(n) === "spec"
-              ? [["change", "Change this"], ["question", "Ask a question"], ["reread", "Re-read against the code"]]
-              : [["question", "Ask a question"]];
-        const INTENT_TEXT = {
-          recheck:
-            "Use the project-knowledge skill to re-check this gap against the code. Write the result into the gap's Recheck section and leave the decision to me.",
-          options:
-            "Lay out the options for this gap, with what each would mean, as an entry in its Discussion section. Do not decide it.",
-          plan: "Use the spec-change skill to plan this gap. Plan only, do not build it, and only if its decision is accepted; otherwise tell me what is missing.",
-          change:
-            "Use the spec-change skill. I want to change the behavior this page describes. Ask your questions first, then edit the spec on a branch, build it and check every changed statement against the code.\n\nWhat I want: [describe the change]",
-          question: "Use the project-knowledge skill to investigate a question about this page.\n\nQuestion: [your question]",
-          reread:
-            "Use the project-knowledge skill to re-read this page against its sources and update it where the code now differs.",
-        };
+              ? ["change", "question", "reread", "remove"]
+              : n.type === "index"
+                ? ["question"]
+                : ["question", "remove"];
         const refsOf = (n) =>
           isGap(n)
             ? neighbours(n, "spec")
             : neighbours(n, "spec").filter((r) => r.type !== "area");
+        let copyState = null;
         function pageBrief(n, state) {
-          const lines = [INTENT_TEXT[state.intent], "", (isGap(n) ? "Gap: " : "Page: ") + repoPath(n), "Title: " + n.title];
+          const lines = [
+            INTENTS[state.intent].text({ ...state, note: state.note.trim(), me: state.me.trim() || "[your name]" }),
+            "",
+            (isGap(n) ? "Gap: " : "Page: ") + repoPath(n),
+            "Title: " + n.title,
+          ];
           if (isGap(n))
             lines.push(
               "State: " +
@@ -2964,7 +2868,16 @@
           return lines.join("\n");
         }
         function openCopy(n) {
-          copyState = { node: n, intent: intentsFor(n)[0][0], refs: true, text: false };
+          copyState = {
+            node: n,
+            intent: intentsFor(n)[0],
+            outcome: "gone",
+            decision: "accepted",
+            note: "",
+            me: str(store.get("me", "")),
+            refs: true,
+            text: false,
+          };
           $("#copydlg").hidden = false;
           renderCopy();
         }
@@ -2976,21 +2889,66 @@
         function renderCopy() {
           const card = $("#copy-card"),
             n = copyState.node,
-            refs = refsOf(n);
+            intent = INTENTS[copyState.intent],
+            refs = refsOf(n),
+            pre = el("pre", pageBrief(n, copyState)),
+            refresh = () => {
+              pre.textContent = pageBrief(n, copyState);
+            };
+          pre.id = "copy-preview";
           card.replaceChildren();
           const top = el("div", null, "stack"),
             meta = el("div", null, "metarow");
           top.style.gap = "10px";
           meta.append(isGap(n) ? stateBadge(n) : statusBadge(n), el("span", repoPath(n), "path"));
           top.append(el("div", "Copy for AI", "eyebrow"), el("h2", n.title, "h2"), meta);
+
           const want = el("fieldset");
           want.append(
-            el("legend", "I want the agent to"),
-            pills("I want the agent to", intentsFor(n), copyState.intent, (v) => {
+            el("legend", "What should the agent do?"),
+            pills("What should the agent do?", intentsFor(n).map((k) => [k, INTENTS[k].label]), copyState.intent, (v) => {
               copyState.intent = v;
               renderCopy();
             }),
           );
+          const hint = el("p", intent.hint, "muted small");
+          hint.id = "copy-hint";
+          want.append(hint);
+          if (intent.choices) {
+            const [key, options] = intent.choices,
+              sub = pills(intent.label, options, copyState[key], (v) => {
+                copyState[key] = v;
+                renderCopy();
+              });
+            sub.id = "copy-choice";
+            want.append(sub);
+          }
+
+          // Typing updates the preview in place, so the field keeps the cursor.
+          const words = el("fieldset"),
+            field = (id, label, value, rows, change) => {
+              const tag = el("label", label, "field-label"),
+                input = el(rows ? "textarea" : "input");
+              tag.setAttribute("for", id);
+              input.id = id;
+              if (rows) input.rows = rows;
+              else input.type = "text";
+              input.value = value;
+              input.addEventListener("input", () => {
+                change(input.value);
+                refresh();
+              });
+              words.append(tag, input);
+            };
+          field("copy-note", intent.ask, copyState.note, 3, (v) => {
+            copyState.note = v;
+          });
+          if (intent.name)
+            field("copy-me", "Your name, as it should appear in the gap", copyState.me, 0, (v) => {
+              copyState.me = v;
+              store.set("me", v.trim());
+            });
+
           const include = el("fieldset");
           include.append(el("legend", "Include"));
           const check = (text, key) => {
@@ -3000,38 +2958,29 @@
             input.checked = copyState[key];
             input.addEventListener("change", () => {
               copyState[key] = !!input.checked;
-              renderCopy();
+              refresh();
             });
             label.append(input, document.createTextNode(text));
             include.append(label);
           };
           if (refs.length) check(isGap(n) ? "The " + plural(refs.length, "spec page") + " it refers to" : "The " + plural(refs.length, "related page"), "refs");
           check("Full text of the page", "text");
-          const preview = el("div", null, "night"),
-            pre = el("pre", pageBrief(n, copyState));
-          pre.id = "copy-preview";
-          preview.append(el("div", "What gets copied", "eyebrow"), pre);
+
           const actions = el("div", null, "actions"),
-            copy = button(null, "btn accent large", () => copyText(pageBrief(n, copyState), "Copied"));
+            copy = button(null, "btn accent large", () => copyText(pageBrief(n, copyState), "Copied. Paste it into your agent."));
           copy.id = "copy-do";
           copy.append(icon(ICON.copy, 18), document.createTextNode("Copy"));
-          actions.append(
-            copy,
-            button("Add to a request", "btn large", () => {
-              addToRequest(n);
-              closeCopy();
-              go({ name: "request", id: "" });
-            }),
-            button("Close", "btn large", closeCopy),
-          );
-          card.append(top, want, include, preview, actions, el("p", "Nothing is sent. It goes to your clipboard.", "muted small"));
+          actions.append(copy, button("Close", "btn large", closeCopy), el("span", "Nothing is sent. It goes to your clipboard.", "muted small"));
+          const preview = el("div", null, "night");
+          preview.append(el("div", "What gets copied", "eyebrow"), pre);
+          card.append(top, want, words, include, actions, preview);
         }
         $("#copydlg").addEventListener("click", (e) => {
           if (e.target === $("#copydlg")) closeCopy();
         });
 
         // --- Search: pages, gaps and cited files, from anywhere -----------------------------------------
-        let palette = { mode: "open", filter: "all", index: 0, hits: [] };
+        let palette = { filter: "all", index: 0, hits: [] };
         const fileText = new Map();
         const lowerFile = (key) => {
           if (!fileText.has(key)) fileText.set(key, str(files[key] && files[key].text).toLocaleLowerCase());
@@ -3065,7 +3014,6 @@
         }
         function searchGroups(query) {
           const needle = query.trim().toLocaleLowerCase(),
-            picking = palette.mode === "pick",
             want = (group) => palette.filter === "all" || palette.filter === group;
           if (!needle) {
             const lately = recent.map((id) => byId.get(id)).filter(Boolean);
@@ -3075,9 +3023,9 @@
           if (want("features"))
             groups.push(["Features", "features", findPages(needle, nodes.filter((n) => layerOf(n) === "spec" && n.status !== "superseded"), 8)]);
           if (want("gaps")) groups.push(["Gaps", "gaps", findPages(needle, nodes.filter((n) => layerOf(n) === "gap"), 8)]);
-          if (want("features") && !picking)
+          if (want("features"))
             groups.push(["Other pages", "features", findPages(needle, nodes.filter((n) => layerOf(n) === "nav"), 4)]);
-          if (want("files") && !picking) {
+          if (want("files")) {
             const keys = Object.keys(files),
               byName = keys.filter((k) => k.toLocaleLowerCase().includes(needle)),
               byText = keys.filter((k) => !byName.includes(k) && lowerFile(k).includes(needle));
@@ -3088,10 +3036,6 @@
         function choose(hit) {
           closePalette();
           if (typeof hit === "string") return openFile({ key: hit, from: 0, to: 0 });
-          if (palette.mode === "pick") {
-            addToRequest(hit);
-            return show();
-          }
           openNode(hit);
         }
         function renderPalette() {
@@ -3102,9 +3046,7 @@
           filters.replaceChildren(
             ...pills(
               "Limit results",
-              palette.mode === "pick"
-                ? [["all", "Everything"], ["features", "Features"], ["gaps", "Gaps"]]
-                : [["all", "Everything"], ["features", "Features"], ["gaps", "Gaps"], ["files", "Files"]],
+              [["all", "Everything"], ["features", "Features"], ["gaps", "Gaps"], ["files", "Files"]],
               palette.filter,
               (v) => {
                 palette.filter = v;
@@ -3142,11 +3084,10 @@
           if (!palette.hits.length) results.append(el("p", needle ? "Nothing matches." : "Type to search.", "empty"));
           if (palette.index >= palette.hits.length) palette.index = Math.max(0, palette.hits.length - 1);
         }
-        function openPalette(kind) {
-          palette = { mode: kind, filter: "all", index: 0, hits: [] };
+        function openPalette() {
+          palette = { filter: "all", index: 0, hits: [] };
           const input = $("#palette-input");
           input.value = "";
-          input.placeholder = kind === "pick" ? "Find a page to add to the request" : "Search pages, gaps, files";
           $("#palette").hidden = false;
           renderPalette();
           if (typeof input.focus === "function") input.focus();
@@ -3176,7 +3117,7 @@
           document.addEventListener("keydown", (e) => {
             if ((e.metaKey || e.ctrlKey) && String(e.key).toLowerCase() === "k") {
               e.preventDefault();
-              openPalette("open");
+              openPalette();
             } else if (e.key === "Escape") {
               if (!$("#palette").hidden) closePalette();
               else if (!$("#copydlg").hidden) closeCopy();
@@ -3206,7 +3147,6 @@
           else if (route.name === "gaps") viewGaps(view);
           else if (isMap) viewMap();
           else if (route.name === "changes") viewChanges(view);
-          else if (route.name === "request") viewRequest(view);
           else viewHome(view);
           document.title = (node ? node.title + " · " : "") + projectTitle;
           if (shownRoute && sameRoute(shownRoute, route)) return;

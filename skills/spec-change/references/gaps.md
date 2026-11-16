@@ -19,7 +19,7 @@ A gap must not have `status`; its progress is carried by `recheck` and `decision
 | Property | When | Values |
 | --- | --- | --- |
 | `type` | always | `"gap"` |
-| `kind` | always | one of `product-gap` (accepted requirement missing or unmet), `verification-gap` (behavior exists but evidence is missing), `product-plan` (a proposal or open product choice), `conflict` (credible sources disagree), `knowledge-gap` (something is unexplained or undocumented) |
+| `kind` | always | one of `product-gap` (accepted requirement missing or unmet), `verification-gap` (behavior exists but evidence is missing), `product-plan` (a proposal or open product choice), `conflict` (credible sources disagree), `knowledge-gap` (a specific behavior is unexplained or undocumented; never the vault's own research backlog) |
 | `recheck` | always | `not-checked`, `confirmed` (still holds), `not-reproduced` (no longer holds), `outdated` (the cited sources changed after the last recorded recheck); see [What a recheck means](#what-a-recheck-means) |
 | `rechecked_by` | when `recheck` is not `not-checked` | a person's name, or `agent`; an agent always writes `agent`, and a person's name appears only when that person ran the check and said so |
 | `rechecked_on` | when `recheck` is not `not-checked` | `YYYY-MM-DD` |

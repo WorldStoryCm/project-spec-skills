@@ -43,19 +43,19 @@ It is made for one loop:
 
 1. **Read.** A tree lists the areas and the features in each. A page says in plain words what the product does; the code detail, the source files and the properties are folded away. A breadcrumb, Back and Forward and a "You are here" card say where you are.
 2. **Find.** Search (Cmd/Ctrl+K) covers pages, gaps and the text of the files the pages cite.
-3. **Ask for a change.** "Copy for AI" on any page copies a request that names the page file: recheck this gap, lay out the options, plan it, change this behavior. The Requests page collects several pages and your own words into one brief.
+3. **Ask.** "Copy for AI" on any page turns the page and your own words into a request for your agent that names the page file. For a gap: recheck it, record a check you did yourself, record your decision, lay out the options, plan it. For any page: change the behavior, ask a question, or remove a page that is only noise. Each choice says what will happen, and you see the exact text before you copy it.
 4. **Let the agent work.** Paste the brief into your agent. With `spec-change` it asks its questions first, edits the spec on a branch, builds the change and checks every changed statement against the code.
 5. **See what moved.** Recent changes lists the pages whose cited sources changed since the last review, the pages not committed yet, and the vault's Git history with what each summary said before and after.
 
 | Search | Copy for AI |
 | --- | --- |
 | ![Search results grouped into features, gaps and files](docs/images/viewer-search.png) | ![The Copy for AI dialog with the exact text that will be copied](docs/images/viewer-copy.png) |
-| **Requests** | **Recent changes** |
-| ![A request with two pages, the reader's own words and the brief for the agent](docs/images/viewer-request.png) | ![The vault's Git history, page by page](docs/images/viewer-changes.png) |
-| **Gap queue** | **Map** |
-| ![The gap queue filtered by state, kind and area](docs/images/viewer-gaps.png) | ![The map of pages, one frame per area](docs/images/viewer-map.png) |
+| **Recent changes** | **Gap queue** |
+| ![The vault's Git history, one line per commit](docs/images/viewer-changes.png) | ![The gap queue filtered by state, kind and area](docs/images/viewer-gaps.png) |
 
-The screenshots show the fictional [Parcel Desk](examples/parcel-desk/README.md) example. The viewer only reads: it listens on `127.0.0.1`, makes no network requests and writes nothing to the repository. "Copy for AI" and Requests put text on your clipboard, and a draft request stays in your browser. A link to a file in the repository opens inside the viewer, Markdown rendered and code with the cited lines marked.
+![The map of pages, one frame per area](docs/images/viewer-map.png)
+
+The screenshots show the fictional [Parcel Desk](examples/parcel-desk/README.md) example. The viewer only reads: it listens on `127.0.0.1`, makes no network requests and writes nothing to the repository. "Copy for AI" puts text on your clipboard; the only thing it keeps in your browser is the name you sign a check or a decision with. A link to a file in the repository opens inside the viewer, Markdown rendered and code with the cited lines marked.
 
 ### Open it with one command
 
