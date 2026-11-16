@@ -520,6 +520,7 @@ class GapLayerTests(Fixture):
         self.assertTrue(data['live'])
         self.assertEqual(data['files']['source.txt']['text'], 'evidence')
         self.assertEqual(data['vaultPath'], '../vault')
+        self.assertEqual((data['history'], data['pending']), ([], []))
         self.assertEqual({n['id'] for n in data['nodes']}, {'a', 'index', 'n'})
         # nothing was written, and a change on disk shows on the next load without a build
         self.assertFalse((self.vault / 'graph.html').exists() or (self.vault / '.knowledge').exists())
@@ -540,6 +541,73 @@ class GapLayerTests(Fixture):
         self.assertIn('The spec has 1 error', page)
         self.assertIn('missing wikilink &lt;absent&gt;', page)
         self.assertNotIn('knowledge-data', page)
+
+    def git(self, *args):
+        return subprocess.run(['git', '-C', str(self.repo), '-c', 'user.name=T', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', *args],
+                              check=True, capture_output=True, text=True).stdout
+
+    def test_history_and_pending_pages_come_from_git(self):
+        k._history_cache.clear()
+        repo, vault = self.repo.resolve(), self.vault.resolve()
+        self.assertEqual((k.vault_history(repo, vault), k.vault_pending(repo, vault)), ([], []), 'a vault outside the repository has no history')
+        self.vault.rename(self.repo / 'vault')
+        self.vault = self.repo / 'vault'
+        vault = self.vault.resolve()
+        self.assertEqual((k.vault_history(repo, vault), k.vault_pending(repo, vault)), ([], []), 'nor has a folder that is not a Git work tree')
+        self.git('init', '-q')
+        self.note('notes/n.md', 'n', sources=['source.txt'], summary='Old "line".')
+        (self.vault / 'AS-BUILT.md').write_text('generated', encoding='utf-8')
+        (self.vault / '.knowledge').mkdir()
+        (self.vault / '.knowledge/x.md').write_text('internal', encoding='utf-8')
+        self.git('add', '-A')
+        self.git('commit', '-q', '-m', 'First pass')
+        self.note('notes/n.md', 'n', sources=['source.txt'], summary='New line.', body='changed text')
+        self.note('areas/a.md', 'a', 'area', areas=[], body='only the text changed')
+        self.note('notes/extra.md', 'extra', sources=['source.txt'], summary='Brand new.')
+        (self.vault / '00-index.md').unlink()
+        (self.repo / 'source.txt').write_text('code changed too', encoding='utf-8')
+        self.git('add', '-A')
+        self.git('commit', '-q', '-m', 'Second \x01 pass')
+        history = k.vault_history(repo, vault)
+        self.assertEqual([(c['subject'], c['more'], len(c['sha'])) for c in history], [('Second  pass', 0, 40), ('First pass', 0, 40)])
+        self.assertRegex(history[0]['date'], r'^\d{4}-\d{2}-\d{2}$')
+        self.assertEqual(history[0]['pages'], [
+            {'path': '00-index.md', 'status': 'removed'},
+            {'path': 'areas/a.md', 'status': 'changed'},
+            {'path': 'notes/extra.md', 'status': 'added'},
+            {'path': 'notes/n.md', 'status': 'changed', 'was': 'Old "line".', 'now': 'New line.'},
+        ])
+        # generated files, internal files and application files are not history of the spec
+        self.assertEqual(sorted(p['path'] for p in history[1]['pages']), ['00-index.md', 'areas/a.md', 'notes/n.md'])
+        self.assertIs(k.vault_history(repo, vault), history, 'one Git call per HEAD')
+        self.assertEqual(k.vault_pending(repo, vault), [])
+        self.note('notes/n.md', 'n', sources=['source.txt'], summary='Edited again.')
+        self.note('gaps/fresh.md', 'fresh', 'gap', sources=[], kind='product-gap', recheck='not-checked', decision='open', status=None)
+        (self.vault / 'notes/extra.md').unlink()
+        (self.vault / 'GAPS.md').write_text('generated', encoding='utf-8')
+        self.assertEqual(k.vault_pending(repo, vault), [
+            {'path': 'gaps/fresh.md', 'status': 'added'}, {'path': 'notes/extra.md', 'status': 'removed'}, {'path': 'notes/n.md', 'status': 'changed'}])
+        # long commits are cut, and the cut is counted
+        original = k.HISTORY_PAGES
+        k.HISTORY_PAGES = 2
+        k._history_cache.clear()
+        try:
+            cut = k.vault_history(repo, vault)[0]
+        finally:
+            k.HISTORY_PAGES = original
+            k._history_cache.clear()
+        self.assertEqual((len(cut['pages']), cut['more']), (2, 2))
+        # the same from a repository folder below the top of the work tree
+        inner = self.repo / 'app'
+        inner.mkdir()
+        (self.repo / 'vault').rename(inner / 'vault')
+        self.git('add', '-A')
+        self.git('commit', '-q', '-m', 'Moved')
+        moved = k.vault_history(inner.resolve(), (inner / 'vault').resolve())
+        self.assertEqual(moved[0]['subject'], 'Moved')
+        self.assertIn({'path': 'areas/a.md', 'status': 'added'}, moved[0]['pages'])
+        self.assertEqual(k.vault_pending(inner.resolve(), (inner / 'vault').resolve()), [])
+        k._history_cache.clear()
 
     def test_serve_finds_the_single_vault_and_asks_when_unsure(self):
         with self.assertRaisesRegex(ValueError, 'no vault found under knowledge/; pass --vault'):

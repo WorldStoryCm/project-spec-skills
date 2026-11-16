@@ -3,19 +3,31 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Knowledge map</title>
+    <title>Spec</title>
     <style>
       :root {
         color-scheme: light;
-        --ink: #203832;
-        --muted: #65756e;
-        --line: #dce4dd;
-        --paper: #f7f8f3;
-        --white: #fff;
-        --teal: #286e60;
-        --pale: #e8f1eb;
-        --amber: #9a641b;
-        --red: #a04740;
+        --paper: #ffffff;
+        --soft: #f5f4f1;
+        --raised: #fafaf8;
+        --night: #0e0f11;
+        --ink: #111214;
+        --muted: #5b5e66;
+        --subtle: #8a8d94;
+        --line: #e7e5e1;
+        --line-strong: #d9d6d0;
+        --accent: #eba417;
+        --accent-soft: #fcefcf;
+        --accent-ink: #a16207;
+        --success: #15803d;
+        --success-soft: #e8f5ec;
+        --notice-soft: #fff7e6;
+        --notice-ink: #3d2a00;
+        --notice-line: #f3d9a4;
+        --on-night-muted: #a9acb3;
+        --display: "Inter Tight", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
       * {
         box-sizing: border-box;
@@ -24,658 +36,788 @@
         margin: 0;
         background: var(--paper);
         color: var(--ink);
-        font:
-          15px/1.5 system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          sans-serif;
+        font: 15px/1.55 var(--sans);
       }
       button,
       input,
-      select {
+      select,
+      textarea {
         font: inherit;
         color: inherit;
       }
       button {
         cursor: pointer;
       }
-      button:focus-visible,
-      input:focus-visible,
-      select:focus-visible,
-      a:focus-visible,
-      [tabindex]:focus-visible {
-        outline: 3px solid #6aa994;
+      button:disabled {
+        cursor: default;
+      }
+      :focus-visible {
+        outline: 3px solid var(--accent);
         outline-offset: 2px;
       }
-      header {
-        height: 70px;
-        background: #fff;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 28px;
-        border-bottom: 1px solid var(--line);
-        gap: 20px;
-      }
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        min-width: 0;
-      }
-      .mark {
-        display: grid;
-        place-items: center;
-        width: 34px;
-        height: 34px;
-        background: var(--teal);
-        color: white;
-        border-radius: 9px;
-        font-weight: 700;
-      }
-      .brand strong {
-        display: block;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .brand small,
-      .subtle {
-        color: var(--muted);
-      }
-      .header-note {
-        font-size: 13px;
-        color: var(--muted);
-        text-align: right;
-      }
-      /* The list stays; the rest of the width is either the graph or the open page, chosen by the tabs. */
-      .workspace {
-        display: grid;
-        grid-template-columns: 270px minmax(0, 1fr);
-        grid-template-rows: auto minmax(0, 1fr);
-        height: calc(100vh - 70px - 48px);
-        min-height: 0;
-      }
-      .workspace > aside {
-        grid-row: 1 / -1;
-      }
-      .workspace > .map,
-      .workspace > .reader {
-        grid-column: 2;
-        grid-row: 2;
-      }
-      .workspace[data-view="reader"] > .map,
-      .workspace:not([data-view="reader"]) > .reader {
-        display: none;
-      }
-      .viewtabs {
-        grid-column: 2;
-        grid-row: 1;
-        display: flex;
-        gap: 22px;
-        padding: 0 26px;
-        background: #fff;
-        border-bottom: 1px solid var(--line);
-      }
-      .viewtabs button {
-        border: 0;
-        border-bottom: 2px solid transparent;
-        background: none;
-        padding: 11px 2px 9px;
-        color: var(--muted);
-      }
-      .viewtabs button:hover {
-        color: var(--ink);
-      }
-      .viewtabs button[aria-selected="true"] {
-        border-color: var(--teal);
-        color: var(--teal);
-        font-weight: 650;
-      }
-      aside,
-      .reader {
-        background: #fff;
-        padding: 24px;
-        min-width: 0;
-      }
-      aside {
-        border-right: 1px solid var(--line);
-        overflow: auto;
-        min-height: 0;
-      }
-      .reader {
-        overflow: auto;
-        min-height: 0;
-        padding: 34px 48px 80px;
-      }
-      .reader > * {
-        max-width: 780px;
-        margin-left: auto;
-        margin-right: auto;
+      [hidden] {
+        display: none !important;
       }
       h1,
       h2,
       h3,
       p {
-        margin-top: 0;
+        margin: 0;
       }
-      h1 {
-        font-size: 24px;
-        line-height: 1.2;
-        letter-spacing: -0.03em;
-        margin-bottom: 8px;
-      }
-      h2 {
-        font-size: 17px;
-        line-height: 1.3;
-        margin-bottom: 12px;
-      }
-      h3 {
-        font-size: 15px;
-      }
-      .section-label {
-        font-weight: 650;
-        font-size: 13px;
-        margin: 22px 0 9px;
-      }
-      .search {
-        width: 100%;
-        border: 1px solid #cedbd2;
-        border-radius: 7px;
-        padding: 10px 12px;
-        background: #fafcf9;
-      }
-      .search::placeholder {
-        color: #829089;
-      }
-      select {
-        width: 100%;
-        border: 1px solid #cedbd2;
-        border-radius: 7px;
-        background: #fff;
-        padding: 9px;
-      }
-      .filters {
+
+      /* Shell: the tree stays on the left, the page scrolls on the right. */
+      .app {
         display: flex;
-        gap: 5px;
-        flex-wrap: wrap;
+        align-items: flex-start;
+        min-height: 100vh;
       }
-      .filters button,
-      .tools button {
-        border: 0;
-        background: transparent;
-        border-radius: 6px;
-        padding: 7px 9px;
-        color: var(--muted);
+      .side {
+        flex: 0 0 304px;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow: auto;
+        padding: 24px 16px 32px;
+        border-right: 1px solid var(--line);
+        background: var(--raised);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
       }
-      .filters button[aria-pressed="true"] {
-        background: var(--pale);
-        color: var(--teal);
-        font-weight: 650;
+      .main {
+        flex: 1;
+        min-width: 0;
       }
-      .list {
-        margin-top: 12px;
-        display: grid;
-        gap: 3px;
+      .brand {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 0 10px;
       }
-      .item {
-        display: block;
-        width: 100%;
-        text-align: left;
-        background: transparent;
-        border: 0;
-        border-radius: 7px;
-        padding: 10px;
-        color: var(--ink);
-      }
-      .item:hover,
-      .item[aria-current="true"] {
-        background: #edf4ef;
-      }
-      .item strong {
-        font-size: 14px;
-        display: block;
-        font-weight: 600;
+      .brand strong {
+        font: 800 21px/1.1 var(--display);
+        letter-spacing: -0.05em;
         overflow-wrap: anywhere;
       }
-      .item small {
+      .mono-label,
+      .eyebrow {
+        font: 500 12px/1.33 var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
         color: var(--muted);
       }
-      .dot {
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--teal);
-        margin-right: 7px;
-      }
-      .dot.pending {
-        background: #be8230;
-      }
-      .dot.conflict {
-        background: var(--red);
-      }
-      .dot.stale {
-        background: #826b9a;
-      }
-      .dot.st-needs-recheck {
-        background: #ee8a00;
-        box-shadow: 0 0 0 2px #fde3b8;
-      }
-      .dot.st-needs-decision {
-        background: #5a3fc8;
-        box-shadow: 0 0 0 2px #dcd5f6;
-      }
-      .dot.st-accepted {
-        background: #5fa88f;
-      }
-      .dot.st-deferred {
-        background: #b4b4a2;
-      }
-      .dot.st-rejected {
-        background: #fff;
-        border: 2px solid #a04740;
-      }
-      .dot.st-done {
-        background: #fff;
-        border: 2px solid #286e60;
-      }
-      .dot.st-duplicate {
-        background: #d9d9d9;
-      }
-      [hidden] {
-        display: none !important;
-      }
-      .modebar {
-        height: 48px;
+      .eyebrow {
         display: flex;
-        align-items: stretch;
-        gap: 8px;
-        padding: 7px 28px;
-        background: #fff;
-        border-bottom: 3px solid var(--teal);
-      }
-      body[data-mode="gaps"] .modebar {
-        border-bottom-color: #5a3fc8;
-      }
-      .modebar button {
-        display: inline-flex;
         align-items: center;
         gap: 8px;
-        border: 1px solid #cedbd2;
-        background: #fff;
-        border-radius: 7px;
+      }
+      .eyebrow::before {
+        content: "";
+        flex: none;
+        width: 6px;
+        height: 6px;
+        background: var(--accent);
+      }
+      .side .eyebrow {
+        padding: 0 10px;
+      }
+      .searchbox {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        height: 44px;
         padding: 0 14px;
-        font-weight: 650;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: var(--paper);
         color: var(--muted);
+        font-size: 14px;
+        text-align: left;
       }
-      .modebar button[aria-pressed="true"] {
-        background: var(--teal);
-        border-color: var(--teal);
-        color: #fff;
+      .searchbox span {
+        flex: 1;
       }
-      body[data-mode="gaps"] .modebar button[aria-pressed="true"] {
-        background: #5a3fc8;
-        border-color: #5a3fc8;
-      }
-      .modebar .hint {
-        align-self: center;
-        margin-left: 6px;
-        font-size: 13px;
+      kbd {
+        font: 12px var(--mono);
         color: var(--muted);
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 1px 6px;
+        background: var(--paper);
       }
-      .pill {
-        background: #ee8a00;
-        color: #1d1200;
-        border-radius: 10px;
-        padding: 0 7px;
-        font-size: 12px;
-        line-height: 18px;
-      }
-      .state-filters button {
-        display: inline-flex;
-        align-items: center;
+      .nav-links,
+      .tree {
+        display: flex;
+        flex-direction: column;
         gap: 2px;
       }
-      .state-filters .n {
-        margin-left: 4px;
-        font-variant-numeric: tabular-nums;
-        opacity: 0.8;
-      }
-      .filters button[aria-pressed="true"] {
-        outline: 1px solid #b6d3c3;
-      }
-      .item .row2 {
+      .nav-link,
+      .tree-row {
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 3px;
+        gap: 8px;
+        width: 100%;
+        min-height: 44px;
+        padding: 6px 10px;
+        border: 0;
+        border-radius: 10px;
+        background: none;
+        font-size: 14px;
+        line-height: 1.35;
+        text-align: left;
       }
-      .item .facts-line {
-        display: block;
-        margin-top: 3px;
-        font-size: 12px;
+      .nav-link {
+        font-weight: 500;
       }
-      .section-label.sub {
-        font-weight: 600;
+      .nav-link span:first-child,
+      .tree-row .label {
+        flex: 1;
+        min-width: 0;
+      }
+      .nav-link .meta,
+      .tree-row .meta {
+        flex: none;
+        font: 12px var(--mono);
         color: var(--muted);
       }
-      .gap-facts {
-        margin: 0 0 18px;
-        padding: 12px 14px;
-        border: 1px solid var(--line);
-        border-left: 5px solid #b4b4a2;
-        border-radius: 6px;
-        background: #fafcf9;
+      .tree-row .meta {
+        color: var(--accent-ink);
+      }
+      .nav-link:hover,
+      .tree-row:hover,
+      .twist:hover {
+        background: var(--soft);
+      }
+      .nav-link[aria-current="page"],
+      .tree-row[aria-current="page"] {
+        background: var(--soft);
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .tree-area {
+        display: flex;
+        align-items: stretch;
+      }
+      .twist {
+        flex: none;
+        width: 32px;
+        display: grid;
+        place-items: center;
+        border: 0;
+        border-radius: 10px;
+        background: none;
+        color: var(--muted);
+      }
+      .twist svg {
+        transition: transform 0.12s;
+      }
+      .twist[aria-expanded="true"] svg {
+        transform: rotate(90deg);
+      }
+      .tree-row.area {
+        font-weight: 600;
+        padding-left: 4px;
+      }
+      .tree-row.note {
+        padding-left: 40px;
+        color: var(--muted);
+      }
+
+      /* Top bar: where you are, and what you can do with the page. */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 32px;
+        border-bottom: 1px solid var(--line);
+        background: var(--paper);
+      }
+      .icon-btn {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: var(--paper);
+      }
+      .icon-btn:disabled {
+        border-color: var(--line);
+        color: var(--subtle);
+      }
+      .crumbs {
+        flex: 1 1 280px;
+        min-width: 0;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .crumbs button {
+        border: 0;
+        padding: 0;
+        background: none;
+        color: var(--muted);
+        text-align: left;
+      }
+      .crumbs button:hover {
+        color: var(--accent-ink);
+        text-decoration: underline;
+      }
+      .crumbs .here {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .toast {
+        font-size: 13px;
+        color: var(--success);
+        font-weight: 600;
+      }
+      .btn {
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 18px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: var(--paper);
+        color: var(--ink);
+        font: 600 14px/1 var(--sans);
+        white-space: nowrap;
+      }
+      .btn:hover {
+        border-color: var(--ink);
+      }
+      .btn.accent {
+        border-color: var(--accent);
+        background: var(--accent);
+      }
+      .btn.large {
+        height: 50px;
+        padding: 0 24px;
+        font-size: 15px;
+      }
+      .pillrow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .pill {
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 16px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: var(--paper);
+        font: 600 14px/1 var(--sans);
+      }
+      .pill[aria-pressed="true"] {
+        border-color: var(--ink);
+        background: var(--ink);
+        color: #ffffff;
+      }
+      .pill .n {
+        font: 12px var(--mono);
+        opacity: 0.75;
+      }
+      select {
+        height: 44px;
+        padding: 0 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: var(--paper);
+        font-size: 14px;
+      }
+
+      /* Page */
+      .view,
+      .mapview {
+        padding: 40px 32px 80px;
+      }
+      .mapview {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        max-width: 860px;
+      }
+      .page {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 48px;
+        align-items: flex-start;
+      }
+      .page-main {
+        flex: 999 1 520px;
+        min-width: 0;
+        max-width: 780px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      .rail {
+        flex: 1 1 240px;
+        max-width: 320px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      .title {
+        font: 700 44px/1.04 var(--display);
+        letter-spacing: -0.045em;
+        overflow-wrap: anywhere;
+      }
+      .title .quiet {
+        color: var(--subtle);
+      }
+      .h2 {
+        font: 700 22px/1.2 var(--display);
+        letter-spacing: -0.03em;
+      }
+      .h2 button {
+        border: 0;
+        padding: 0;
+        background: none;
+        font: inherit;
+        letter-spacing: inherit;
+        text-align: left;
+      }
+      .h2 button:hover {
+        color: var(--accent-ink);
+      }
+      .lead {
+        font-size: 19px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
         font-size: 13px;
       }
+      .path {
+        font: 13px var(--mono);
+        color: var(--muted);
+        overflow-wrap: anywhere;
+      }
+      .metarow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 30px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: var(--soft);
+        color: var(--ink);
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .badge::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--subtle);
+      }
+      .badge.ok {
+        background: var(--success-soft);
+        color: var(--success);
+      }
+      .badge.ok::before,
+      .badge.st-accepted::before,
+      .badge.st-done::before {
+        background: var(--success);
+      }
+      .badge.st-needs-recheck,
+      .badge.outdated,
+      .badge.stale,
+      .badge.pending {
+        background: var(--accent-soft);
+        color: var(--notice-ink);
+      }
+      .badge.st-needs-recheck::before,
+      .badge.outdated::before,
+      .badge.stale::before,
+      .badge.pending::before {
+        background: var(--accent);
+      }
+      .badge.st-needs-decision::before {
+        background: var(--ink);
+      }
+      .badge.st-accepted,
+      .badge.st-done {
+        background: var(--success-soft);
+        color: var(--success);
+      }
+      .badge.plain::before {
+        display: none;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .chip {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 16px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--paper);
+        font-size: 14px;
+        text-align: left;
+      }
+      .chip:hover {
+        border-color: var(--ink);
+      }
+      .card {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        overflow: hidden;
+      }
+      .card.pad {
+        padding: 20px;
+        gap: 12px;
+      }
+      .card-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+      .card-head .h2 {
+        flex: 1 1 240px;
+      }
+      .card.notice {
+        border-color: var(--notice-line);
+      }
+      .card.notice .card-head {
+        background: var(--notice-soft);
+        color: var(--notice-ink);
+        border-color: var(--notice-line);
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 14px;
+        min-height: 52px;
+        padding: 10px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+      .row:last-child {
+        border-bottom: 0;
+      }
+      .row .grow {
+        flex: 1 1 260px;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .rowlink {
+        border: 0;
+        padding: 0;
+        background: none;
+        font-weight: 600;
+        text-align: left;
+      }
+      .rowlink:hover {
+        color: var(--accent-ink);
+        text-decoration: underline;
+      }
+      .feature {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 14px 0;
+        border-top: 1px solid var(--line);
+      }
+      .feature .rowlink {
+        font-size: 16px;
+      }
+      details.fold {
+        border-top: 1px solid var(--line);
+      }
+      details.fold:last-of-type {
+        border-bottom: 1px solid var(--line);
+      }
+      details.fold > summary {
+        min-height: 52px;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      details.fold[open] > summary {
+        margin-bottom: 8px;
+      }
+      details.fold > :last-child {
+        margin-bottom: 20px;
+      }
+      .here-path {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        font-size: 14px;
+      }
+      .here-path button {
+        border: 0;
+        border-left: 1px solid var(--line-strong);
+        padding: 0 0 0 14px;
+        background: none;
+        color: var(--muted);
+        text-align: left;
+      }
+      .here-path button:first-child {
+        border-left: 0;
+        padding-left: 0;
+      }
+      .here-path .now {
+        margin-left: 14px;
+        padding-left: 14px;
+        border-left: 2px solid var(--ink);
+        font-weight: 600;
+      }
+      .recent {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .recent button {
+        border: 0;
+        padding: 0;
+        background: none;
+        font-size: 14px;
+        text-align: left;
+      }
+      .recent button:hover,
+      .here-path button:hover {
+        color: var(--accent-ink);
+        text-decoration: underline;
+      }
+      .gap-facts {
+        padding: 16px 20px;
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--subtle);
+        border-radius: 14px;
+        background: var(--raised);
+      }
       .gap-facts.st-needs-recheck {
-        border-left-color: #ee8a00;
+        border-left-color: var(--accent);
       }
       .gap-facts.st-needs-decision {
-        border-left-color: #5a3fc8;
+        border-left-color: var(--ink);
+      }
+      .gap-facts.st-accepted,
+      .gap-facts.st-done {
+        border-left-color: var(--success);
       }
       .gap-facts dl {
         display: grid;
-        grid-template-columns: max-content 1fr;
-        gap: 4px 12px;
+        grid-template-columns: 110px minmax(0, 1fr);
+        gap: 8px 16px;
         margin: 0;
+        font-size: 14px;
       }
       .gap-facts dt {
         color: var(--muted);
       }
       .gap-facts dd {
         margin: 0;
-        min-width: 0;
+      }
+      .link-block h2 {
+        font: 500 12px/1.33 var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 8px;
       }
       .link-list {
         list-style: none;
-        margin: 0 0 18px;
+        margin: 0;
         padding: 0;
-        display: grid;
-        gap: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
       }
       .link-list li {
         display: flex;
-        align-items: center;
         flex-wrap: wrap;
-        gap: 8px;
+        align-items: center;
+        gap: 6px 10px;
       }
-      .link-block {
-        margin: 0 0 18px;
-      }
-      .link-block h2 {
-        font-size: 13px;
-        margin: 0 0 6px;
-        color: var(--muted);
-      }
-      .hintline {
-        font-size: 12px;
-        margin: 12px 0 0;
-      }
-      .map {
-        padding: 26px;
-        min-width: 0;
-        min-height: 0;
+      .wasnow {
         display: flex;
         flex-direction: column;
-      }
-      .map-head {
-        display: flex;
-        align-items: start;
-        justify-content: space-between;
-        gap: 15px;
-      }
-      .map-head p {
-        max-width: 570px;
-        color: var(--muted);
-        font-size: 13px;
-      }
-      .counts {
-        display: flex;
-        gap: 20px;
-        margin: 10px 0 20px;
-      }
-      .counts button {
-        border: 0;
-        background: none;
-        padding: 0;
-        text-align: left;
-        color: var(--muted);
-        font-size: 13px;
-      }
-      .counts b {
-        display: block;
-        color: var(--ink);
-        font-size: 21px;
-      }
-      .graph-wrap {
-        position: relative;
-        flex: 1;
-        min-height: 180px;
-        background: #f0f4ee;
-        border: 1px solid #e0e9df;
-        border-radius: 10px;
-        overflow: hidden;
-      }
-      .graph-wrap svg {
-        position: absolute;
-        inset: 0;
+        gap: 4px;
         width: 100%;
-        height: 100%;
-        display: block;
-        touch-action: none;
-        cursor: grab;
-      }
-      .graph-wrap svg.dragging {
-        cursor: grabbing;
-      }
-      .graph-wrap line {
-        stroke: #9fbcaa;
-        stroke-width: 1.5;
-      }
-      .graph-wrap line.cross {
-        stroke: #b7c6bb;
-        stroke-dasharray: 5 4;
-      }
-      .graph-wrap rect.cluster {
-        fill: #e7eee4;
-        stroke: #cddbcb;
-        stroke-width: 1.5;
-      }
-      .graph-wrap text.cluster-label,
-      .graph-node.area text {
-        font-size: 15px;
-        font-weight: 650;
-        fill: #2c4a3d;
-      }
-      .graph-node.area text {
-        stroke: #e7eee4;
-      }
-      .graph-node {
-        cursor: pointer;
-      }
-      .graph-node circle {
-        fill: #b6d3c3;
-        stroke: #fff;
-        stroke-width: 3;
-      }
-      .graph-node rect {
-        fill: #b6d3c3;
-        stroke: #fff;
-        stroke-width: 3;
-      }
-      .graph-node.area circle {
-        fill: #327969;
-      }
-      .graph-node.pending circle {
-        fill: #d3a05b;
-      }
-      .graph-node.conflict circle {
-        fill: #c16a61;
-      }
-      .graph-node.stale circle {
-        stroke: #826b9a;
-      }
-      .graph-node.plan-node rect {
-        fill: #cfe3f2;
-        stroke: #3d6f95;
-      }
-      .graph-node.context circle {
-        fill: #f7f8f3;
-        stroke: #7d9a8c;
-        stroke-width: 2;
-        stroke-dasharray: 4 3;
-      }
-      .graph-node.context.area circle {
-        fill: #dcebe3;
-      }
-      .graph-node.context text {
-        fill: #5d7468;
-      }
-      .graph-node.st-needs-recheck circle {
-        fill: #ee8a00;
-        stroke: #7a4300;
-        stroke-width: 4;
-      }
-      .graph-node.st-needs-decision circle {
-        fill: #5a3fc8;
-        stroke: #2c1d80;
-        stroke-width: 4;
-      }
-      .graph-node.st-accepted circle {
-        fill: #5fa88f;
-      }
-      .graph-node.st-deferred circle {
-        fill: #c9c9b8;
-      }
-      .graph-node.st-rejected circle {
-        fill: #f1dedb;
-        stroke: #a04740;
-      }
-      .graph-node.st-done circle {
-        fill: #e3f1e6;
-        stroke: #286e60;
-      }
-      .graph-node.st-duplicate circle {
-        fill: #e6e6e6;
-        stroke: #999;
-      }
-      .graph-node.selected circle,
-      .graph-node.selected rect {
-        stroke: #14352e;
-        stroke-width: 5;
-      }
-      .graph-node text {
-        font-size: 12px;
-        fill: #334e42;
-        paint-order: stroke;
-        stroke: #f0f4ee;
-        stroke-width: 4px;
-        stroke-linejoin: round;
-      }
-      .tools {
-        position: absolute;
-        right: 12px;
-        bottom: 12px;
-        display: flex;
-        background: #fff;
+        padding: 12px 14px;
         border: 1px solid var(--line);
-        border-radius: 7px;
+        border-radius: 14px;
+        background: var(--raised);
+        font-size: 14px;
       }
-      .tools button {
-        color: var(--ink);
-        min-width: 36px;
-      }
-      .tools button:hover {
-        background: var(--pale);
-      }
-      .reader-top {
+      .wasnow div {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
+        gap: 10px;
+      }
+      .wasnow b {
+        flex: none;
+        width: 32px;
+        font: 13px var(--mono);
         color: var(--muted);
-        font-size: 13px;
-        margin-bottom: 26px;
       }
-      .badge {
-        display: inline-block;
-        padding: 4px 8px;
-        border-radius: 4px;
-        background: #e9f2eb;
-        color: #366c54;
-        font-size: 12px;
-        font-weight: 650;
-      }
-      .badge.pending {
-        background: #fbefd9;
-        color: #815314;
-      }
-      .badge.outdated {
-        background: #fff;
-        color: #7a4300;
-        border: 1px dashed #b86a00;
-        padding: 3px 7px;
-      }
-      .badge.st-needs-recheck {
-        background: #ee8a00;
-        color: #1d1200;
-      }
-      .badge.st-needs-decision {
-        background: #5a3fc8;
-        color: #fff;
-      }
-      .badge.st-accepted {
-        background: #d6ecdf;
-        color: #1f5a43;
-      }
-      .badge.st-deferred {
-        background: #ececdf;
-        color: #55553f;
-      }
-      .badge.st-rejected {
-        background: #f4e0dd;
-        color: #8a342d;
-      }
-      .badge.st-done {
-        background: #e3f1e6;
-        color: #2d6a3a;
-      }
-      .badge.st-duplicate {
-        background: #ececec;
-        color: #555;
-      }
-      .badge.conflict {
-        background: #f8e5e2;
-        color: #913d37;
-      }
-      .badge.stale {
-        background: #eee8f3;
-        color: #6f5481;
-      }
-      .meta {
+      .wasnow .was span {
         color: var(--muted);
-        font-size: 13px;
-        margin: 14px 0 22px;
+        text-decoration: line-through;
       }
+      .steps {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        max-width: 520px;
+      }
+      .steps li {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding-top: 12px;
+        border-top: 3px solid var(--line);
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .steps li.on {
+        border-color: var(--ink);
+        color: var(--ink);
+      }
+      .cols {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 32px;
+        align-items: flex-start;
+      }
+      .cols > .form {
+        flex: 999 1 420px;
+        min-width: 0;
+        max-width: 620px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      .cols > .form section {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      textarea {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid var(--line-strong);
+        border-radius: 14px;
+        background: var(--paper);
+        font: 16px/1.6 var(--sans);
+        resize: vertical;
+      }
+      .night {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 20px;
+        border-radius: 20px;
+        background: var(--night);
+        color: #ffffff;
+        min-width: 0;
+      }
+      .night .eyebrow,
+      .night .small {
+        color: var(--on-night-muted);
+      }
+      .night pre {
+        margin: 0;
+        max-height: 420px;
+        overflow: auto;
+        font: 13px/1.6 var(--mono);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .cols > .night {
+        flex: 1 1 360px;
+        max-width: 480px;
+        border-radius: 24px;
+        padding: 24px;
+      }
+      .xbtn {
+        flex: none;
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        border: 0;
+        border-radius: 999px;
+        background: none;
+        color: var(--muted);
+      }
+      .xbtn:hover {
+        background: var(--soft);
+        color: var(--ink);
+      }
+
+      /* Markdown */
       .article {
         line-height: 1.7;
         overflow-wrap: anywhere;
       }
       .article h1,
       .article h2,
-      .article h3 {
-        margin: 24px 0 10px;
+      .article h3,
+      .article h4 {
+        margin: 26px 0 10px;
+        font-family: var(--display);
+        letter-spacing: -0.03em;
+        line-height: 1.2;
+      }
+      .article > :first-child {
+        margin-top: 0;
       }
       .article h1 {
-        font-size: 21px;
+        font-size: 26px;
+      }
+      .article h2 {
+        font-size: 22px;
+      }
+      .article h3 {
+        font-size: 17px;
       }
       .article p,
       .article ul,
@@ -688,25 +830,31 @@
         padding-left: 22px;
       }
       .article code {
-        background: #eef3ee;
-        border-radius: 3px;
-        padding: 1px 4px;
-        font-size: 0.9em;
+        background: var(--soft);
+        border-radius: 4px;
+        padding: 1px 5px;
+        font: 0.88em var(--mono);
       }
       .article pre {
-        background: #eef3ee;
-        padding: 12px;
+        background: var(--soft);
+        padding: 14px;
         overflow: auto;
-        border-radius: 6px;
+        border-radius: 14px;
       }
       .article pre code {
         padding: 0;
       }
       .article a,
       .wiki {
-        color: var(--teal);
+        color: var(--ink);
         text-decoration: underline;
-        text-underline-offset: 2px;
+        text-decoration-color: var(--line-strong);
+        text-underline-offset: 3px;
+      }
+      .article a:hover,
+      .wiki:hover {
+        color: var(--accent-ink);
+        text-decoration-color: currentColor;
       }
       .wiki {
         border: 0;
@@ -714,197 +862,6 @@
         background: none;
         font: inherit;
         text-align: left;
-      }
-      .reading {
-        display: grid;
-        grid-template-columns: 290px minmax(0, 1fr);
-        height: calc(100vh - 70px - 48px);
-        min-height: 0;
-        background: var(--white);
-      }
-      .outline {
-        overflow: auto;
-        padding: 20px 14px 40px 20px;
-        border-right: 1px solid var(--line);
-        background: var(--paper);
-      }
-      .outline button {
-        display: block;
-        width: 100%;
-        text-align: left;
-        border: 0;
-        background: none;
-        padding: 6px 10px;
-        border-radius: 7px;
-        line-height: 1.35;
-      }
-      .outline button:hover {
-        background: var(--pale);
-      }
-      .outline button[aria-current="true"] {
-        background: var(--pale);
-        color: var(--teal);
-        font-weight: 650;
-      }
-      .outline .outline-home {
-        font-weight: 700;
-        margin: 16px 0 4px;
-      }
-      .outline .outline-area {
-        font-weight: 650;
-        margin-top: 14px;
-      }
-      .outline .outline-note {
-        padding-left: 22px;
-        font-size: 14px;
-        color: #3d5249;
-      }
-      .page {
-        overflow: auto;
-        padding: 44px 56px 90px;
-      }
-      .page-body {
-        max-width: 760px;
-        margin: 0 auto;
-      }
-      .page-body > h1 {
-        font-size: 32px;
-        line-height: 1.2;
-        letter-spacing: -0.01em;
-        margin: 0 0 14px;
-      }
-      .page-body > h2 {
-        font-size: 21px;
-        margin: 40px 0 6px;
-      }
-      .page-body h2 .wiki {
-        color: var(--ink);
-        text-decoration: none;
-      }
-      .page-body h2 .wiki:hover {
-        color: var(--teal);
-        text-decoration: underline;
-      }
-      .page .lead {
-        font-size: 18px;
-        line-height: 1.6;
-        color: #2b443c;
-        margin: 0 0 26px;
-      }
-      .page .area-summary {
-        color: #45594f;
-        margin: 0 0 6px;
-      }
-      .crumbs {
-        font-size: 13px;
-        color: var(--muted);
-        margin-bottom: 18px;
-      }
-      .crumbs .wiki {
-        text-decoration: none;
-      }
-      .feature {
-        padding: 13px 0;
-        border-top: 1px solid var(--line);
-      }
-      .feature-title {
-        border: 0;
-        background: none;
-        padding: 0;
-        font-weight: 650;
-        font-size: 16px;
-        text-align: left;
-      }
-      .feature-title:hover {
-        color: var(--teal);
-        text-decoration: underline;
-      }
-      .feature p {
-        margin: 4px 0 0;
-        color: #45594f;
-      }
-      .quiet {
-        font-size: 13px;
-        color: var(--muted);
-      }
-      .feature .quiet {
-        display: block;
-        margin-top: 4px;
-      }
-      .related {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin: 8px 0 28px;
-      }
-      .chip {
-        border: 1px solid var(--line);
-        background: var(--paper);
-        border-radius: 999px;
-        padding: 4px 12px;
-        font-size: 14px;
-      }
-      .chip:hover {
-        border-color: var(--teal);
-        color: var(--teal);
-      }
-      .label {
-        font-size: 12px;
-        font-weight: 650;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        color: var(--muted);
-        margin: 26px 0 0;
-      }
-      .page details {
-        border-top: 1px solid var(--line);
-        padding: 12px 0;
-      }
-      .page details + details {
-        margin-top: 0;
-      }
-      .page .fold-start {
-        margin-top: 34px;
-      }
-      .page summary {
-        cursor: pointer;
-        font-weight: 600;
-        font-size: 14px;
-        color: #45594f;
-      }
-      .page details[open] > summary {
-        margin-bottom: 12px;
-      }
-      .tech {
-        display: grid;
-        grid-template-columns: 110px minmax(0, 1fr);
-        gap: 6px 14px;
-        font-size: 13px;
-        margin: 0;
-        overflow-wrap: anywhere;
-      }
-      .tech dt {
-        color: var(--muted);
-      }
-      .tech dd {
-        margin: 0;
-      }
-      @media (max-width: 760px) {
-        .reading {
-          display: block;
-          height: auto;
-        }
-        .outline {
-          border-right: 0;
-          border-bottom: 1px solid var(--line);
-          max-height: 40vh;
-        }
-        .page {
-          padding: 26px 18px 60px;
-        }
-        .page-body > h1 {
-          font-size: 26px;
-        }
       }
       .article .table-wrap {
         overflow: auto;
@@ -926,27 +883,283 @@
         vertical-align: top;
       }
       .article th {
-        background: var(--pale);
+        background: var(--soft);
         white-space: nowrap;
+      }
+      .empty {
+        color: var(--muted);
+        padding: 12px 0;
+      }
+
+      /* Map */
+      .graph-wrap {
+        position: relative;
+        height: min(72vh, 760px);
+        min-height: 420px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--raised);
+        overflow: hidden;
+      }
+      .graph-wrap svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        touch-action: none;
+        cursor: grab;
+      }
+      .graph-wrap svg.dragging {
+        cursor: grabbing;
+      }
+      .graph-wrap line {
+        stroke: #b3afa6;
+        stroke-width: 1.5;
+      }
+      .graph-wrap line.cross {
+        stroke: #cdc9c1;
+        stroke-dasharray: 5 4;
+      }
+      .graph-wrap rect.cluster {
+        fill: var(--paper);
+        stroke: var(--line);
+        stroke-width: 1.5;
+      }
+      .graph-node {
+        cursor: pointer;
+      }
+      .graph-node circle,
+      .graph-node rect {
+        fill: var(--paper);
+        stroke: var(--ink);
+        stroke-width: 2;
+      }
+      .graph-node.area circle {
+        fill: var(--ink);
+      }
+      .graph-node text {
+        font-size: 12px;
+        fill: var(--muted);
+        paint-order: stroke;
+        stroke: var(--paper);
+        stroke-width: 4px;
+        stroke-linejoin: round;
+      }
+      .graph-wrap text.cluster-label,
+      .graph-node.area text {
+        font-size: 15px;
+        font-weight: 650;
+        fill: var(--ink);
+      }
+      .graph-node.context circle {
+        stroke: var(--subtle);
+        stroke-dasharray: 4 3;
+      }
+      .graph-node.context.area circle {
+        fill: var(--paper);
+      }
+      .graph-node.st-needs-recheck circle {
+        fill: var(--accent);
+      }
+      .graph-node.st-needs-decision circle {
+        fill: var(--ink);
+      }
+      .graph-node.st-accepted circle {
+        fill: var(--success);
+        stroke: var(--success);
+      }
+      .graph-node.st-deferred circle,
+      .graph-node.st-rejected circle,
+      .graph-node.st-done circle,
+      .graph-node.st-duplicate circle {
+        fill: var(--soft);
+        stroke: var(--subtle);
+      }
+      .graph-node.stale circle,
+      .graph-node.pending circle {
+        stroke: var(--accent);
+        stroke-width: 3;
+      }
+      .graph-node.selected circle,
+      .graph-node.selected rect {
+        stroke: var(--accent-ink);
+        stroke-width: 5;
+      }
+      .tools {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        display: flex;
+        gap: 6px;
+        padding: 6px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--paper);
+      }
+      .tools button {
+        width: 36px;
+        height: 36px;
+        border: 0;
+        border-radius: 999px;
+        background: none;
+        font-size: 18px;
+      }
+      .tools button:hover {
+        background: var(--soft);
+      }
+
+      /* Overlays: search, copy, cited file */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 9vh 20px 20px;
+        background: rgba(17, 18, 20, 0.35);
+        overflow: auto;
+      }
+      .palette-card,
+      .copy-card {
+        width: min(720px, 100%);
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: var(--paper);
+        box-shadow:
+          0 40px 90px -40px rgba(17, 18, 20, 0.35),
+          0 2px 6px rgba(17, 18, 20, 0.04);
+        overflow: hidden;
+      }
+      .palette-input {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 64px;
+        padding: 0 20px;
+        border-bottom: 1px solid var(--line);
+      }
+      .palette-input input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: none;
+        background: none;
+        font: 500 19px/1.3 var(--sans);
+      }
+      .palette-card .pillrow {
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+      .palette-results {
+        display: flex;
+        flex-direction: column;
+        padding: 8px 8px 12px;
+        max-height: 56vh;
+        overflow: auto;
+      }
+      .palette-results .eyebrow {
+        padding: 12px 12px 6px;
+      }
+      .result {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        min-height: 56px;
+        padding: 8px 12px;
+        border: 0;
+        border-radius: 14px;
+        background: none;
+        text-align: left;
+      }
+      .result:hover,
+      .result[aria-selected="true"] {
+        background: var(--soft);
+      }
+      .result .grow {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .result .name {
+        font-weight: 600;
+      }
+      .result mark {
+        background: var(--accent-soft);
+        color: inherit;
+      }
+      .palette-foot {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        padding: 12px 20px;
+        border-top: 1px solid var(--line);
+        background: var(--raised);
+        font: 12px var(--mono);
+        color: var(--muted);
+      }
+      .copy-card {
+        width: min(600px, 100%);
+        padding: 28px;
+        gap: 20px;
+        overflow: visible;
+      }
+      .copy-card fieldset {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .copy-card legend {
+        padding: 0;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 44px;
+        font-size: 14px;
+      }
+      .check input {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--ink);
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
       }
       .filepane {
         position: fixed;
         inset: 0;
-        z-index: 20;
+        z-index: 40;
         display: flex;
         justify-content: flex-end;
-        background: rgba(20, 40, 34, 0.35);
+        background: rgba(17, 18, 20, 0.35);
       }
       .file-card {
         width: min(1040px, 100%);
         height: 100%;
         display: flex;
         flex-direction: column;
-        background: #fff;
-        box-shadow: -8px 0 30px rgba(0, 0, 0, 0.15);
+        background: var(--paper);
+        border-left: 1px solid var(--line);
       }
       .file-head {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 12px;
         padding: 14px 22px;
@@ -959,7 +1172,7 @@
       .file-name strong {
         display: block;
         overflow-wrap: anywhere;
-        font-size: 14px;
+        font: 500 14px var(--mono);
       }
       .file-name small {
         font-size: 12px;
@@ -970,16 +1183,18 @@
         gap: 6px;
       }
       .file-head button {
-        border: 1px solid var(--line);
-        background: #fff;
-        border-radius: 7px;
-        padding: 5px 11px;
+        height: 36px;
+        padding: 0 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: var(--paper);
         font-size: 13px;
+        font-weight: 600;
       }
       .file-head button[aria-pressed="true"] {
-        background: var(--pale);
-        border-color: var(--teal);
-        color: var(--teal);
+        border-color: var(--ink);
+        background: var(--ink);
+        color: #ffffff;
       }
       .file-body {
         flex: 1;
@@ -991,12 +1206,7 @@
         max-width: 900px;
       }
       .code-view {
-        font:
-          12.5px/1.55 ui-monospace,
-          SFMono-Regular,
-          Menlo,
-          Consolas,
-          monospace;
+        font: 12.5px/1.55 var(--mono);
         min-width: max-content;
       }
       .ln {
@@ -1007,255 +1217,114 @@
       .ln .num {
         flex: 0 0 44px;
         text-align: right;
-        color: #9aa8a1;
+        color: var(--subtle);
         user-select: none;
       }
       .ln.hit {
-        background: #fff3cf;
+        background: var(--accent-soft);
       }
-      .tech dd .wiki {
-        display: block;
-      }
-      @media (max-width: 650px) {
+      @media (max-width: 860px) {
+        .app {
+          display: block;
+        }
+        .side {
+          position: static;
+          height: auto;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .tree {
+          max-height: 40vh;
+          overflow: auto;
+        }
+        .topbar,
+        .view,
+        .mapview {
+          padding-left: 16px;
+          padding-right: 16px;
+        }
+        .title {
+          font-size: 32px;
+        }
         .file-body {
           padding: 18px 16px 50px;
         }
-        .file-head {
-          flex-wrap: wrap;
-          padding: 12px 16px;
-        }
-      }
-      .empty {
-        color: var(--muted);
-        padding: 20px 0;
-      }
-      .mobile-tabs {
-        display: none;
-      }
-      .stale-note {
-        background: #f2ebf5;
-        color: #654e72;
-        padding: 10px 12px;
-        border-radius: 6px;
-        font-size: 13px;
-        margin-bottom: 18px;
-      }
-      @media (max-width: 1000px) {
-        .workspace {
-          grid-template-columns: 230px minmax(0, 1fr);
-        }
-        .reader {
-          padding: 26px 24px 60px;
-        }
-        .map {
-          overflow: auto;
-        }
-        .graph-wrap {
-          flex: 1 0 180px;
-        }
-      }
-      @media (max-width: 650px) {
-        header {
-          height: auto;
-          min-height: 64px;
-          padding: 12px 16px;
-        }
-        .modebar {
-          padding: 7px 16px;
-        }
-        .modebar .hint {
-          display: none;
-        }
-        .modebar button {
-          flex: 1;
-          justify-content: center;
-        }
-        .header-note {
-          display: none;
-        }
-        .mobile-tabs {
-          display: flex;
-          background: #fff;
-          padding: 0 16px;
-          gap: 16px;
-          border-bottom: 1px solid var(--line);
-        }
-        .mobile-tabs button {
-          border: 0;
-          border-bottom: 2px solid transparent;
-          background: none;
-          padding: 12px 2px;
-          color: var(--muted);
-        }
-        .mobile-tabs button[aria-selected="true"] {
-          border-color: var(--teal);
-          color: var(--teal);
-          font-weight: 650;
-        }
-        .workspace {
-          display: block;
-          height: auto;
-          min-height: 0;
-        }
-        .viewtabs {
-          display: none;
-        }
-        .workspace > aside,
-        .workspace > .map,
-        .workspace > .reader {
-          display: none;
-        }
-        .workspace[data-view="list"] > aside,
-        .workspace[data-view="map"] > .map,
-        .workspace[data-view="reader"] > .reader {
-          display: block;
-        }
-        aside,
-        .reader,
-        .map {
-          padding: 20px 16px;
-          border: 0;
-        }
-        .reader {
-          max-height: none;
-        }
-        .map {
-          overflow: visible;
-        }
-        .graph-wrap {
-          height: 420px;
-        }
-        .map-head {
-          display: block;
-        }
-        .counts {
-          margin-bottom: 16px;
-          flex-wrap: wrap;
-          gap: 10px 20px;
+        .steps {
+          grid-template-columns: 1fr;
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-          scroll-behavior: auto !important;
+        * {
           transition: none !important;
-          animation: none !important;
         }
       }
     </style>
   </head>
   <body>
-    <header>
-      <div class="brand">
-        <span class="mark" aria-hidden="true">✳</span>
-        <div>
-          <strong id="project-title">Knowledge map</strong
-          ><small>Project navigator</small>
+    <div class="app">
+      <nav class="side" aria-label="Spec navigation">
+        <div class="brand">
+          <strong id="project-title"></strong
+          ><span class="mono-label" id="header-note">Spec</span>
         </div>
-      </div>
-      <div class="header-note" id="header-note">
-        As-built spec and gaps<br />Generated locally
-      </div>
-    </header>
-    <div class="modebar" role="group" aria-label="Layer">
-      <button type="button" id="mode-read" aria-pressed="true">Read</button
-      ><button type="button" id="mode-spec" aria-pressed="false">Map</button
-      ><button type="button" id="mode-gaps" aria-pressed="false">
-        Gaps<span class="pill" id="mode-wait" hidden></span>
-      </button>
-      <span class="hint" id="mode-hint"></span>
-    </div>
-    <nav class="mobile-tabs" aria-label="Sections">
-      <button data-view="list" aria-selected="false">List</button
-      ><button data-view="map" aria-selected="true">Map</button
-      ><button data-view="reader" aria-selected="false">Note</button>
-    </nav>
-    <div class="reading" id="reading">
-      <nav class="outline" aria-label="Contents">
-        <input
-          class="search"
-          id="read-search"
-          type="search"
-          placeholder="Search the spec"
-          aria-label="Search the spec"
-        />
-        <div id="outline"></div>
+        <button type="button" class="searchbox" id="open-search">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <span>Search pages, gaps, files</span><kbd>⌘K</kbd>
+        </button>
+        <div class="nav-links" id="nav-links"></div>
+        <div class="eyebrow">Spec</div>
+        <div class="tree" id="tree"></div>
       </nav>
-      <article class="page" id="page" aria-live="polite"></article>
+      <main class="main">
+        <div class="topbar">
+          <button type="button" class="icon-btn" id="back" aria-label="Back">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="m11 6-6 6 6 6"></path></svg></button
+          ><button type="button" class="icon-btn" id="forward" aria-label="Forward">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
+          </button>
+          <nav class="crumbs" id="crumbs" aria-label="Breadcrumb"></nav>
+          <span class="toast" id="toast" role="status" aria-live="polite"></span>
+          <button type="button" class="btn" id="copy-link">Copy link</button>
+          <button type="button" class="btn accent" id="copy-ai">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 0 1 2-2h9"></path></svg>
+            Copy for AI
+          </button>
+        </div>
+        <div class="view" id="view"></div>
+        <section class="mapview" id="mapview" aria-labelledby="map-title" hidden>
+          <div class="stack">
+            <div class="eyebrow">Map</div>
+            <h1 class="title" id="map-title">Map</h1>
+            <p class="lead" id="map-desc"></p>
+            <div class="pillrow" id="map-controls" role="group" aria-label="Map layer"></div>
+          </div>
+          <div class="graph-wrap">
+            <svg id="graph" role="img" aria-label="Map of linked pages. Every page is also in the tree."></svg>
+            <div class="tools" aria-label="Map zoom">
+              <button type="button" id="zoom-in" aria-label="Zoom in">+</button
+              ><button type="button" id="zoom-out" aria-label="Zoom out">−</button
+              ><button type="button" id="reset" aria-label="Reset view">↺</button>
+            </div>
+          </div>
+          <p class="muted small" id="graph-hint"></p>
+        </section>
+      </main>
     </div>
-    <main class="workspace" data-view="map" hidden>
-      <aside>
-        <h2 id="nav-title">Spec pages</h2>
-        <input
-          class="search"
-          id="search"
-          type="search"
-          placeholder="Search knowledge"
-          aria-label="Search titles and content"
-        />
-        <div class="section-label">Area</div>
-        <select id="area" aria-label="Area">
-          <option value="">All areas</option>
-        </select>
-        <div id="panel-spec">
-          <div class="section-label">Show</div>
-          <div class="filters" id="spec-filters" role="group" aria-label="Filter spec pages"></div>
-        </div>
-        <div id="panel-gaps" hidden>
-          <div class="section-label">State</div>
-          <div class="filters state-filters" id="state-filters" role="group" aria-label="Filter gaps by state"></div>
-          <p class="subtle hintline" id="state-hint" hidden></p>
-          <div class="section-label">Kind</div>
-          <select id="kind" aria-label="Kind">
-            <option value="">All kinds</option>
-          </select>
-        </div>
-        <div class="section-label" id="list-label">Materials</div>
-        <div class="list" id="list"></div>
-        <div id="nav-block" hidden>
-          <div class="section-label sub" id="nav-label">Overview and runs</div>
-          <div class="list" id="nav-list"></div>
-        </div>
-      </aside>
-      <div class="viewtabs" role="tablist" aria-label="Graph or page">
-        <button type="button" data-view="map" data-alt="list" aria-selected="true">Graph</button
-        ><button type="button" data-view="reader" aria-selected="false">Page</button>
+    <div class="overlay" id="palette" role="dialog" aria-modal="true" aria-label="Search the spec" hidden>
+      <div class="palette-card">
+        <label class="palette-input">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <input id="palette-input" type="search" placeholder="Search pages, gaps, files" aria-label="Search pages, gaps and files" autocomplete="off" />
+          <kbd>esc</kbd>
+        </label>
+        <div class="pillrow" id="palette-filters" role="group" aria-label="Limit results"></div>
+        <div class="palette-results" id="palette-results"></div>
+        <div class="palette-foot"><span>↑↓ move</span><span>↵ open</span><span>⌘K anywhere</span></div>
       </div>
-      <section class="map" aria-labelledby="map-title">
-        <div class="map-head">
-          <div>
-            <h1 id="map-title">Spec map</h1>
-            <p id="map-desc"></p>
-          </div>
-        </div>
-        <div class="counts" id="counts"></div>
-        <div class="graph-wrap">
-          <svg
-            id="graph"
-            role="img"
-            aria-label="Linked knowledge map. Every item is also available in the list."
-          ></svg>
-          <div class="tools" aria-label="Map zoom">
-            <button id="zoom-in" aria-label="Zoom in">+</button
-            ><button id="zoom-out" aria-label="Zoom out">−</button
-            ><button id="reset" aria-label="Reset view">↺</button>
-          </div>
-        </div>
-        <p class="subtle hintline" id="graph-hint"></p>
-      </section>
-      <article class="reader" aria-live="polite">
-        <div class="reader-top">
-          <span>Item</span><span id="reader-updated"></span>
-        </div>
-        <div id="detail">
-          <h2>Select an item</h2>
-          <p class="subtle">
-            Open a node on the graph or choose an item from the list.
-          </p>
-        </div>
-      </article>
-    </main>
+    </div>
+    <div class="overlay" id="copydlg" role="dialog" aria-modal="true" aria-label="Copy for AI" hidden>
+      <div class="copy-card" id="copy-card"></div>
+    </div>
     <div class="filepane" id="filepane" role="dialog" aria-modal="true" aria-labelledby="file-title" hidden>
       <div class="file-card">
         <div class="file-head">
@@ -1281,25 +1350,28 @@
             (n) => n && typeof n === "object",
           ),
           edges = Array.isArray(data.edges) ? data.edges : [];
-        // Text of the repository files the pages cite, copied in at build time (may be absent in older data).
+        // Sent by `knowledge.py serve` only: the text of cited repository files, the vault's place in the
+        // repository, its Git history and its uncommitted pages. A page without them still works.
         const files =
             data.files && typeof data.files === "object" ? data.files : {},
-          vaultPath = typeof data.vaultPath === "string" ? data.vaultPath : "";
+          vaultPath = typeof data.vaultPath === "string" ? data.vaultPath : "",
+          historyLog = (Array.isArray(data.history) ? data.history : []).filter(
+            (c) => c && typeof c === "object",
+          ),
+          pendingPages = (Array.isArray(data.pending) ? data.pending : []).filter(
+            (p) => p && typeof p === "object",
+          );
+        const live = data.live === true;
         const byId = new Map(nodes.map((n) => [n.id, n])),
           byPath = new Map(
             nodes.map((n) => [String(n.path || "").replace(/\.md$/i, ""), n]),
           );
         const $ = (s) => document.querySelector(s),
           svgNS = "http://www.w3.org/2000/svg";
-        const workspace = $(".workspace"),
-          list = $("#list"),
-          graph = $("#graph"),
-          detail = $("#detail");
-        let mode = "read",
-          readPage = null, // the spec page open in Read; null is the overview
-          filter = "all",
-          gapState = "all",
-          selected = null,
+        const graph = $("#graph");
+        const projectTitle = typeof data.title === "string" && data.title ? data.title : "Spec";
+        let mode = "spec", // the layer the map draws: "spec" or "gap"
+          selected = null, // the page that is open; the map marks it
           box = { x: 0, y: 0, w: 1000, h: 700 },
           initialBox = { ...box };
         const labels = {
@@ -1411,180 +1483,97 @@
           Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v));
           return e;
         };
-        const viewButtons = () =>
-          document.querySelectorAll(".mobile-tabs button, .viewtabs button");
-        function switchView(view) {
-          workspace.dataset.view = view;
-          viewButtons().forEach((b) =>
-            b.setAttribute(
-              "aria-selected",
-              String(b.dataset.view === view || b.dataset.alt === view),
-            ),
-          );
-        }
-        viewButtons()
-          .forEach((b) =>
-            b.addEventListener("click", () => switchView(b.dataset.view)),
-          );
-        // Served by `knowledge.py serve`: the page was read from disk a moment ago, not built earlier.
-        const live = data.live === true;
-        if (live)
-          $("#header-note").textContent = "Live from disk · reload the page to refresh";
-        $("#project-title").textContent = data.title || "Knowledge map";
-        document.title = (data.title || "Knowledge map") + " — navigator";
-        const areas = nodes
-          .filter((n) => n.type === "area")
-          .sort(byTitle);
-        areas.forEach((n) => {
-          const o = el("option", n.title);
-          o.value = n.id;
-          $("#area").append(o);
-        });
-        const kindSet = Object.keys(kindLabels);
-        nodes.forEach((n) => {
-          if (isGap(n) && str(n.kind) && !kindSet.includes(n.kind))
-            kindSet.push(n.kind);
-        });
-        kindSet.forEach((k) => {
-          const o = el("option", kindLabels[k] || k);
-          o.value = k;
-          $("#kind").append(o);
-        });
-
-        // Controls are built once and updated in place so keyboard focus is kept.
-        const modeButtons = {
-          read: $("#mode-read"),
-          spec: $("#mode-spec"),
-          gap: $("#mode-gaps"),
+        const areas = nodes.filter((n) => n.type === "area").sort(byTitle);
+        $("#project-title").textContent = projectTitle;
+        $("#header-note").textContent = live ? "Spec · live from disk" : "Spec";
+        // Small things kept in this browser only: where you were, what you picked. Never required.
+        const store = {
+          key: (name) => "spec-viewer:" + projectTitle + ":" + name,
+          get(name, fallback) {
+            try {
+              const raw = localStorage.getItem(store.key(name));
+              return raw == null ? fallback : JSON.parse(raw);
+            } catch {
+              return fallback;
+            }
+          },
+          set(name, value) {
+            try {
+              localStorage.setItem(store.key(name), JSON.stringify(value));
+            } catch {
+              /* private window or storage blocked: the page still works */
+            }
+          },
         };
-        const specFilters = [
-          ["all", "All"],
-          ["area", "Areas"],
-          ["note", "Notes"],
-        ].map(([f, text]) => {
-          const b = el("button", text);
-          b.type = "button";
-          b.setAttribute("aria-pressed", "false");
-          b.addEventListener("click", () => {
-            filter = f;
-            render();
+        const hasWindow = typeof window !== "undefined" && typeof history !== "undefined";
+        // Where the page file is in the repository: what an agent needs to open it.
+        const repoPath = (n) =>
+          (vaultPath && vaultPath !== "." ? vaultPath.replace(/\/+$/, "") + "/" : "") + String(n.path || "");
+        let toastTimer = null;
+        function toast(message) {
+          $("#toast").textContent = message;
+          if (typeof setTimeout !== "function") return;
+          if (toastTimer) clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => {
+            $("#toast").textContent = "";
+          }, 2600);
+        }
+        function copyText(text, message) {
+          const ok = () => toast(message || "Copied");
+          const byHand = () => {
+            try {
+              const t = document.createElement("textarea");
+              t.value = text;
+              t.setAttribute("readonly", "");
+              t.style.position = "fixed";
+              t.style.opacity = "0";
+              document.body.append(t);
+              t.select();
+              const done = document.execCommand("copy");
+              t.remove();
+              if (done) return ok();
+            } catch {
+              /* fall through to the message */
+            }
+            toast("Could not copy. Select the text and copy it by hand.");
+          };
+          try {
+            if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+              navigator.clipboard.writeText(text).then(ok, byHand);
+              return;
+            }
+          } catch {
+            /* use the fallback */
+          }
+          byHand();
+        }
+        const icon = (path, size) => {
+          const s = sv("svg", {
+            "aria-hidden": "true",
+            width: size || 16,
+            height: size || 16,
+            viewBox: "0 0 24 24",
+            fill: "none",
+            stroke: "currentColor",
+            "stroke-width": "1.8",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
           });
-          $("#spec-filters").append(b);
-          return [f, b];
-        });
-        const stateButtons = ["all", ...STATES].map((s) => {
-          const b = el("button");
-          b.type = "button";
-          b.setAttribute("aria-pressed", "false");
-          if (s !== "all") b.append(el("span", null, "dot st-" + s));
-          b.append(
-            document.createTextNode(s === "all" ? "All" : stateLabels[s]),
-          );
-          const n = el("span", "0", "n");
-          b.append(n);
-          if (stateHints[s]) b.title = stateHints[s];
-          b.addEventListener("click", () => setGapState(s));
-          $("#state-filters").append(b);
-          return [s, b, n];
-        });
-        const countDefs = {
-          spec: [
-            ["all", "materials", () => nodes.filter((n) => layerOf(n) !== "gap").length],
-            ["note", "notes", () => nodes.filter((n) => n.type === "note").length],
-            ["area", "areas", () => nodes.filter((n) => n.type === "area").length],
-          ],
-          gap: [
-            ["needs-recheck", "need recheck", () => nodes.filter((n) => stateOf(n) === "needs-recheck").length],
-            ["needs-decision", "need a decision", () => nodes.filter((n) => stateOf(n) === "needs-decision").length],
-            ["all", "gaps", () => nodes.filter(isGap).length],
-          ],
+          path.split("|").forEach((d) => s.append(sv("path", { d })));
+          return s;
         };
-        const countButtons = [];
-        Object.entries(countDefs).forEach(([m, defs]) =>
-          defs.forEach(([key, text, fn]) => {
-            const b = el("button"),
-              num = el("b", "0");
-            b.type = "button";
-            b.append(num, document.createTextNode(text));
-            b.addEventListener("click", () => {
-              if (m === "spec") filter = key;
-              else gapState = key;
-              render();
-              switchView("list");
-            });
-            $("#counts").append(b);
-            countButtons.push({ mode: m, button: b, num, fn });
-          }),
-        );
-        function setGapState(s) {
-          gapState = s;
-          render();
-        }
-        function resetGapFilters() {
-          gapState = "all";
-          $("#kind").value = "";
-          $("#search").value = "";
-          $("#area").value = "";
-        }
-        function setMode(m) {
-          if (m === mode) return;
-          mode = m;
-          // A page left open from the other layer would hide the list's graph.
-          if (m !== "read") switchView("map");
-          render(false);
-        }
-        modeButtons.read.addEventListener("click", () => {
-          // Keep the reader on the page they were looking at.
-          if (mode !== "read" && selected && layerOf(selected) === "spec")
-            readPage = selected;
-          setMode("read");
-        });
-        modeButtons.spec.addEventListener("click", () => {
-          if (mode === "read" && readPage) {
-            mode = "spec";
-            showDetail(readPage);
-            switchView("map");
-          } else setMode("spec");
-        });
-        modeButtons.gap.addEventListener("click", () => setMode("gap"));
-        $("#read-search").addEventListener("input", () => render());
-        $("#search").addEventListener("input", () => render());
-        $("#area").addEventListener("change", () => render());
-        $("#kind").addEventListener("change", () => render());
-
-        function matchesQuery(n) {
-          const q = $("#search").value.trim().toLocaleLowerCase();
-          return (
-            !q ||
-            (str(n.title) + " " + str(n.body)).toLocaleLowerCase().includes(q)
-          );
-        }
-        // Gaps that pass area, kind and search (not state).
-        function gapPool() {
-          const area = $("#area").value,
-            kind = $("#kind").value;
-          return nodes.filter(
-            (n) =>
-              isGap(n) &&
-              inArea(n, area) &&
-              (!kind || n.kind === kind) &&
-              matchesQuery(n),
-          );
-        }
-        function visible() {
-          if (mode === "gap")
-            return gapPool()
-              .filter((n) => gapState === "all" || stateOf(n) === gapState)
-              .sort((a, b) => stateRank(a) - stateRank(b) || byTitle(a, b));
-          const area = $("#area").value;
-          return nodes.filter(
-            (n) =>
-              layerOf(n) !== "gap" &&
-              inArea(n, area) &&
-              (filter === "all" || n.type === filter) &&
-              matchesQuery(n),
-          );
-        }
+        const ICON = {
+          chevron: "m9 6 6 6-6 6",
+          copy: "M9 11a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2z|M5 15V6a2 2 0 0 1 2-2h9",
+          close: "M6 6l12 12|M18 6 6 18",
+        };
+        const button = (text, cls, onClick) => {
+          const b = el("button", text, cls);
+          b.type = "button";
+          if (onClick) b.addEventListener("click", onClick);
+          return b;
+        };
+        const bodyOf = (n) => str(n.body).replace(/^\s*# [^\n]*\n?/, "");
         function splitWiki(raw) {
           const parts = String(raw).replace(/\\\|/g, "|").split("|");
           return {
@@ -2012,190 +2001,6 @@
           box.append(dl);
           return box;
         }
-        function openNode(n) {
-          const layer = layerOf(n);
-          // Reading stays in Read for spec pages; gaps and overview pages open in their own views.
-          if (mode === "read") {
-            if (layer === "spec") return openRead(n);
-            mode = layer === "gap" ? "gap" : "spec";
-          }
-          showDetail(n);
-        }
-        function showDetail(n) {
-          const layer = layerOf(n);
-          if (layer !== "nav") mode = layer;
-          // Jumping to a gap must not leave it hidden by stale filters.
-          if (mode === "gap" && isGap(n) && !visible().includes(n))
-            resetGapFilters();
-          selected = n;
-          detail.replaceChildren();
-          const badge = isGap(n)
-            ? stateBadge(n)
-            : el(
-                "span",
-                labels[n.status] || n.status || types[n.type] || "Item",
-                "badge " + stateClass(n),
-              );
-          detail.append(badge, el("h1", n.title));
-          detail.lastChild.style.marginTop = "15px";
-          detail.append(
-            el(
-              "div",
-              `${types[n.type] || n.type}${n.updated ? " · Updated " + n.updated : ""}`,
-              "meta",
-            ),
-          );
-          if (isGap(n)) {
-            detail.append(gapHeader(n));
-            const refs = neighbours(n, "spec"),
-              plan = planOf(n);
-            if (refs.length)
-              detail.append(
-                linkBlock(
-                  "Refers to (spec)",
-                  refs.map((r) => (li) => {
-                    li.append(nodeButton(r));
-                    li.append(el("span", types[r.type] || r.type, "subtle"));
-                  }),
-                ),
-              );
-            if (plan)
-              detail.append(
-                linkBlock("Plan", [
-                  (li) => {
-                    li.append(nodeButton(plan));
-                    if (plan.status)
-                      li.append(
-                        el("span", labels[plan.status] || plan.status, "subtle"),
-                      );
-                  },
-                ]),
-              );
-          } else if (isPlan(n)) {
-            const g = byId.get(n.gap);
-            if (g)
-              detail.append(
-                linkBlock("Plan for gap", [
-                  (li) => {
-                    li.append(nodeButton(g));
-                    if (isGap(g)) li.append(stateBadge(g));
-                  },
-                ]),
-              );
-          } else if (layerOf(n) === "spec") {
-            const about = gapsAbout(n);
-            if (about.length)
-              detail.append(
-                linkBlock(
-                  "Gaps about this (" + about.length + ")",
-                  about.map((g) => (li) => {
-                    li.append(nodeButton(g), stateBadge(g));
-                    if (recheckOutdated(g)) li.append(outdatedBadge());
-                  }),
-                ),
-              );
-          }
-          if (!isGap(n) && n.stale && n.status !== "stale")
-            detail.append(
-              el(
-                "div",
-                "Sources have changed or have not been reviewed yet. Review is required.",
-                "stale-note",
-              ),
-            );
-          // Legacy data: gap category lived in tags.
-          if (!str(n.kind))
-            for (const tag of Array.isArray(n.tags) ? n.tags : []) {
-              const text = kindLabels[tag] || (tag === "deferred" ? "Deferred" : "");
-              if (text) detail.append(el("div", text, "stale-note"));
-            }
-          detail.append(markdown(bodyOf(n), n));
-          $("#reader-updated").textContent = n.path || "";
-          render(true);
-          switchView("reader");
-        }
-        function updateChrome() {
-          document.body.dataset.mode = mode;
-          const gaps = mode === "gap",
-            read = mode === "read";
-          modeButtons.read.setAttribute("aria-pressed", String(read));
-          modeButtons.spec.setAttribute("aria-pressed", String(mode === "spec"));
-          modeButtons.gap.setAttribute("aria-pressed", String(gaps));
-          $("#reading").hidden = !read;
-          workspace.hidden = read;
-          $(".mobile-tabs").hidden = read;
-          const wait = nodes.filter((n) =>
-            ["needs-recheck", "needs-decision"].includes(stateOf(n)),
-          ).length;
-          const pill = $("#mode-wait");
-          pill.hidden = !wait;
-          pill.textContent = wait + " waiting";
-          $("#mode-hint").textContent = gaps
-            ? "Questions about what is missing or could be added. Each one is rechecked and decided by a person."
-            : read
-              ? "What the product does today, in plain words."
-              : "How the pages of the spec connect.";
-          $("#panel-spec").hidden = gaps;
-          $("#panel-gaps").hidden = !gaps;
-          $("#nav-title").textContent = gaps ? "Gap queue" : "Spec pages";
-          $("#map-title").textContent = gaps ? "Gap map" : "Spec map";
-          $("#map-desc").textContent = gaps
-            ? "Gaps and their plans, with the spec pages they refer to. Gaps are questions, not facts about the code."
-            : "Areas and notes describing how the code works now. Gaps live in the Gaps view.";
-          $("#graph-hint").textContent = gaps
-            ? "Each frame is an area. Colored circles are gaps (label shows the state), squares are plans, dashed outlines are spec pages the gaps refer to. Drag to pan; select a node to open it."
-            : "Each frame is an area with its pages; lines are links between pages, dashed when they cross areas. Drag to pan; select a node to open it.";
-          specFilters.forEach(([f, b]) =>
-            b.setAttribute("aria-pressed", String(filter === f)),
-          );
-          const hint = $("#state-hint");
-          hint.textContent = stateHints[gapState] || "";
-          hint.hidden = !stateHints[gapState];
-          const pool = gapPool();
-          stateButtons.forEach(([s, b, n]) => {
-            b.setAttribute("aria-pressed", String(gapState === s));
-            n.textContent =
-              s === "all"
-                ? pool.length
-                : pool.filter((g) => stateOf(g) === s).length;
-          });
-          countButtons.forEach((c) => {
-            c.button.hidden = c.mode !== mode;
-            c.num.textContent = c.fn();
-          });
-        }
-        function row(n) {
-          const b = el("button", null, "item");
-          b.type = "button";
-          b.setAttribute("aria-current", String(selected?.id === n.id));
-          const title = el("strong");
-          title.append(
-            el("span", null, "dot " + stateClass(n)),
-            document.createTextNode(n.title),
-          );
-          b.append(title);
-          if (isGap(n)) {
-            const r2 = el("span", null, "row2");
-            r2.append(
-              el("small", kindLabels[n.kind] || str(n.kind) || "Gap"),
-              stateBadge(n),
-            );
-            if (recheckOutdated(n)) r2.append(outdatedBadge());
-            b.append(r2);
-            const facts = factsLine(n);
-            if (facts) b.append(el("small", facts, "facts-line"));
-          } else
-            b.append(
-              el(
-                "small",
-                (types[n.type] || n.type) +
-                  (n.status ? " · " + (labels[n.status] || n.status) : ""),
-              ),
-            );
-          b.addEventListener("click", () => openNode(n));
-          return b;
-        }
-        // --- Read: the spec as a document. No properties, no map; code detail and open questions are folded away.
         const primaryArea = (n) => (n.areas || [])[0] || "";
         const isFeature = (n) => n.type === "note" && n.status !== "superseded";
         const featuresOf = (area) =>
@@ -2209,200 +2014,1059 @@
             ["needs-recheck", "needs-decision"].includes(stateOf(g)),
           );
         const plural = (count, word) => count + " " + word + (count === 1 ? "" : "s");
-        function readMatches(n) {
-          const q = $("#read-search").value.trim().toLocaleLowerCase();
+        // --- Where you are: one route at a time, with a trail for Back and Forward --------------------
+        const trail = []; // every place visited in this session, in order
+        let at = -1, // trail[at] is what is on screen
+          route = { name: "home", id: "" };
+        const ROUTES = ["home", "page", "gaps", "map", "changes", "request"];
+        const sameRoute = (a, b) => a.name === b.name && a.id === b.id;
+        const routeHash = (r) => {
+          if (r.name === "home") return "#/";
+          if (r.name !== "page") return "#/" + r.name;
+          const n = byId.get(r.id);
+          return "#/page/" + encodeURI(String(n ? n.path : "").replace(/\.md$/i, ""));
+        };
+        function parseHash(hash) {
+          const text = String(hash || "").replace(/^#\/?/, "");
+          if (text.startsWith("page/")) {
+            let path = text.slice(5);
+            try {
+              path = decodeURI(path);
+            } catch {
+              /* keep the raw text */
+            }
+            const n = byPath.get(path);
+            return n ? { name: "page", id: n.id } : { name: "home", id: "" };
+          }
+          return { name: ROUTES.includes(text) && text !== "page" ? text : "home", id: "" };
+        }
+        function go(next) {
+          if (at >= 0 && sameRoute(trail[at], next)) return show();
+          trail.splice(at + 1);
+          trail.push(next);
+          at = trail.length - 1;
+          if (hasWindow) {
+            try {
+              history.pushState({ at, route: next }, "", routeHash(next));
+            } catch {
+              /* a sandboxed page cannot touch history; the trail still works */
+            }
+          }
+          show();
+        }
+        function step(delta) {
+          const to = at + delta;
+          if (to < 0 || to >= trail.length) return;
+          if (hasWindow) {
+            try {
+              return history.go(delta); // the popstate handler moves the trail
+            } catch {
+              /* fall through */
+            }
+          }
+          at = to;
+          show();
+        }
+        const openNode = (n) => go({ name: "page", id: n.id });
+        const routeLabel = (r) =>
+          r.name === "page"
+            ? str(byId.get(r.id)?.title)
+            : { home: "the overview", gaps: "the gap queue", map: "the map", changes: "recent changes", request: "the request" }[r.name];
+
+        // Pages opened lately, newest first, kept across reloads.
+        let recent = store.get("recent", []);
+        recent = (Array.isArray(recent) ? recent : []).filter((id) => byId.has(id));
+        function remember(n) {
+          recent = [n.id, ...recent.filter((id) => id !== n.id)].slice(0, 8);
+          store.set("recent", recent);
+        }
+
+        // Pages whose cited sources changed since someone last read them against the code.
+        const changedSources = new Map();
+        (Array.isArray(data.warnings) ? data.warnings : []).forEach((w) => {
+          const m = /^(.+?\.md): changed source (.+?)(?: \(uncommitted change, not counted\))?$/.exec(String(w));
+          if (!m) return;
+          if (!changedSources.has(m[1])) changedSources.set(m[1], []);
+          changedSources.get(m[1]).push(m[2]);
+        });
+        const rereads = nodes
+          .filter((n) => changedSources.has(n.path) || n.stale === true)
+          .sort((a, b) => String(a.path).localeCompare(String(b.path)));
+        const waitingGaps = nodes.filter((n) =>
+          ["needs-recheck", "needs-decision"].includes(stateOf(n)),
+        );
+        // Commits newer than the one that was newest on your previous visit.
+        const seenSha = store.get("seen", "");
+        const seenIndex = historyLog.findIndex((c) => c.sha === seenSha);
+        const newCommits = !seenSha ? 0 : seenIndex < 0 ? historyLog.length : seenIndex;
+
+        // The request being put together: pages, what is wanted, how far the agent should go.
+        const HOWS = [
+          ["build", "Questions first, then build"],
+          ["plan", "Plan only"],
+          ["recheck", "Recheck only"],
+        ];
+        let request = store.get("request", null);
+        if (!request || typeof request !== "object") request = {};
+        request = {
+          items: (Array.isArray(request.items) ? request.items : []).filter((id) => byId.has(id)),
+          want: str(request.want),
+          how: HOWS.some(([k]) => k === request.how) ? request.how : "build",
+          copiedOn: str(request.copiedOn),
+        };
+        const saveRequest = () => store.set("request", request);
+        function addToRequest(n) {
+          if (!request.items.includes(n.id)) request.items.push(n.id);
+          request.copiedOn = "";
+          saveRequest();
+        }
+        const pageLines = (list) =>
+          list.map((n) => "- " + repoPath(n) + " (" + n.title + ")").join("\n");
+        function requestBrief() {
+          const pages = request.items.map((id) => byId.get(id)).filter(Boolean),
+            about = pages.length ? pageLines(pages) : "- [pick the pages this is about]",
+            want = request.want.trim() || "[describe the change you want]";
+          if (request.how === "plan")
+            return (
+              "Use the spec-plan skill to plan this change. Plan only; do not implement it.\n\n" +
+              "I want: " + want + "\n\nThis is about:\n" + about
+            );
+          if (request.how === "recheck")
+            return (
+              "Use the spec-investigation skill to re-check these pages against the code. " +
+              "Write each result into the page's Recheck section and leave the decisions to me.\n\n" +
+              "Pages:\n" + about +
+              (request.want.trim() ? "\n\nWhat I am wondering about: " + request.want.trim() : "")
+            );
           return (
-            !q ||
-            (str(n.title) + " " + str(n.summary) + " " + str(n.body))
-              .toLocaleLowerCase()
-              .includes(q)
+            "Use the spec-change skill.\n\nI want: " + want + "\n\nThis is about:\n" + about +
+            "\n\nAsk your questions first. Then edit the spec on a branch, build it and check every changed statement against the code."
           );
         }
-        // The page repeats its title as a first heading; the reader already shows it.
-        const bodyOf = (n) => str(n.body).replace(/^\s*# [^\n]*\n?/, "");
-        function openRead(n) {
-          mode = "read";
-          readPage = n;
-          selected = n;
-          render();
-          $("#page").scrollTop = 0;
-        }
-        function readButton(n, text, cls) {
-          const b = el("button", text == null ? n.title : text, cls || "wiki");
-          b.type = "button";
-          b.addEventListener("click", () => openRead(n));
-          return b;
-        }
-        function renderOutline() {
-          const out = $("#outline");
-          out.replaceChildren();
-          const home = readButton(null, data.title || "Overview", "outline-home");
-          home.setAttribute("aria-current", String(!readPage));
-          out.append(home);
-          const add = (n, cls) => {
-            const b = readButton(n, n.title, cls);
-            b.setAttribute("aria-current", String(readPage?.id === n.id));
-            out.append(b);
-          };
-          let any = false;
-          areas.forEach((a) => {
-            const features = featuresOf(a),
-              hits = features.filter(readMatches);
-            if (!readMatches(a) && !hits.length) return;
-            any = true;
-            add(a, "outline-area");
-            (hits.length ? hits : features).forEach((f) => add(f, "outline-note"));
+
+        // --- Sidebar: places, then the spec as a tree ---------------------------------------------------
+        const openAreas = new Set();
+        function renderSide() {
+          const links = $("#nav-links");
+          links.replaceChildren();
+          [
+            ["Overview", "", "home"],
+            ["Recent changes", rereads.length ? rereads.length + " to re-read" : newCommits ? newCommits + " new" : "", "changes"],
+            ["Gaps", waitingGaps.length ? waitingGaps.length + " waiting" : "", "gaps"],
+            ["Map", "", "map"],
+            ["Requests", request.items.length || request.want.trim() ? "1 draft" : "", "request"],
+          ].forEach(([label, meta, name]) => {
+            const b = button(null, "nav-link", () => go({ name, id: "" }));
+            b.append(el("span", label), el("span", meta, "meta"));
+            b.setAttribute("aria-current", route.name === name ? "page" : "false");
+            links.append(b);
           });
-          const loose = looseFeatures().filter(readMatches);
-          loose.forEach((f) => add(f, "outline-note"));
-          if (!any && !loose.length)
-            out.append(el("p", "Nothing matches.", "empty"));
+          const tree = $("#tree");
+          tree.replaceChildren();
+          const noteRow = (f) => {
+            const b = button(null, "tree-row note", () => openNode(f)),
+              open = waiting(f).length;
+            b.append(el("span", f.title, "label"));
+            if (open) b.append(el("span", open + " open", "meta"));
+            b.setAttribute("aria-current", selected === f ? "page" : "false");
+            return b;
+          };
+          areas.forEach((a) => {
+            const open = openAreas.has(a.id),
+              line = el("div", null, "tree-area"),
+              twist = button(null, "twist", () => {
+                if (open) openAreas.delete(a.id);
+                else openAreas.add(a.id);
+                renderSide();
+              }),
+              name = button(null, "tree-row area", () => {
+                openAreas.add(a.id);
+                openNode(a);
+              });
+            twist.append(icon(ICON.chevron));
+            twist.setAttribute("aria-expanded", String(open));
+            twist.setAttribute("aria-label", (open ? "Collapse " : "Expand ") + a.title);
+            name.append(el("span", a.title, "label"));
+            name.setAttribute("aria-current", selected === a ? "page" : "false");
+            line.append(twist, name);
+            tree.append(line);
+            if (open) featuresOf(a).forEach((f) => tree.append(noteRow(f)));
+          });
+          const loose = looseFeatures();
+          if (loose.length) {
+            tree.append(el("div", "Other", "eyebrow"));
+            loose.forEach((f) => tree.append(noteRow(f)));
+          }
+          if (!areas.length && !loose.length) tree.append(el("p", "No pages yet.", "empty"));
         }
+
+        // --- Top bar: breadcrumb, Back and Forward, and the two copy actions ---------------------------
+        function renderTop() {
+          $("#back").disabled = at <= 0;
+          $("#forward").disabled = at >= trail.length - 1;
+          const crumbs = $("#crumbs");
+          crumbs.replaceChildren();
+          const parts = [[projectTitle, { name: "home", id: "" }]];
+          const n = selected;
+          if (n) {
+            const parent = n.type === "note" ? byId.get(primaryArea(n)) : null;
+            if (parent && parent.type === "area") parts.push([parent.title, { name: "page", id: parent.id }]);
+            if (isGap(n) || isPlan(n)) parts.push(["Gaps", { name: "gaps", id: "" }]);
+            if (isPlan(n) && byId.get(n.gap)) parts.push([byId.get(n.gap).title, { name: "page", id: n.gap }]);
+            parts.push([n.title, null]);
+          } else if (route.name !== "home")
+            parts.push([{ gaps: "Gaps", map: "Map", changes: "Recent changes", request: "Request" }[route.name], null]);
+          parts.forEach(([label, to], i) => {
+            if (i) crumbs.append(el("span", "/"));
+            const last = i === parts.length - 1;
+            crumbs.append(last ? el("span", label, "here") : button(label, null, () => go(to)));
+          });
+          $("#copy-ai").hidden = !n;
+          $("#copy-link").hidden = typeof location === "undefined";
+        }
+        $("#back").addEventListener("click", () => step(-1));
+        $("#forward").addEventListener("click", () => step(1));
+        $("#copy-ai").addEventListener("click", () => selected && openCopy(selected));
+        $("#copy-link").addEventListener("click", () => {
+          if (typeof location !== "undefined") copyText(String(location.href), "Link copied");
+        });
+        $("#open-search").addEventListener("click", () => openPalette("open"));
+
+        // --- Pieces shared by the views ----------------------------------------------------------------
+        const header = (eyebrow, title, lead) => {
+          const box = el("header", null, "stack");
+          box.append(el("div", eyebrow, "eyebrow"));
+          const h = el("h1", null, "title");
+          if (Array.isArray(title)) h.append(el("span", title[0] + " ", "quiet"), document.createTextNode(title[1]));
+          else h.textContent = title;
+          box.append(h);
+          if (lead) box.append(el("p", lead, "lead"));
+          return box;
+        };
+        const pills = (label, options, current, pick) => {
+          const row = el("div", null, "pillrow");
+          row.setAttribute("role", "group");
+          row.setAttribute("aria-label", label);
+          options.forEach(([value, text, count]) => {
+            const b = button(null, "pill", () => pick(value));
+            b.append(document.createTextNode(text));
+            if (count != null) b.append(el("span", String(count), "n"));
+            b.setAttribute("aria-pressed", String(current === value));
+            row.append(b);
+          });
+          return row;
+        };
         function featureList(features) {
-          const box = el("div", null, "features");
+          const box = el("div");
           features.forEach((f) => {
-            const item = el("div", null, "feature");
-            item.append(readButton(f, f.title, "feature-title"));
-            if (str(f.summary).trim()) item.append(el("p", f.summary));
-            const open = waiting(f).length;
-            if (open) item.append(el("span", plural(open, "open question"), "quiet"));
+            const item = el("div", null, "feature"),
+              open = waiting(f).length;
+            item.append(button(f.title, "rowlink", () => openNode(f)));
+            if (str(f.summary).trim()) item.append(el("p", f.summary, "muted"));
+            if (open) item.append(el("span", plural(open, "open question"), "muted small"));
             box.append(item);
           });
           return box;
         }
-        function fold(title, content, first) {
-          const d = el("details", null, first ? "fold-start" : "");
+        const fold = (title, content, open) => {
+          const d = el("details", null, "fold");
+          if (open) d.open = true;
           d.append(el("summary", title), content);
           return d;
-        }
-        function questionsFold(n, first) {
-          const about = gapsAbout(n).filter(
-            (g) => !["done", "rejected", "duplicate"].includes(stateOf(g)),
-          );
-          if (!about.length) return null;
-          const ul = el("ul", null, "link-list");
-          about.forEach((g) => {
-            const li = el("li");
-            li.append(nodeButton(g), stateBadge(g));
-            ul.append(li);
+        };
+        const statusBadge = (n) => {
+          const cls = stateClass(n);
+          return el("span", labels[n.status] || str(n.status) || types[n.type] || "Page", "badge " + (cls || (n.status === "current" ? "ok" : "")));
+        };
+        const gapRow = (g) => {
+          const row = el("div", null, "row"),
+            grow = el("div", null, "grow");
+          grow.append(button(g.title, "rowlink", () => openNode(g)));
+          const facts = [kindLabels[g.kind] || str(g.kind), factsLine(g)].filter(Boolean).join(" · ");
+          if (facts) grow.append(el("span", facts, "muted small"));
+          row.append(grow, stateBadge(g));
+          if (recheckOutdated(g)) row.append(outdatedBadge());
+          return row;
+        };
+        const sourceLine = (src) => {
+          const key = normPath([src]);
+          return hasFile(key) ? fileButton({ key, from: 0, to: 0 }, src) : el("span", src);
+        };
+
+        // --- Views ---------------------------------------------------------------------------------------
+        function viewHome(view) {
+          const box = el("div", null, "stack");
+          box.append(header("Overview", projectTitle, "What the product does today, area by area."));
+          areas.forEach((a) => {
+            const section = el("section"),
+              h = el("h2", null, "h2");
+            h.append(button(a.title, null, () => openNode(a)));
+            section.append(h);
+            if (str(a.summary).trim()) section.append(el("p", a.summary, "muted"));
+            section.append(featureList(featuresOf(a)));
+            box.append(section);
           });
-          return fold("Open questions and planned changes (" + about.length + ")", ul, first);
-        }
-        function techFold(n, first) {
-          const dl = el("dl", null, "tech");
-          const row = (k, v) => {
-            if (v) dl.append(el("dt", k), el("dd", v));
-          };
-          row("Status", labels[n.status] || str(n.status));
-          row("Updated", str(n.updated));
-          row("Page", str(n.path));
-          const sources = (Array.isArray(n.sources) ? n.sources : []).filter(str);
-          if (sources.length) {
-            const dd = el("dd");
-            sources.forEach((src) => {
-              const key = normPath([src]);
-              dd.append(
-                hasFile(key)
-                  ? fileButton({ key, from: 0, to: 0 }, src)
-                  : el("div", src),
-              );
-            });
-            dl.append(el("dt", "Sources"), dd);
+          const loose = looseFeatures();
+          if (loose.length) {
+            const section = el("section");
+            section.append(el("h2", "Other", "h2"), featureList(loose));
+            box.append(section);
           }
-          if (n.stale && n.status !== "stale")
-            row("Review", "Sources have changed since this page was last checked.");
-          return fold("Technical details", dl, first);
+          if (!areas.length && !loose.length) box.append(el("p", "This spec has no pages yet.", "empty"));
+          view.append(box);
         }
-        function renderPage() {
-          const page = $("#page"),
-            body = el("div", null, "page-body"),
-            n = readPage;
-          page.replaceChildren(body);
-          if (!n) {
-            body.append(
-              el("h1", data.title || "Specification"),
-              el("p", "What the product does today, area by area.", "lead"),
-            );
-            areas.forEach((a) => {
-              const h = el("h2");
-              h.append(readButton(a));
-              body.append(h);
-              if (str(a.summary).trim()) body.append(el("p", a.summary, "area-summary"));
-              body.append(featureList(featuresOf(a)));
-            });
-            const loose = looseFeatures();
-            if (loose.length) body.append(el("h2", "Other"), featureList(loose));
-            if (!areas.length && !loose.length)
-              body.append(el("p", "This spec has no pages yet.", "empty"));
-            return;
-          }
-          const crumbs = el("div", null, "crumbs");
-          crumbs.append(readButton(null, data.title || "Overview"));
+
+        function rail(n) {
+          const box = el("aside", null, "rail");
+          box.setAttribute("aria-label", "Where you are");
+          const card = el("div", null, "card pad"),
+            path = el("div", null, "here-path");
+          card.append(el("div", "You are here", "eyebrow"));
+          path.append(button(projectTitle, null, () => go({ name: "home", id: "" })));
           const parent = n.type === "note" ? byId.get(primaryArea(n)) : null;
-          if (parent && parent.type === "area")
-            crumbs.append(document.createTextNode(" › "), readButton(parent));
-          body.append(crumbs, el("h1", n.title));
-          const summary = str(n.summary).trim();
-          if (summary) body.append(el("p", summary, "lead"));
-          let folds = 0;
-          if (n.type === "area") {
-            body.append(featureList(featuresOf(n)));
-          } else if (!summary) {
-            // No plain-language summary yet: the page text is all there is to read.
-            body.append(markdown(bodyOf(n), n));
+          if (parent && parent.type === "area") path.append(button(parent.title, null, () => openNode(parent)));
+          if (isGap(n) || isPlan(n)) path.append(button("Gaps", null, () => go({ name: "gaps", id: "" })));
+          path.append(el("span", n.title, "now"));
+          card.append(path);
+          const from = at > 0 ? trail[at - 1] : null;
+          if (from && routeLabel(from))
+            card.append(el("p", "You came from " + routeLabel(from) + ". Back returns there.", "muted small"));
+          box.append(card);
+          const others = recent.filter((id) => id !== n.id).slice(0, 5);
+          if (others.length) {
+            const list = el("div", null, "recent");
+            list.append(el("div", "Recently viewed", "mono-label"));
+            others.forEach((id) => list.append(button(byId.get(id).title, null, () => openNode(byId.get(id)))));
+            box.append(list);
           }
-          const related = neighbours(n, "spec").filter(
-            (r) => r.id !== parent?.id && !(n.type === "area" && primaryArea(r) === n.id),
+          return box;
+        }
+
+        function viewPage(view, n) {
+          const page = el("div", null, "page"),
+            main = el("article", null, "page-main"),
+            layer = layerOf(n),
+            parent = n.type === "note" ? byId.get(primaryArea(n)) : null,
+            summary = str(n.summary).trim();
+          main.append(
+            el(
+              "div",
+              isGap(n)
+                ? "Gap" + (str(n.kind) ? " · " + (kindLabels[n.kind] || n.kind) : "")
+                : n.type === "note"
+                  ? "Feature" + (parent ? " · " + parent.title : "")
+                  : types[n.type] || "Page",
+              "eyebrow",
+            ),
+            el("h1", n.title, "title"),
           );
-          if (related.length) {
-            const chips = el("div", null, "related");
-            related.forEach((r) => chips.append(readButton(r, r.title, "chip")));
-            body.append(el("p", "Related", "label"), chips);
+          if (summary) main.append(el("p", summary, "lead"));
+          const meta = el("div", null, "metarow");
+          meta.append(isGap(n) ? stateBadge(n) : statusBadge(n));
+          if (recheckOutdated(n)) meta.append(outdatedBadge());
+          if (!isGap(n) && n.stale && n.status !== "stale") meta.append(el("span", "Sources changed since the last review", "badge stale"));
+          meta.append(el("span", repoPath(n), "path"));
+          main.append(meta);
+
+          if (isGap(n)) {
+            main.append(gapHeader(n));
+            const refs = neighbours(n, "spec"),
+              plan = planOf(n);
+            if (refs.length) {
+              const chips = el("div", null, "chips");
+              refs.forEach((r) => chips.append(button(r.title, "chip", () => openNode(r))));
+              main.append(el("div", "Refers to", "mono-label"), chips);
+            }
+            if (plan)
+              main.append(
+                linkBlock("Plan", [
+                  (li) => {
+                    li.append(nodeButton(plan));
+                    if (plan.status) li.append(el("span", labels[plan.status] || plan.status, "muted small"));
+                  },
+                ]),
+              );
+            // Older vaults kept the gap category in tags.
+            if (!str(n.kind))
+              for (const tag of Array.isArray(n.tags) ? n.tags : []) {
+                const text = kindLabels[tag] || (tag === "deferred" ? "Deferred" : "");
+                if (text) main.append(el("span", text, "badge plain"));
+              }
+            main.append(markdown(bodyOf(n), n));
+          } else if (isPlan(n)) {
+            const g = byId.get(n.gap);
+            if (g)
+              main.append(
+                linkBlock("Plan for gap", [
+                  (li) => {
+                    li.append(nodeButton(g));
+                    if (isGap(g)) li.append(stateBadge(g));
+                  },
+                ]),
+              );
+            main.append(markdown(bodyOf(n), n));
+          } else if (layer === "spec") {
+            if (n.type === "area") main.append(featureList(featuresOf(n)));
+            else if (!summary) main.append(markdown(bodyOf(n), n)); // nothing plainer to show yet
+            const related = neighbours(n, "spec").filter(
+              (r) => r.id !== parent?.id && !(n.type === "area" && primaryArea(r) === n.id),
+            );
+            if (related.length) {
+              const chips = el("div", null, "chips");
+              related.forEach((r) => chips.append(button(r.title, "chip", () => openNode(r))));
+              main.append(el("div", "Related", "mono-label"), chips);
+            }
+            const about = gapsAbout(n).filter((g) => !["done", "rejected", "duplicate"].includes(stateOf(g)));
+            if (about.length) {
+              const card = el("section", null, "card"),
+                head = el("div", null, "card-head");
+              head.append(el("h2", "Open questions", "h2"), el("span", about.length + " open", "path"));
+              card.append(head);
+              about.forEach((g) => card.append(gapRow(g)));
+              main.append(card);
+            }
+            const folds = el("div");
+            if (n.type === "area" || summary)
+              folds.append(fold(n.type === "area" ? "More about this area" : "How it works in the code", markdown(bodyOf(n), n)));
+            const sources = (Array.isArray(n.sources) ? n.sources : []).filter(str);
+            if (sources.length) {
+              const ul = el("ul", null, "link-list");
+              sources.forEach((src) => {
+                const li = el("li", null, "path");
+                li.append(sourceLine(src));
+                ul.append(li);
+              });
+              folds.append(fold("Source files (" + sources.length + ")", ul));
+            }
+            if (n.updated) folds.append(el("p", "Updated " + n.updated, "muted small"));
+            main.append(folds);
+          } else main.append(markdown(bodyOf(n), n));
+          page.append(main, rail(n));
+          view.append(page);
+        }
+
+        let gapState = "all",
+          gapArea = "",
+          gapKind = "";
+        const selectOf = (label, options, value, pick) => {
+          const s = el("select");
+          s.setAttribute("aria-label", label);
+          options.forEach(([v, text]) => {
+            const o = el("option", text);
+            o.value = v;
+            s.append(o);
+          });
+          s.value = value;
+          s.addEventListener("change", () => pick(s.value));
+          return s;
+        };
+        const areaOptions = () => [["", "All areas"], ...areas.map((a) => [a.id, a.title])];
+        function viewGaps(view) {
+          const box = el("div", null, "stack");
+          box.append(
+            header(
+              "Gap queue",
+              "Gaps",
+              "Questions about what is missing, unverified or could be added. Each one is rechecked and then decided by a person.",
+            ),
+          );
+          const pool = nodes.filter(
+              (n) => isGap(n) && inArea(n, gapArea) && (!gapKind || n.kind === gapKind),
+            ),
+            again = () => show();
+          box.append(
+            pills(
+              "State",
+              [["all", "All", pool.length], ...STATES.map((s) => [s, stateLabels[s], pool.filter((g) => stateOf(g) === s).length])],
+              gapState,
+              (s) => {
+                gapState = s;
+                again();
+              },
+            ),
+          );
+          if (stateHints[gapState]) box.append(el("p", stateHints[gapState], "muted small"));
+          const kinds = Object.keys(kindLabels);
+          nodes.forEach((n) => {
+            if (isGap(n) && str(n.kind) && !kinds.includes(n.kind)) kinds.push(n.kind);
+          });
+          const filters = el("div", null, "pillrow");
+          filters.append(
+            selectOf("Area", areaOptions(), gapArea, (v) => {
+              gapArea = v;
+              again();
+            }),
+            selectOf("Kind", [["", "All kinds"], ...kinds.map((k) => [k, kindLabels[k] || k])], gapKind, (v) => {
+              gapKind = v;
+              again();
+            }),
+          );
+          box.append(filters);
+          const shown = pool
+            .filter((g) => gapState === "all" || stateOf(g) === gapState)
+            .sort((a, b) => stateRank(a) - stateRank(b) || byTitle(a, b));
+          if (shown.length) {
+            const card = el("section", null, "card");
+            card.id = "gap-list";
+            shown.forEach((g) => card.append(gapRow(g)));
+            box.append(card);
+          } else box.append(el("p", "No gaps match. Try other filters.", "empty"));
+          view.append(box);
+        }
+
+        let mapArea = "";
+        function viewMap() {
+          const gaps = mode === "gap";
+          $("#map-title").textContent = gaps ? "Gap map" : "Spec map";
+          $("#map-desc").textContent = gaps
+            ? "Gaps and their plans, with the spec pages they refer to. Gaps are questions, not facts about the code."
+            : "How the pages of the spec connect. One frame per area.";
+          $("#graph-hint").textContent = gaps
+            ? "Filled circles are gaps, squares are plans, dashed outlines are spec pages the gaps refer to. Drag to pan; select a node to open it."
+            : "Lines are links between pages, dashed when they cross areas. Drag to pan; select a node to open it.";
+          const controls = $("#map-controls");
+          controls.replaceChildren(
+            ...pills("Map layer", [["spec", "Spec"], ["gap", "Gaps"]], mode, (m) => {
+              mode = m;
+              show();
+            }).children,
+            selectOf("Area", areaOptions(), mapArea, (v) => {
+              mapArea = v;
+              show();
+            }),
+          );
+          const shown = gaps
+            ? nodes.filter((n) => isGap(n) && inArea(n, mapArea)).sort((a, b) => stateRank(a) - stateRank(b) || byTitle(a, b))
+            : nodes.filter((n) => layerOf(n) === "spec" && inArea(n, mapArea));
+          draw(graphModel(shown), false);
+        }
+
+        let changeFilter = "all";
+        const statusWord = { added: "New", removed: "Removed", changed: "Updated" };
+        const pageByFile = (path) => byPath.get(String(path || "").replace(/\.md$/i, ""));
+        const inFilter = (path) =>
+          changeFilter === "spec"
+            ? /^(areas|notes)\//.test(path)
+            : changeFilter === "gaps"
+              ? /^(gaps|plans)\//.test(path)
+              : true;
+        const pageRow = (entry) => {
+          const row = el("div", null, "row"),
+            grow = el("div", null, "grow"),
+            n = pageByFile(entry.path);
+          grow.append(n ? button(n.title, "rowlink", () => openNode(n)) : el("span", str(entry.path)));
+          if (n) grow.append(el("span", str(entry.path), "path"));
+          row.append(grow);
+          if (entry.status) row.append(el("span", statusWord[entry.status] || str(entry.status), "badge plain"));
+          if (str(entry.was) && str(entry.now)) {
+            const box = el("div", null, "wasnow"),
+              was = el("div", null, "was"),
+              now = el("div");
+            was.append(el("b", "was"), el("span", entry.was));
+            now.append(el("b", "now"), el("span", entry.now));
+            box.append(was, now);
+            row.append(box);
           }
-          if (n.type === "area" || summary)
-          {
-            body.append(
-              fold(
-                n.type === "area" ? "More about this area" : "How it works in the code",
-                markdown(bodyOf(n), n),
-                true,
+          return row;
+        };
+        const rereadBrief = () =>
+          "Use the project-knowledge skill. These pages cite sources that changed since the last review. " +
+          "Re-read each page against its sources, update the text where the code now differs, and accept the fingerprints only for pages you re-read.\n\n" +
+          rereads
+            .map((n) => "- " + repoPath(n) + (changedSources.has(n.path) ? " (changed: " + changedSources.get(n.path).join(", ") + ")" : ""))
+            .join("\n");
+        function viewChanges(view) {
+          const box = el("div", null, "stack");
+          box.append(
+            header(
+              "Recent changes",
+              ["The code moved.", "See what the spec did."],
+              "Pages whose sources changed since someone last read them, then every edit to the spec and the gap queue, newest first.",
+            ),
+          );
+          const options = [["all", "Everything"], ["spec", "Spec pages"], ["gaps", "Gaps"]];
+          if (newCommits) options.push(["new", "Since my last visit", newCommits]);
+          if (!options.some(([v]) => v === changeFilter)) changeFilter = "all";
+          box.append(
+            pills("Show", options, changeFilter, (v) => {
+              changeFilter = v;
+              show();
+            }),
+          );
+          const stale = rereads.filter((n) => inFilter(n.path));
+          if (stale.length && changeFilter !== "new") {
+            const card = el("section", null, "card notice"),
+              head = el("div", null, "card-head"),
+              text = el("div", null, "h2"),
+              copy = button(null, "btn accent", () => copyText(rereadBrief(), "Copied " + plural(rereads.length, "page")));
+            card.id = "rereads";
+            text.textContent = plural(stale.length, "page") + (stale.length === 1 ? " needs" : " need") + " re-reading";
+            copy.append(icon(ICON.copy), document.createTextNode("Copy for AI"));
+            head.append(text, copy);
+            card.append(head);
+            stale.forEach((n) => {
+              const row = el("div", null, "row"),
+                grow = el("div", null, "grow");
+              grow.append(button(n.title, "rowlink", () => openNode(n)), el("span", str(n.path), "path"));
+              row.append(grow);
+              (changedSources.get(n.path) || []).forEach((src) => {
+                const s = el("span", null, "path");
+                s.append(sourceLine(src));
+                row.append(s);
+              });
+              card.append(row);
+            });
+            box.append(
+              card,
+              el("p", "A file these pages cite changed after the last review. The text may still be right; nobody has checked.", "muted small"),
+            );
+          }
+          const waitingCommit = pendingPages.filter((p) => inFilter(str(p.path)));
+          if (waitingCommit.length && changeFilter !== "new") {
+            const card = el("section", null, "card"),
+              head = el("div", null, "card-head");
+            card.id = "pending";
+            head.append(el("h2", "Not committed yet", "h2"), el("span", plural(waitingCommit.length, "page"), "path"));
+            card.append(head);
+            waitingCommit.forEach((p) => card.append(pageRow(p)));
+            box.append(card);
+          }
+          box.append(el("h2", "History", "h2"));
+          let any = false;
+          historyLog.forEach((c, i) => {
+            if (changeFilter === "new" && i >= newCommits) return;
+            const pages = (Array.isArray(c.pages) ? c.pages : []).filter((p) => p && inFilter(str(p.path)));
+            if (!pages.length) return;
+            any = true;
+            const card = el("article", null, "card"),
+              head = el("div", null, "card-head"),
+              text = el("div", null, "grow");
+            text.append(
+              el("div", str(c.date) + " · commit " + str(c.sha).slice(0, 7) + (i < newCommits ? " · new" : ""), "eyebrow"),
+              el("h3", str(c.subject), "h2"),
+            );
+            head.append(text);
+            card.append(head);
+            pages.forEach((p) => card.append(pageRow(p)));
+            if (c.more && changeFilter === "all") {
+              const more = el("div", null, "row");
+              more.append(el("span", "and " + plural(c.more, "more page"), "muted small"));
+              card.append(more);
+            }
+            box.append(card);
+          });
+          if (!any)
+            box.append(
+              el(
+                "p",
+                historyLog.length
+                  ? "Nothing in the history matches this filter."
+                  : live
+                    ? "No Git history was found for this vault."
+                    : "History is shown when the spec is opened with the serve command.",
+                "empty",
               ),
             );
-            folds++;
-          }
-          const questions = questionsFold(n, !folds);
-          if (questions) {
-            body.append(questions);
-            folds++;
-          }
-          body.append(techFold(n, !folds));
+          view.append(box);
+          if (historyLog.length) store.set("seen", historyLog[0].sha);
         }
-        function render(preserveView = false) {
-          updateChrome();
-          if (mode === "read") {
-            renderOutline();
-            renderPage();
-            return;
+
+        function viewRequest(view) {
+          const box = el("div"),
+            copied = !!request.copiedOn;
+          box.className = "stack";
+          box.style.maxWidth = "1100px";
+          box.append(
+            header(
+              "Request · " + (copied ? "brief copied" : "draft"),
+              ["Pick the pages.", "Say what you want."],
+              "The request becomes a brief your agent can act on, with a link to every page it is about.",
+            ),
+          );
+          const steps = el("ol", null, "steps");
+          steps.setAttribute("aria-label", "Where this request stands");
+          [["Draft", !copied], ["Brief copied" + (copied ? " on " + request.copiedOn : ""), copied]].forEach(([text, on]) => {
+            steps.append(el("li", text, on ? "on" : ""));
+          });
+          box.append(steps);
+
+          const cols = el("div", null, "cols"),
+            form = el("div", null, "form"),
+            brief = el("aside", null, "night"),
+            pre = el("pre", requestBrief());
+          pre.id = "brief";
+          const refresh = () => {
+            pre.textContent = requestBrief();
+          };
+
+          const about = el("section");
+          about.append(el("h2", "What it is about", "h2"));
+          const pages = request.items.map((id) => byId.get(id)).filter(Boolean);
+          if (pages.length) {
+            const card = el("div", null, "card");
+            card.id = "request-items";
+            pages.forEach((n) => {
+              const row = el("div", null, "row"),
+                grow = el("div", null, "grow"),
+                x = button(null, "xbtn", () => {
+                  request.items = request.items.filter((id) => id !== n.id);
+                  request.copiedOn = "";
+                  saveRequest();
+                  show();
+                });
+              x.setAttribute("aria-label", "Remove " + n.title + " from the request");
+              x.append(icon(ICON.close, 18));
+              grow.append(button(n.title, "rowlink", () => openNode(n)), el("span", repoPath(n), "path"));
+              row.append(grow, x);
+              card.append(row);
+            });
+            about.append(card);
+          } else about.append(el("p", "Nothing picked yet. Open a page and use Copy for AI, or add one here.", "empty"));
+          const add = button("Add a page", "btn", () => openPalette("pick"));
+          add.style.alignSelf = "flex-start";
+          about.append(add);
+
+          const want = el("section"),
+            label = el("label", "What you want", "h2"),
+            area = el("textarea");
+          label.setAttribute("for", "want");
+          area.id = "want";
+          area.rows = 5;
+          area.placeholder = "In your own words: what should be different, and for whom.";
+          area.value = request.want;
+          area.addEventListener("input", () => {
+            request.want = area.value;
+            request.copiedOn = "";
+            saveRequest();
+            refresh();
+          });
+          want.append(label, area, el("p", "Describe behavior, not code. The agent asks its questions before it builds.", "muted small"));
+
+          const how = el("section");
+          how.append(
+            el("h2", "How far to go", "h2"),
+            pills("How far to go", HOWS, request.how, (v) => {
+              request.how = v;
+              request.copiedOn = "";
+              saveRequest();
+              show();
+            }),
+          );
+          form.append(about, want, how);
+          if (pages.length || request.want.trim()) {
+            const clear = button("Start over", "btn", () => {
+              request = { items: [], want: "", how: "build", copiedOn: "" };
+              saveRequest();
+              show();
+            });
+            clear.style.alignSelf = "flex-start";
+            form.append(clear);
           }
-          const shown = visible();
-          $("#list-label").textContent =
-            (mode === "gap" ? "Gaps" : "Materials") + " · " + shown.length;
-          list.replaceChildren();
-          shown.forEach((n) => list.append(row(n)));
-          if (!shown.length)
-            list.append(
-              el("p", "No results. Try changing the filters.", "empty"),
+
+          const copy = button(null, "btn accent large", () => {
+            copyText(requestBrief(), "Brief copied");
+            request.copiedOn = new Date().toISOString().slice(0, 10);
+            saveRequest();
+            show();
+          });
+          copy.id = "copy-brief";
+          copy.append(icon(ICON.copy, 18), document.createTextNode("Copy brief"));
+          const actions = el("div", null, "actions");
+          actions.append(copy, el("span", "Nothing is sent. The draft stays in this browser.", "small"));
+          brief.setAttribute("aria-label", "Brief for the agent");
+          brief.append(el("div", "Brief for the agent", "eyebrow"), pre, actions);
+          cols.append(form, brief);
+          box.append(cols);
+          view.append(box);
+        }
+
+        // --- Copy for AI: say what you want done with one page ------------------------------------------
+        let copyState = null;
+        const intentsFor = (n) =>
+          isGap(n)
+            ? [["recheck", "Recheck it"], ["options", "Lay out options"], ["plan", "Plan it"], ["change", "Change the spec"]]
+            : layerOf(n) === "spec"
+              ? [["change", "Change this"], ["question", "Ask a question"], ["reread", "Re-read against the code"]]
+              : [["question", "Ask a question"]];
+        const INTENT_TEXT = {
+          recheck:
+            "Use the spec-investigation skill to re-check this gap. Write the result into the gap's Recheck section and leave the decision to me.",
+          options:
+            "Lay out the options for this gap, with what each would mean, as an entry in its Discussion section. Do not decide it.",
+          plan: "Use the spec-plan skill to plan this gap. Plan it only if its decision is accepted; otherwise tell me what is missing.",
+          change:
+            "Use the spec-change skill. I want to change the behavior this page describes. Ask your questions first, then edit the spec on a branch, build it and check every changed statement against the code.\n\nWhat I want: [describe the change]",
+          question: "Use the spec-investigation skill to answer a question about this page.\n\nQuestion: [your question]",
+          reread:
+            "Use the project-knowledge skill to re-read this page against its sources and update it where the code now differs.",
+        };
+        const refsOf = (n) =>
+          isGap(n)
+            ? neighbours(n, "spec")
+            : neighbours(n, "spec").filter((r) => r.type !== "area");
+        function pageBrief(n, state) {
+          const lines = [INTENT_TEXT[state.intent], "", (isGap(n) ? "Gap: " : "Page: ") + repoPath(n), "Title: " + n.title];
+          if (isGap(n))
+            lines.push(
+              "State: " +
+                [stateLabels[stateOf(n)].toLowerCase(), (kindLabels[n.kind] || str(n.kind)).toLowerCase(), str(n.priority)]
+                  .filter(Boolean)
+                  .join(" · "),
             );
-          // Index and run pages stay reachable while the Gaps view is open.
-          const navList = $("#nav-list"),
-            navNodes =
-              mode === "gap"
-                ? nodes.filter((n) => layerOf(n) === "nav" && matchesQuery(n))
-                : [];
-          navList.replaceChildren();
-          navNodes.forEach((n) => navList.append(row(n)));
-          $("#nav-block").hidden = !navNodes.length;
-          draw(graphModel(shown), preserveView);
+          const refs = refsOf(n);
+          if (state.refs && refs.length) lines.push("", isGap(n) ? "It refers to:" : "Related pages:", pageLines(refs));
+          if (state.text) lines.push("", "Text of the page:", "", bodyOf(n).trim());
+          return lines.join("\n");
+        }
+        function openCopy(n) {
+          copyState = { node: n, intent: intentsFor(n)[0][0], refs: true, text: false };
+          $("#copydlg").hidden = false;
+          renderCopy();
+        }
+        function closeCopy() {
+          copyState = null;
+          $("#copydlg").hidden = true;
+          $("#copy-card").replaceChildren();
+        }
+        function renderCopy() {
+          const card = $("#copy-card"),
+            n = copyState.node,
+            refs = refsOf(n);
+          card.replaceChildren();
+          const top = el("div", null, "stack"),
+            meta = el("div", null, "metarow");
+          top.style.gap = "10px";
+          meta.append(isGap(n) ? stateBadge(n) : statusBadge(n), el("span", repoPath(n), "path"));
+          top.append(el("div", "Copy for AI", "eyebrow"), el("h2", n.title, "h2"), meta);
+          const want = el("fieldset");
+          want.append(
+            el("legend", "I want the agent to"),
+            pills("I want the agent to", intentsFor(n), copyState.intent, (v) => {
+              copyState.intent = v;
+              renderCopy();
+            }),
+          );
+          const include = el("fieldset");
+          include.append(el("legend", "Include"));
+          const check = (text, key) => {
+            const label = el("label", null, "check"),
+              input = el("input");
+            input.type = "checkbox";
+            input.checked = copyState[key];
+            input.addEventListener("change", () => {
+              copyState[key] = !!input.checked;
+              renderCopy();
+            });
+            label.append(input, document.createTextNode(text));
+            include.append(label);
+          };
+          if (refs.length) check(isGap(n) ? "The " + plural(refs.length, "spec page") + " it refers to" : "The " + plural(refs.length, "related page"), "refs");
+          check("Full text of the page", "text");
+          const preview = el("div", null, "night"),
+            pre = el("pre", pageBrief(n, copyState));
+          pre.id = "copy-preview";
+          preview.append(el("div", "What gets copied", "eyebrow"), pre);
+          const actions = el("div", null, "actions"),
+            copy = button(null, "btn accent large", () => copyText(pageBrief(n, copyState), "Copied"));
+          copy.id = "copy-do";
+          copy.append(icon(ICON.copy, 18), document.createTextNode("Copy"));
+          actions.append(
+            copy,
+            button("Add to a request", "btn large", () => {
+              addToRequest(n);
+              closeCopy();
+              go({ name: "request", id: "" });
+            }),
+            button("Close", "btn large", closeCopy),
+          );
+          card.append(top, want, include, preview, actions, el("p", "Nothing is sent. It goes to your clipboard.", "muted small"));
+        }
+        $("#copydlg").addEventListener("click", (e) => {
+          if (e.target === $("#copydlg")) closeCopy();
+        });
+
+        // --- Search: pages, gaps and cited files, from anywhere -----------------------------------------
+        let palette = { mode: "open", filter: "all", index: 0, hits: [] };
+        const fileText = new Map();
+        const lowerFile = (key) => {
+          if (!fileText.has(key)) fileText.set(key, str(files[key] && files[key].text).toLocaleLowerCase());
+          return fileText.get(key);
+        };
+        const marked = (text, needle) => {
+          const span = el("span"),
+            at = needle ? text.toLocaleLowerCase().indexOf(needle) : -1;
+          if (at < 0) span.textContent = text;
+          else
+            span.append(
+              document.createTextNode(text.slice(0, at)),
+              el("mark", text.slice(at, at + needle.length)),
+              document.createTextNode(text.slice(at + needle.length)),
+            );
+          return span;
+        };
+        function findPages(needle, list, limit) {
+          const scored = [];
+          list.forEach((n) => {
+            const where = str(n.title).toLocaleLowerCase().includes(needle)
+              ? 0
+              : str(n.summary).toLocaleLowerCase().includes(needle)
+                ? 1
+                : str(n.body).toLocaleLowerCase().includes(needle)
+                  ? 2
+                  : -1;
+            if (where >= 0) scored.push([where, n]);
+          });
+          return scored.sort((a, b) => a[0] - b[0] || byTitle(a[1], b[1])).slice(0, limit).map(([, n]) => n);
+        }
+        function searchGroups(query) {
+          const needle = query.trim().toLocaleLowerCase(),
+            picking = palette.mode === "pick",
+            want = (group) => palette.filter === "all" || palette.filter === group;
+          if (!needle) {
+            const lately = recent.map((id) => byId.get(id)).filter(Boolean);
+            return [[lately.length ? "Recently viewed" : "Areas", "features", lately.length ? lately : areas]];
+          }
+          const groups = [];
+          if (want("features"))
+            groups.push(["Features", "features", findPages(needle, nodes.filter((n) => layerOf(n) === "spec" && n.status !== "superseded"), 8)]);
+          if (want("gaps")) groups.push(["Gaps", "gaps", findPages(needle, nodes.filter((n) => layerOf(n) === "gap"), 8)]);
+          if (want("features") && !picking)
+            groups.push(["Other pages", "features", findPages(needle, nodes.filter((n) => layerOf(n) === "nav"), 4)]);
+          if (want("files") && !picking) {
+            const keys = Object.keys(files),
+              byName = keys.filter((k) => k.toLocaleLowerCase().includes(needle)),
+              byText = keys.filter((k) => !byName.includes(k) && lowerFile(k).includes(needle));
+            groups.push(["Files", "files", [...byName, ...byText].slice(0, 6)]);
+          }
+          return groups.filter(([, , items]) => items.length);
+        }
+        function choose(hit) {
+          closePalette();
+          if (typeof hit === "string") return openFile({ key: hit, from: 0, to: 0 });
+          if (palette.mode === "pick") {
+            addToRequest(hit);
+            return show();
+          }
+          openNode(hit);
+        }
+        function renderPalette() {
+          const query = $("#palette-input").value,
+            needle = query.trim().toLocaleLowerCase(),
+            filters = $("#palette-filters"),
+            results = $("#palette-results");
+          filters.replaceChildren(
+            ...pills(
+              "Limit results",
+              palette.mode === "pick"
+                ? [["all", "Everything"], ["features", "Features"], ["gaps", "Gaps"]]
+                : [["all", "Everything"], ["features", "Features"], ["gaps", "Gaps"], ["files", "Files"]],
+              palette.filter,
+              (v) => {
+                palette.filter = v;
+                palette.index = 0;
+                renderPalette();
+              },
+            ).children,
+          );
+          results.replaceChildren();
+          palette.hits = [];
+          searchGroups(query).forEach(([title, , items]) => {
+            results.append(el("div", title, "eyebrow"));
+            items.forEach((item) => {
+              const i = palette.hits.length,
+                b = button(null, "result", () => choose(item)),
+                grow = el("span", null, "grow");
+              palette.hits.push(item);
+              b.setAttribute("aria-selected", String(i === palette.index));
+              if (typeof item === "string") {
+                const name = marked(item, needle);
+                name.className = "path";
+                grow.append(name);
+                b.append(grow, el("span", "cited file", "muted small"));
+              } else {
+                const name = marked(item.title, needle),
+                  parent = item.type === "note" ? byId.get(primaryArea(item)) : null;
+                name.className = "name";
+                grow.append(name, el("span", parent ? parent.title : types[item.type] || "", "muted small"));
+                b.append(grow);
+                if (isGap(item)) b.append(stateBadge(item));
+              }
+              results.append(b);
+            });
+          });
+          if (!palette.hits.length) results.append(el("p", needle ? "Nothing matches." : "Type to search.", "empty"));
+          if (palette.index >= palette.hits.length) palette.index = Math.max(0, palette.hits.length - 1);
+        }
+        function openPalette(kind) {
+          palette = { mode: kind, filter: "all", index: 0, hits: [] };
+          const input = $("#palette-input");
+          input.value = "";
+          input.placeholder = kind === "pick" ? "Find a page to add to the request" : "Search pages, gaps, files";
+          $("#palette").hidden = false;
+          renderPalette();
+          if (typeof input.focus === "function") input.focus();
+        }
+        function closePalette() {
+          $("#palette").hidden = true;
+        }
+        $("#palette-input").addEventListener("input", () => {
+          palette.index = 0;
+          renderPalette();
+        });
+        $("#palette-input").addEventListener("keydown", (e) => {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            const count = palette.hits.length;
+            if (count) palette.index = (palette.index + (e.key === "ArrowDown" ? 1 : count - 1)) % count;
+            renderPalette();
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (palette.hits[palette.index] != null) choose(palette.hits[palette.index]);
+          }
+        });
+        $("#palette").addEventListener("click", (e) => {
+          if (e.target === $("#palette")) closePalette();
+        });
+        if (typeof document.addEventListener === "function")
+          document.addEventListener("keydown", (e) => {
+            if ((e.metaKey || e.ctrlKey) && String(e.key).toLowerCase() === "k") {
+              e.preventDefault();
+              openPalette("open");
+            } else if (e.key === "Escape") {
+              if (!$("#palette").hidden) closePalette();
+              else if (!$("#copydlg").hidden) closeCopy();
+            }
+          });
+
+        // --- Put the current route on screen -------------------------------------------------------------
+        let shownRoute = null;
+        function show() {
+          route = trail[at];
+          let node = route.name === "page" ? byId.get(route.id) : null;
+          if (route.name === "page" && !node) route = trail[at] = { name: "home", id: "" };
+          selected = node || null;
+          if (node) {
+            remember(node);
+            const area = node.type === "area" ? node.id : node.type === "note" ? primaryArea(node) : "";
+            if (area) openAreas.add(area);
+          }
+          renderSide();
+          renderTop();
+          const view = $("#view"),
+            isMap = route.name === "map";
+          view.replaceChildren();
+          view.hidden = isMap;
+          $("#mapview").hidden = !isMap;
+          if (route.name === "page") viewPage(view, node);
+          else if (route.name === "gaps") viewGaps(view);
+          else if (isMap) viewMap();
+          else if (route.name === "changes") viewChanges(view);
+          else if (route.name === "request") viewRequest(view);
+          else viewHome(view);
+          document.title = (node ? node.title + " · " : "") + projectTitle;
+          if (shownRoute && sameRoute(shownRoute, route)) return;
+          shownRoute = route;
+          if (hasWindow && typeof window.scrollTo === "function") window.scrollTo(0, 0);
         }
         function graphModel(shown) {
           if (mode !== "gap")
@@ -2662,7 +3326,43 @@
           drag = null;
           graph.classList.remove("dragging");
         });
-        render();
+        if (hasWindow)
+          window.addEventListener("popstate", (e) => {
+            const s = e.state;
+            if (s && Number.isInteger(s.at) && trail[s.at] && s.route && sameRoute(trail[s.at], s.route)) at = s.at;
+            else {
+              // A reload or a typed address: start a fresh trail at that place.
+              trail.splice(0, trail.length, s && s.route && ROUTES.includes(s.route.name) ? s.route : parseHash(location.hash));
+              at = 0;
+            }
+            show();
+          });
+        // An address typed or pasted into the bar changes only the part after #: follow it.
+        if (hasWindow)
+          window.addEventListener("hashchange", () => {
+            const next = parseHash(location.hash);
+            if (sameRoute(next, trail[at])) return;
+            trail.splice(at + 1);
+            trail.push(next);
+            at = trail.length - 1;
+            try {
+              history.replaceState({ at, route: next }, "", routeHash(next));
+            } catch {
+              /* the trail works without it */
+            }
+            show();
+          });
+        const first = typeof location !== "undefined" ? parseHash(location.hash) : { name: "home", id: "" };
+        trail.push(first);
+        at = 0;
+        if (hasWindow) {
+          try {
+            history.replaceState({ at: 0, route: first }, "", routeHash(first));
+          } catch {
+            /* the trail works without it */
+          }
+        }
+        show();
       })();
     </script>
   </body>

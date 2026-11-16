@@ -905,6 +905,114 @@ def find_vault(repo):
     return found[0]
 
 
+HISTORY_COMMITS = 30  # commits shown under Recent changes
+HISTORY_PAGES = 80    # pages listed for one commit
+_history_cache = {}
+
+
+def page_pathspec(repo, vault):
+    """Git pathspec for the vault's own pages (no generated files), and the prefix to strip from the paths Git prints."""
+    rel = Path(os.path.relpath(vault, repo)).as_posix()
+    if rel == '..' or rel.startswith('../'):
+        return None, None
+    prefix = '' if rel == '.' else rel + '/'
+    return [f':(glob){prefix}**/*.md', f':(exclude,glob){prefix}AS-BUILT.md', f':(exclude,glob){prefix}GAPS.md',
+            f':(exclude,glob){prefix}.knowledge/**'], prefix
+
+
+def front_value(line):
+    """The string a `key: "value"` frontmatter line holds, as the vault writes it (a JSON string)."""
+    raw = line.split(':', 1)[1].strip()
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        value = raw
+    return value if isinstance(value, str) else ''
+
+
+def vault_history(repo, vault):
+    """Recent commits that touched vault pages, newest first: sha, date, subject and what happened to each page.
+
+    A page entry carries `was` and `now` when its summary (or, failing that, its title) changed in that commit.
+    Empty outside a Git work tree. Cached per HEAD, because every page load asks for it.
+    """
+    spec, prefix = page_pathspec(repo, vault)
+    if spec is None:
+        return []
+    head = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD'], capture_output=True)
+    if head.returncode:
+        return []
+    key = (str(repo), str(vault), head.stdout.strip())
+    if key in _history_cache:
+        return _history_cache[key]
+    # Git prints paths from the top of the work tree, which may be above the repository folder given here.
+    top = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--show-prefix'], capture_output=True).stdout.decode(errors='replace').strip()
+    prefix = top + prefix
+    # A marker nobody could have written into a commit message or a page beforehand separates the commits.
+    marker = '\x01' + os.urandom(12).hex() + '\x01'
+    try:
+        log = subprocess.run(['git', '-C', str(repo), '-c', 'core.quotepath=off', 'log', f'-n{HISTORY_COMMITS}', '--date=short', '--no-color',
+                              '--no-renames', '-p', '-U0', f'--format={marker}%H%x02%ad%x02%s', '--', *spec],
+                             capture_output=True, timeout=20)
+    except subprocess.TimeoutExpired:
+        return []
+    if log.returncode:
+        return []
+    commits = []
+    for chunk in log.stdout.decode('utf-8', errors='replace').split(marker)[1:]:
+        header, _, body = chunk.partition('\n')
+        sha, date, subject = (header.split('\x02', 2) + ['', ''])[:3]
+        subject = CONTROL.sub('', subject)
+        pages, page = [], None
+        for line in body.split('\n'):
+            if line.startswith('diff --git '):
+                name = line.rsplit(' b/', 1)[-1]
+                page = {'path': name[len(prefix):], 'status': 'changed', 'fields': {}} if name.startswith(prefix) else None
+                if page:
+                    pages.append(page)
+            elif page is None:
+                continue
+            elif line.startswith('new file mode'):
+                page['status'] = 'added'
+            elif line.startswith('deleted file mode'):
+                page['status'] = 'removed'
+            elif line[:1] in '+-' and line[1:].startswith(('summary:', 'title:')):
+                field = line[1:].split(':', 1)[0]
+                page['fields'].setdefault(field, {})['now' if line[0] == '+' else 'was'] = front_value(line[1:])
+        for page in pages:
+            fields = page.pop('fields')
+            change = next((fields[f] for f in ('summary', 'title') if fields.get(f, {}).get('was') != fields.get(f, {}).get('now')), {})
+            if page['status'] == 'changed' and change.get('was') and change.get('now'):
+                page['was'], page['now'] = change['was'], change['now']
+        if pages:
+            commits.append({'sha': sha, 'date': date, 'subject': subject, 'pages': pages[:HISTORY_PAGES], 'more': max(0, len(pages) - HISTORY_PAGES)})
+    _history_cache.clear()
+    _history_cache[key] = commits
+    return commits
+
+
+def vault_pending(repo, vault):
+    """Vault pages with uncommitted changes: [{path, status}], empty outside Git."""
+    spec, prefix = page_pathspec(repo, vault)
+    if spec is None:
+        return []
+    status = subprocess.run(['git', '-C', str(repo), '-c', 'core.quotepath=off', 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames', '--', *spec],
+                            capture_output=True)
+    if status.returncode:
+        return []
+    top = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--show-prefix'], capture_output=True).stdout.decode(errors='replace').strip()
+    pending = []
+    for item in status.stdout.split(b'\0'):
+        text = os.fsdecode(item)
+        name = text[3:]
+        name = name[len(top):] if name.startswith(top) else name
+        if len(text) > 3 and name.startswith(prefix):
+            code = text[:2]
+            pending.append({'path': name[len(prefix):],
+                            'status': 'added' if '?' in code or 'A' in code else 'removed' if 'D' in code else 'changed'})
+    return sorted(pending, key=lambda p: p['path'])
+
+
 def live_page(repo, vault):
     """The viewer for the vault as it is on disk right now, or a page listing what stops it from loading."""
     try:
@@ -920,7 +1028,8 @@ def live_page(repo, vault):
                 f'<ul>{items}</ul></body>')
     files, _ = cited_files(repo, vault, notes)
     return viewer_html(graph_of(notes, edges, warnings) | {
-        'live': True, 'vaultPath': Path(os.path.relpath(vault, repo)).as_posix(), 'files': files})
+        'live': True, 'vaultPath': Path(os.path.relpath(vault, repo)).as_posix(), 'files': files,
+        'history': vault_history(repo, vault), 'pending': vault_pending(repo, vault)})
 
 
 def make_server(repo, vault, port):

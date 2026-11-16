@@ -132,9 +132,11 @@ python3 skills/project-knowledge/scripts/knowledge.py serve --repo examples/parc
 
 It serves one page on `127.0.0.1` only, reads the vault from disk on every page load and writes nothing, so there is no build step before reading: edit a page, reload. `--vault` is needed only when the repository has more than one vault under `knowledge/`. The page makes no network requests.
 
-- **Read** (the default) is the spec as a plain document: areas, the features in each with a one-line summary, and on each page the code detail, open questions and properties folded away.
-- **Map** shows how the pages connect, one frame per area; an open note lists "Gaps about this".
-- **Gaps** is the queue, filtered by state, kind and area, with who rechecked and decided and when, and a "recheck outdated" badge when the cited sources changed; each gap links to its spec notes and plan.
+- **A tree on the left** lists the areas and the features in each, with a count of open questions; **search** (Cmd/Ctrl+K) finds pages, gaps and cited files.
+- **A page** leads with its plain-language summary; the code detail, the source files and the properties are folded away, and the questions still open about it are listed. A breadcrumb, Back and Forward, a "You are here" card and a list of recently viewed pages say where you are.
+- **Gaps** is the queue, filtered by state, kind and area, with who rechecked and decided and when, and a "recheck outdated" badge when the cited sources changed. **Map** shows how the pages connect, one frame per area.
+- **Recent changes** lists the pages whose cited sources changed since the last review, the pages not committed yet, and the Git history of the vault with what each summary said before and after.
+- **Copy for AI** on any page copies a ready request for your agent with the path of the page file: recheck this gap, plan it, change this behavior. **Requests** collects several pages and your own words into one brief. Nothing is sent anywhere; both go to your clipboard, and a draft request stays in your browser.
 - A link to a file in the repository opens inside the viewer: Markdown documents rendered (tables included), code with line numbers and the cited lines marked.
 
 Search for **cancellation**, open a gap, and follow its links. `build` (see the example's README) writes `AS-BUILT.md` and `GAPS.md`, the same content as two Markdown files for reading on a Git host.
