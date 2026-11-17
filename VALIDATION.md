@@ -2,6 +2,15 @@
 
 > The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet; `spec-change` has not been run on a real change.
 
+## 2026-11-17: one page per feature, numbered rules
+
+Observed facts, with their limits:
+
+- The rules of 0.5 were used on a real vault in another project. They asked for a separate table page per kind of thing in each area (forms, screen actions, permissions, routes, jobs). The result was 59 such table pages out of 146 notes, feature pages that did not say what the feature is for, an average of 12 cited files per note (88 at most), and one shared file cited by 24 notes, so that a single change marked dozens of pages for re-reading. A person reading it called the pages strange and never used the related links.
+- 0.6.0 changes the instructions (one page per feature with fixed sections, numbered business rules, one to five cited files, no line numbers, reference pages only for lists no feature owns), the validator (a rule number appears once in the vault) and the viewer (the page text is always shown, related pages are listed beside it, rule numbers are marked).
+- The validator rule and the viewer changes have automated tests, and `python3 scripts/verify.py` passed. The viewer was opened in a browser on that vault and on the example. The new `check` ran on that vault, by then 212 notes, with no errors.
+- The page shape, the rule numbering and the regroup pass in the migration guide are instruction text. No fresh agent has been run with them yet, and that vault has not been regrouped. Whether an agent keeps rule numbers stable across later syncs has not been observed.
+
 ## 2026-11-15: first real use, and fixes since
 
 Observed facts, with their limits:

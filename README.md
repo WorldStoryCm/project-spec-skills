@@ -6,12 +6,12 @@ Two agent skills: one to understand existing software and keep that understandin
 
 The knowledge skill produces an **Obsidian-compatible vault** with two clearly separated layers:
 
-- an **as-built spec**: exactly how the code is implemented now, derived only from source. What people or agents agreed in chats is not part of it.
+- an **as-built spec**: exactly how the code is implemented now, derived only from source. Each feature has one page: what it is for, how it works, its fields and its business rules, every rule with a number you can quote. What people or agents agreed in chats is not part of it.
 - a **gap queue**: the agent's guesses about what is missing, doubtful or worth adding, one question per page. People re-check each gap and decide it, with a separate discussion and decision for every item.
 
 To read it there is a small **local viewer**: one command opens the spec as a plain document in your browser, straight from the files on disk, and turns what you read into a request for your agent. [See how it works](#read-the-spec-then-work-from-it). Obsidian works too and is optional. The other skills work with ordinary repository files, with or without a vault.
 
-![A feature page in the viewer: a plain-language summary first, the open questions about it, and the code detail folded away](docs/images/viewer-page.png)
+![A feature page in the viewer: what the feature is for, how it works, and its business rules as numbered rows](docs/images/viewer-page.png)
 
 ## Pick a skill
 
@@ -41,8 +41,8 @@ The vault is plain Markdown: easy for an agent to write, tiring for a person to 
 
 It is made for one loop:
 
-1. **Read.** A tree lists the areas and the features in each. A page says in plain words what the product does; the code detail, the source files and the properties are folded away. A breadcrumb, Back and Forward and a "You are here" card say where you are.
-2. **Find.** Search (Cmd/Ctrl+K) covers pages, gaps and the text of the files the pages cite.
+1. **Read.** A tree lists the areas and the features in each. A feature page says in plain words what the feature is for and how it works, then lists its fields and its numbered business rules; the source files and the properties are folded away. A breadcrumb, Back and Forward and a "You are here" card say where you are, and the related pages are listed beside the text.
+2. **Find.** Search (Cmd/Ctrl+K) covers pages, gaps and the text of the files the pages cite. A rule number such as `BR-CANCEL-02` finds its page.
 3. **Ask.** "Copy for AI" on any page turns the page and your own words into a request for your agent that names the page file. For a gap: recheck it, record a check you did yourself, record your decision, lay out the options, plan it. For any page: change the behavior, ask a question, or remove a page that is only noise. Each choice says what will happen, and you see the exact text before you copy it.
 4. **Let the agent work.** Paste the brief into your agent. With `spec-change` it asks its questions first, edits the spec on a branch, builds the change and checks every changed statement against the code.
 5. **See what moved.** Recent changes lists the pages whose cited sources changed since the last review, the pages not committed yet, and the vault's Git history with what each summary said before and after.
@@ -88,10 +88,47 @@ alias spec='python3 ~/.claude/skills/project-knowledge/scripts/knowledge.py serv
 
 The vault is found by itself when the repository has one under `knowledge/`; otherwise add `--vault PATH`. The page is served on port 8757, or another free port when that one is taken; `--port N` picks one. `project-spec serve` opens the browser unless you add `--no-open`; the helper opens it only with `--open`. If the vault has errors, the page lists them.
 
+## What a feature page says
+
+Every feature, screen or flow has one page, and all of them have the same sections in the same order. A section the feature does not have is left out.
+
+| Section | What it holds |
+| --- | --- |
+| Opening | What the feature is for, who uses it and where it is found. |
+| `How it works` | What happens, step by step, in the product's words. |
+| `Fields` | One row per input: whether it is required, its rule, the message when it is refused. |
+| `Business rules` | One numbered row per rule, with the values from the code. |
+
+This is the page in the screenshot above, as the agent wrote it:
+
+```markdown
+# Only requested pickups are currently cancellable
+
+A customer who no longer needs a pickup cancels it, and the service lets that
+happen only before anyone has started work on it.
+
+## How it works
+
+`cancel_pickup` in the service first runs the ownership check, then looks at the
+pickup's state. A pickup that passes both is set to `cancelled` and returned.
+
+## Business rules
+
+| ID | Rule |
+| --- | --- |
+| BR-CANCEL-01 | A pickup can be cancelled only while its state is `requested`. |
+| BR-CANCEL-02 | In any other state the cancellation is refused with "Only requested pickups can be cancelled" and nothing is changed. |
+```
+
+A rule's number is its name. It stays the same when the rule's text changes, a new rule gets the next free number, and a removed rule's number is never used again, so a number quoted in a ticket, a test or a chat keeps pointing at one rule. `check` fails when a number appears twice in the vault.
+
+Things the code registers in one place and no single feature owns (background jobs, emails, routes, roles, plan limits) are listed in reference pages: one table with every item. A page cites the one to five files that decide its behavior. When one of them changes, the page is marked "Code changed since the last check" until someone re-reads it.
+
 ## Why use this?
 
 - **Onboarding:** follow a workflow across UI, API, policy, persistence and tests without rediscovering the same paths every session.
 - **Change planning:** see which rules and related areas a change can affect before writing code.
+- **Rules you can point at:** a reviewer, a tester or a support person can say "BR-CANCEL-02 is wrong" instead of describing a screen.
 - **Useful gap reports:** each doubt is its own page, typed as a missing capability, outdated documentation, an unverified scenario, a conflict or an undecided product proposal, and carries who re-checked it and who decided it.
 - **Team memory:** commit the notes with the project. A manual sync reviews changes from all contributors since the last reviewed commit, including older commits and merges.
 
@@ -156,8 +193,8 @@ These work in any host; use `$name` or `/name` where your host supports it, or j
 
 ```text
 Use the project-knowledge skill to build an English knowledge vault for this repository.
-Describe only what the code does, link claims to source, and write every doubt
-as its own gap.
+Describe only what the code does: one page per feature with its business rules,
+each claim linked to source, and every doubt as its own gap.
 ```
 
 ```text
@@ -227,7 +264,7 @@ Ask project-knowledge to check links and source freshness.
 
 The agent researches and writes the claims. The Python helpers validate structure, track source fingerprints and render views; running a helper alone does not understand your code. A scan identifies candidate changes, and fingerprints are accepted and the Git checkpoint advanced only after review. See the [sync workflow](skills/project-knowledge/references/sync.md). If part of the range cannot be accepted yet, for example because another contributor has uncommitted edits to a file, mark it `deferred`: the rest is accepted, the checkpoint stays where it is and the helper exits with status 3 (not 0, and not 2, which is a usage error).
 
-If `check` fails on a vault written before the spec/gap split, follow the [migration guide](skills/project-knowledge/references/migrate.md).
+If `check` fails on a vault written before the spec/gap split, follow the [migration guide](skills/project-knowledge/references/migrate.md). The same guide has the regroup pass for a vault whose feature pages lack the sections above, or whose rules were spread over separate table pages per kind.
 
 Everything is manual and nothing is published: the bundle installs no schedule or hooks, and does not commit, push or synchronize other clones. Share the Markdown, reviewed state and chosen skill version through your normal Git workflow. Personal Obsidian settings and local scan reports should stay ignored.
 
@@ -253,7 +290,7 @@ Use separate branches or worktrees, or one writer per page, for concurrent work.
 knowledge/<project>/
   00-index.md           start here
   areas/                maps of related capabilities (spec)
-  notes/                source-backed behaviors and rules (spec)
+  notes/                one page per feature, plus reference lists (spec)
   gaps/                 one question per page (gap)
   plans/                one plan per accepted gap (gap)
   runs/                 review history and evidence limits

@@ -6,7 +6,7 @@ Read it with the viewer (from the repository root: `python3 skills/project-knowl
 
 ![The Parcel Desk gap queue in the viewer](../../docs/images/viewer-gaps.png)
 
-The vault shows the two layers the skills produce. The **as-built spec** (`areas/`, `notes/`) describes only what the code does. The **gap queue** (`gaps/`, `plans/`) holds three questions, one per page, at different points of the lifecycle:
+The vault shows the two layers the skills produce. The **as-built spec** (`areas/`, `notes/`) describes only what the code does. [Cancellation](knowledge/parcel-desk/notes/cancellation-boundary.md) and [the owner check](knowledge/parcel-desk/notes/ownership-check.md) are feature pages with numbered business rules; [what a cancellation request returns](knowledge/parcel-desk/notes/route-responses.md) is a reference page. The **gap queue** (`gaps/`, `plans/`) holds three questions, one per page, at different points of the lifecycle:
 
 | Gap | State | What it shows |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ python3 -m unittest discover -s tests -v
 
 They omit a packed-pickup test. A green suite therefore does not establish compliance with CAN-1.
 
-## Rebuild the example graph
+## Check the example vault
 
 From the repository root:
 
