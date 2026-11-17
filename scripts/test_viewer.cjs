@@ -101,6 +101,7 @@ function load(payload, { hash, storage = memory() } = {}) {
     rowTitles: () => findAll(q('#view'), e => has(e, 'row')).map(r => findAll(r, e => has(e, 'grow'))[0].children[0].textContent),
     folds: () => findAll(q('#view'), e => e.tag === 'summary').map(text),
     chips: () => findAll(q('#view'), e => has(e, 'chip')).map(text),
+    related: () => findAll(q('#view'), e => cls(e) === 'recent').filter(l => l.children[0].textContent === 'Related').flatMap(l => l.children.slice(1).filter(c => !c.hidden).map(text)),
     article: () => findAll(q('#view'), e => cls(e) === 'article')[0],
     search(query, kind = 'open') {
       if (kind === 'open') q('#open-search').click();
@@ -181,7 +182,7 @@ const parcel = () => ({
   assert.equal(v.q('#copy-ai').hidden, true, 'nothing to copy on the overview');
   assert.equal(v.q('#copy-link').hidden, true, 'no address to copy without a window');
 
-  // a feature page: summary first, code and sources folded, where you are shown three ways
+  // a feature page: summary, then the text as written, sources folded, where you are shown three ways
   v.btn(v.page(), 'Cancelling a pickup').click();
   assert.equal(v.h1(), 'Cancelling a pickup');
   assert.deepEqual(v.crumbs(), ['Parcel Desk', '/', 'Pickups', '/', 'Cancelling a pickup']);
@@ -189,8 +190,9 @@ const parcel = () => ({
   assert.equal(v.treeRow('Cancelling a pickup').attrs['aria-current'], 'page');
   assert.equal(v.treeRow('Cancelling a pickup').textContent, 'Cancelling a pickup1 open');
   assert.deepEqual(findAll(v.page(), e => cls(e) === 'lead').map(text), ['A customer can cancel a pickup until it is packed.']);
-  assert.deepEqual(v.folds(), ['How it works in the code', 'Source files (1)']);
-  assert.deepEqual(v.chips(), ['Owner check'], 'related pages, not the own area or a run');
+  assert.deepEqual(v.folds(), ['Source files (1)']);
+  assert.deepEqual(v.chips(), [], 'related pages are not a block in the text');
+  assert.deepEqual(v.related(), ['Owner check'], 'related pages beside the text, not the own area or a run');
   assert.deepEqual(v.rowTitles(), ['Packed pickups'], 'open questions only');
   assert.ok(v.page().textContent.includes('notes/cancel.md'));
   assert.equal(findAll(v.page(), e => e.tag === 'h1').length, 1, 'the duplicate title heading is dropped');
@@ -240,6 +242,14 @@ const parcel = () => ({
   assert.deepEqual(findAll(ref.page(), e => e.tag === 'td').map(text).slice(0, 3), ['digest', 'daily at 06:00 UTC', 'emails the digest']);
   assert.deepEqual(ref.folds(), [], 'the table is not folded away');
   assert.equal(findAll(ref.page(), e => cls(e) === 'lead')[0].textContent, 'Two jobs, both on a schedule.');
+
+  // a feature note with numbered rules: the number is marked, and searching for it finds the page
+  const rules = load({ title: 'Rules', nodes: [
+    spec('a', 'Area', 'area', []),
+    spec('profile', 'Profile', 'note', ['a'], { summary: 'Where a person sets their name.', body: '# Profile\n\nWhere a person sets their name.\n\n## Business rules\n\n| ID | Rule |\n| --- | --- |\n| BR-PROFILE-01 | A name has 1 to 120 characters. |\n| Other | Not a number. |' }),
+  ], edges: [] }, { hash: '#/page/notes/profile' });
+  assert.deepEqual(findAll(rules.page(), e => e.tag === 'td' && cls(e) === 'rule-id').map(text), ['BR-PROFILE-01']);
+  assert.deepEqual(rules.search('br-profile-01').length ? rules.resultNames() : [], ['Profile']);
 
   // a gap reached from a page
   v.treeRow('Cancelling a pickup').click();
@@ -641,7 +651,7 @@ const queue = {
   assert.equal(v.h1(), 'Cancelling a pickup');
   v.q('#back').click();
   v.btn(card('rereads'), 'Responses').click();
-  assert.ok(v.page().textContent.includes('Sources changed since the last review'));
+  assert.ok(v.page().textContent.includes('Code changed since the last check'));
   v.q('#back').click();
   // filters
   v.pill(v.page(), 'Gaps').click();

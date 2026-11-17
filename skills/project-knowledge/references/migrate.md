@@ -31,14 +31,21 @@ Do these in order, rerunning `check` between steps. Each step removes a class of
 
 Older run pages linked every page they touched, and `check` now reports `run pages are history, not part of the map` with the number of links. Those links made each run a hub in Obsidian's graph and pulled all areas into one ball. The fix is mechanical and changes no claim: in each `runs/*.md` replace `[[notes/example|the example rule]]` with the label and the path in code formatting, `the example rule (`notes/example`)`, and do the same for embeds and Markdown links to vault pages. Links to source files and URLs stay. Nothing is generated into the vault any more: read it with the `serve` command, which always shows the current files. Delete what earlier versions generated: `AS-BUILT.md`, `GAPS.md`, `.knowledge/graph.json`, `graph.html` and `Map.canvas`. Until they are gone, `check` reads an old `AS-BUILT.md` or `GAPS.md` as a page and reports its missing frontmatter. A `01-coverage.md` page is no longer asked for; move what it says about each area into that area's page, or leave it as an ordinary index page.
 
-## Vaults written before the rules and reference notes
+## Notes that describe a mechanism, or tables that replaced the notes
 
-A vault written before version 0.5.0 of this skill usually describes mechanisms ("a worker runs durable jobs") rather than the rules a person looks up, and has no reference notes. `check` cannot see this, so it does not fail; sync and update fill it in only for the pages they pass ("Leave each page better" in the skill). To bring the whole vault up at once, work through it one area at a time, as **explore <area>**:
+Two kinds of vault read badly and pass `check`, so only a person or this pass notices.
 
-1. Find where the code registers each kind of thing the area has (jobs, routes, forms and their schemas, actions, emails, permissions, flags) and write one reference note per kind, with every item and the registration point in `sources`.
-2. Add the business rules with their values to the area's notes: required fields, limits, defaults, formats, when actions are available or disabled, empty states, error messages, who may do it.
-3. List the reference notes first on the area page and name the kinds not listed yet.
-4. Run `snapshot --notes` for the notes you re-read and `check`, and record the pass on a run page.
+- A vault written before version 0.5.0 describes mechanisms ("a worker runs durable jobs") rather than the rules a person looks up.
+- A vault filled in with 0.5.x has the rules, but in one table page per kind of thing per area (`<area>-forms`, `<area>-screen-actions`, `<area>-permissions`), while the note of the feature itself says little more than "see the fields table". Its notes also carry a line naming their area, a "Verification" section, line numbers in code links and long `sources` lists, which mark most pages as outdated after any change.
+
+Sync and update repair the pages they pass ("Leave each page better" in the skill). To bring the whole vault up at once, work through it one area at a time, as **explore <area>**:
+
+1. For each feature note, write the opening that says what the feature is for, who uses it and where they find it, and fix the `summary` to say the same in a sentence.
+2. Bring the feature's rules home, under the standard headings (`How it works`, `Fields`, `Business rules`). Move each row of a per-kind table into the note of the feature it belongs to: a form's fields into its `Fields` table, an action or a permission into a numbered row of `Business rules` (`BR-PROFILE-01`), and turn rules that sit in prose into rows too. Drop rows that carry no rule (a control that only opens, closes, goes somewhere or tries again). Re-read the code for each rule you move; where the vault has no rule yet, read it off the code.
+3. Delete a per-kind table page once it is empty, and remove or reword every link to it. Keep, or write, a reference note only for what the code registers in one place and no single feature owns: jobs, emails, routes, roles, plan limits, flags.
+4. On each note you touched, remove the line naming the area and the "Verification" section (a result worth keeping goes on the run page), take the line numbers out of code links, and cut `sources` to the files that decide the behavior.
+5. On the area page, list the feature notes, then the reference notes, and name the lists not written yet.
+6. Run `snapshot --notes` for the notes you re-read and `check`, and record the pass on a run page: what moved where and what was deleted.
 
 This changes content, not structure, so it is not part of a format migration: do it as its own pass, area by area, and keep the claims you did not re-read as they are.
 

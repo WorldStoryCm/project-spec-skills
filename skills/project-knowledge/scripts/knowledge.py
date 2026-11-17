@@ -32,6 +32,8 @@ SCHEME = re.compile(r'^[A-Za-z][A-Za-z0-9+.-]*:')
 MD_LINK = re.compile(r'\]\(\s*(<[^>]*>|[^\s)]*)')
 # The delimiter row of a GFM table: | --- | :-: |, with or without the outer pipes, at least one pipe.
 TABLE_RULE = re.compile(r'^ {0,3}\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*$|^ {0,3}\|[ \t]*:?-+:?[ \t]*\|?[ \t]*$')
+# A numbered business rule: the first cell of a table row, e.g. | BR-PROFILE-01 | ... |
+RULE_ROW = re.compile(r'^ {0,3}\|[ \t]*(BR-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d{2,4})[ \t]*\|')
 MD_REF = re.compile(r'^ {0,3}\[[^\]\n]+\]:\s*(<[^>]*>|\S+)', re.M)
 GAP_PAGE_ONLY = ('priority', 'confidence')
 ARRAYS = {'areas', 'sources', 'tags', 'aliases', 'task_ids'}
@@ -413,7 +415,7 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
         paths[stem] = note
         basenames.setdefault(PurePosixPath(stem).name, []).append(note)
     area_ids = {n['meta']['id'] for n in notes if n['meta']['type'] == 'area'}
-    edges, attachments = set(), {}
+    edges, attachments, rule_pages = set(), {}, {}
     for note in notes:
         meta, rel = note['meta'], note['path']
         note['stale'] = False
@@ -499,6 +501,19 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
             if tables:
                 errors.append(f"{rel}: an area page is a map and holds no table ({tables} found); a table describes behavior: "
                               "write a note for each thing it describes and list the notes on the area page")
+        if meta['type'] == 'note':
+            # People quote a rule by its number in tickets, tests and chats, so a number means one rule for good.
+            seen = set()
+            for line in text.split('\n'):
+                rule = RULE_ROW.match(line)
+                if not rule:
+                    continue
+                ident = rule.group(1)
+                first = rule_pages.setdefault(ident, rel)
+                if first != rel or ident in seen:
+                    errors.append(f"{rel}: rule {ident} is numbered twice ({'on this page' if first == rel else 'also on ' + first}); "
+                                  "a rule keeps its number and a number is never used again, so give the newer rule the next free one")
+                seen.add(ident)
         if meta['type'] in {'area', 'note'}:
             gap_files = {n['path'].casefold() for n in notes if n['meta']['type'] in {'gap', 'plan'}} | {'gaps.md'}
             gap_files |= {f.casefold() for f, kind in failed_kind.items() if kind in {'gap', 'plan'}}

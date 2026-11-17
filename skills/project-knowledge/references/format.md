@@ -54,7 +54,7 @@ Required on every page: `id`, `title`, `type`, `areas`, `sources`, `updated`. `s
 
 - `id`: unique stable ASCII slug (`[a-z0-9-]+`).
 - `status` on `area` and `note`: `current`, `partial`, `stale`, `superseded`. On `index`, `run` and `plan` additionally `planned`.
-  - `current`: supported by inspected current sources. This is not a runtime test or a deployment claim; say in prose which version and environment you checked.
+  - `current`: checked against the current sources. This is not a runtime test or a deployment claim; say in prose which version and environment you checked.
   - `partial`: sampled; some of the area or behavior was not read.
   - `stale`: its sources changed or disappeared and it has not been re-read.
   - `superseded`: replaced by another page, kept as a pointer.
@@ -69,38 +69,71 @@ Gap-only properties are errors on any other page type, `gap` is an error on a pa
 
 ## Body
 
-Spec pages state facts about the code, and the facts a person looks up are the concrete rules: limits, required fields, defaults, formats, when an action is available or disabled, what an empty list shows, which message appears, who may do it, what starts a job and how often. A note gives these values, not only the mechanism that applies them.
+Spec pages state facts about the code for a person who wants to know what the product does. The facts a person looks up are what a feature is for and its concrete rules: limits, required fields, defaults, formats, when an action is available or disabled, what an empty list shows, which message appears, who may do it, what starts a job and how often. A note gives these values, not only the mechanism that applies them, in the product's words rather than the code's.
 
-There are two shapes of note. A **behavior note** explains one rule or flow in prose, usually 150-350 words and shorter when sufficient; when its rules need more, split it by behavior rather than leaving rules out. A **reference note** lists every item of one kind in an area (jobs, forms and their fields, the actions on a screen, routes, emails, notifications, roles and permissions, flags, states, limits) as one Markdown table, one row per item, with the count and the place in the code the list comes from, which is also in `sources`; it is as long as the table needs. Include for a note:
+There are two shapes of note.
 
-- A precise title and `Area: [[areas/collections|Collections]]`.
-- When the note is useful; behavior and boundaries; explicit labels on inference.
-- Evidence links and symbols, e.g. `[service.ts](../../../src/server/cases/service.ts#L40)`, `createPeriod`, with what each demonstrates.
-- An existing verification command and actual PASS/FAIL/NOT RUN.
-- Semantic links to other spec pages with reasons, e.g. depends on `[[notes/another-rule|rule]]` because ...
-- For a reference note: the table, how many rows it has and why that is all of them ("every job registered in `worker/index.ts`"). Columns name the facts a reader asks about; a cell holds a value from the code ("60 characters", "daily at 06:00 UTC", "disabled while the list is empty"), not a description. Inside a table a wikilink's alias separator is written `\|`.
+A **feature note** is the one page for one screen, feature, flow or rule, and all feature notes share one shape:
 
-A behavior note (illustrative), with the rules and their values in the text:
+| Part | Heading | Holds |
+| --- | --- | --- |
+| Opening | none, right under the title | What the feature is for, who uses it, where they find it. One short paragraph. |
+| Flow | `## How it works` | What a person does and what happens, in order. Left out when there is no flow. |
+| Fields | `## Fields` | One row per field of the feature's form: `Field`, `Required`, `Rule`, `Message when refused`. |
+| Rules | `## Business rules` | One numbered rule per row: `ID`, `Rule`. Who may do it, when an action is available, limits, defaults, what is kept, sent or deleted, and when. |
+
+The headings are written exactly so and come in this order; a section the feature does not have is left out. A field's rule is in `Fields` and is not repeated in `Business rules`. Usually 150-400 words; when its rules need more, split the note by feature or flow, never by kind of fact, so that everything about one feature stays on one page.
+
+A rule is numbered `BR-<FEATURE>-<NN>` (`BR-INVITE-03`): `BR`, a short upper-case word for the feature that is the same in all rules of the note and used by no other note, and a number from 01. The number is the rule's name, quoted in tickets, tests and gaps. A rule keeps it when its text changes; a new rule takes the next free number; the number of a removed rule is not used again; rules are never renumbered. One rule per row, one or two sentences, with the value.
+
+A **reference note** lists things the code registers in one place and that belong to no single feature (background jobs, emails and notifications, routes, roles and what each may do, plan limits, flags, the states of a record) as one Markdown table, one row per item, with the count and the place in the code the list comes from, which is also in `sources`. Columns name the facts a reader asks about; a cell holds a value from the code in a few words ("daily at 06:00 UTC", "retried 3 times"), two short sentences at most, and links the feature note when the item has one. Form fields and the actions on a screen are not reference notes: they are in the feature's note. Inside a table a wikilink's alias separator is written `\|`.
+
+What a note does not carry:
+
+- A line naming its area: `areas` has it and the viewer shows it.
+- A "Verification" section, test commands or PASS/FAIL: what was run is recorded on the run page.
+- Line numbers in links to code (`#L40`). Name the symbol (`createPeriod`, `INVITE_TTL_DAYS`) and link the file where that helps; a name still finds the place after the next edit.
+- More `sources` than decide the behavior, usually one to five files. Each one marks the page for re-reading when it changes, so shared plumbing and files that only sit on the path make every page look outdated.
+
+A feature note (illustrative):
 
 ```markdown
 ---
 id: "team-invitations"
-title: "A teammate is invited by email and joins on the first sign-in with it"
+title: "Inviting a teammate"
 type: "note"
 status: "current"
 areas: ["identity"]
 sources: ["src/server/teams/invite.ts", "src/features/team/InviteForm.tsx"]
-summary: "An owner or admin invites someone by email. The invitation is valid for 7 days and is used up when that address signs in."
+summary: "An owner or admin adds a person to the team by email. The person joins the first time they sign in with that address."
 updated: "2026-11-16"
 ---
 
-# A teammate is invited by email and joins on the first sign-in with it
+# Inviting a teammate
 
-Area: [[areas/identity|Accounts, teams and access]].
+A team grows by invitation: an owner or admin enters an email on the Team page, and the person who signs in with that address becomes a member.
 
-Only an owner or an admin sees **Invite**; for a member it is hidden. The email is required, trimmed and lower-cased, at most 254 characters, and must not already belong to the team ("This person is already on the team"). The form's **Send** stays disabled until the address is valid. A team on the Free plan can have 3 members; the fourth invitation is refused with "Your plan allows 3 members".
+## How it works
 
-An invitation expires after 7 days (`INVITE_TTL_DAYS`), and resending it starts the 7 days again. ... evidence, checks and related notes follow.
+The owner or admin types an email and presses **Send**. The person gets a link, signs in or creates an account with that address, and is on the team. Until then the invitation is listed as pending and can be sent again.
+
+## Fields
+
+| Field | Required | Rule | Message when refused |
+| --- | --- | --- | --- |
+| Email | yes | trimmed and lower-cased, at most 254 characters, a valid address | "Enter a valid email address" |
+| Can manage the team | no | off by default, so the person joins as a member | |
+
+## Business rules
+
+| ID | Rule |
+| --- | --- |
+| BR-INVITE-01 | Only an owner or an admin sees **Invite**. Only an owner sees "Can manage the team". |
+| BR-INVITE-02 | **Send** stays disabled until the email is valid. |
+| BR-INVITE-03 | An address already on the team is refused with "This person is already on the team". |
+| BR-INVITE-04 | A team on the Free plan has 3 members ([[notes/plan-limits\|plan limits]]). A fourth invitation is refused with "Your plan allows 3 members". |
+| BR-INVITE-05 | An invitation expires after 7 days (`INVITE_TTL_DAYS`). Sending it again starts the 7 days over. |
+| BR-INVITE-06 | An invitation is used up by the first sign-in with that address, which must have a verified email ([[notes/verified-email\|why]]). |
 ```
 
 A reference note (illustrative): one table, every item, the count and where the list comes from:
@@ -108,13 +141,11 @@ A reference note (illustrative): one table, every item, the count and where the 
 ```markdown
 # Background jobs
 
-Area: [[areas/automation|Background jobs and notifications]].
-
 All 4 jobs registered in [`worker/index.ts`](../../../src/worker/index.ts), the only place jobs are registered.
 
 | Job | Starts | Does | Runs when | On failure |
 | --- | --- | --- | --- | --- |
-| `send-digest` | daily at 06:00 UTC | emails each member the day's open items | `DIGEST_ENABLED` is set | retried 3 times, 5 minutes apart |
+| `send-digest` | daily at 06:00 UTC | emails each member the day's open items ([[notes/daily-digest\|digest]]) | `DIGEST_ENABLED` is set | retried 3 times, 5 minutes apart |
 | `purge-links` | hourly | deletes share links expired more than 30 days ago | always | next run picks them up |
 | `finalize-upload` | an upload completes | checks size and type, moves the file to storage | always | the upload is marked failed |
 | `rollover-period` | a person completes a period | opens the next period from the series plan | the series repeats | the period stays complete, the next one is not opened |
@@ -127,8 +158,9 @@ The validator enforces these body rules:
 1. An `area` or `note` page may not reference the gap layer in any form: a wikilink, an embed (`![[...]]`) or a Markdown link to a `gap` or `plan` page, or any link inside its `title` or `summary`. Link from the gap to the note instead. Links from gaps, plans and index pages to anything are fine.
 2. A `run` page links to no vault page, by wikilink, embed or Markdown link. It names the pages it touched by path in code formatting (`notes/example`). A run touches many pages; as links they would make every run a hub and the area clusters would collapse into one ball in Obsidian's graph. Links to source files and URLs are fine, and the index may link to a run.
 3. An `area` page holds no table and links whole notes only, never a heading or block inside one (`[[notes/x#Part]]`). Behavior is described in notes; a part that needs its own link is its own note. Tables and links to parts of a note are fine on other pages, and a table inside a code fence does not count.
-4. A gap has six `##` sections with exactly these headings, each once: `Current behavior`, `Gap`, `Evidence`, `Recheck`, `Discussion`, `Decision`. Headings inside code fences do not count.
-5. When `decision` is not `open`, `Decision` needs text; when `recheck` is not `not-checked`, `Recheck` needs text.
+4. A rule number (`BR-PROFILE-01` in the first cell of a table row on a note) appears once in the vault. The same number on two rows, on one page or two, is an error: a number names one rule for good.
+5. A gap has six `##` sections with exactly these headings, each once: `Current behavior`, `Gap`, `Evidence`, `Recheck`, `Discussion`, `Decision`. Headings inside code fences do not count.
+6. When `decision` is not `open`, `Decision` needs text; when `recheck` is not `not-checked`, `Recheck` needs text.
 
 ## Helper
 
@@ -172,7 +204,7 @@ Canonical Markdown must not contain raw merge conflicts. Validation rejects comp
 
 `serve` shows the vault in a browser: `knowledge.py serve --repo REPO [--vault VAULT] [--port N] [--open]`. Without `--vault`, this and every other command use the single vault under `knowledge/` (`knowledge/00-index.md` or `knowledge/*/00-index.md`) and stop with a message when there is none or several. It listens on `127.0.0.1` only (port 8757, or a free one when that is taken), answers only `/` and only when addressed as this machine, never writes, and builds the page again from disk on every request, so a reload shows the current files. When the vault has errors the page lists them. The page data is the graph above plus `live: true`, `vaultPath` (the vault's path relative to the repository), `history`, `pending` and `files`. `history` is the last 30 commits that touched vault pages (not `.knowledge/`), newest first, each `{"sha", "date", "subject", "pages", "more"}`; a page entry is `{"path", "status"}` with `status` `added`, `changed` or `removed`, plus `was` and `now` when the commit changed the page's `summary` (or, failing that, its `title`); at most 80 pages are listed per commit and `more` counts the rest. `pending` lists vault pages with uncommitted changes in the same `{"path", "status"}` shape. Both are empty outside a Git work tree. `files` is the text of the repository files that pages cite in `sources` or link to, keyed by repository-relative path, each `{"text", "truncated"}`. A file is included only when it is inside the repository and outside the vault, is not a credential path, and is UTF-8 text; one file is cut at 300,000 characters and all files together at 4,000,000, after which the rest stay ordinary links. The viewer opens a link to an included file in place: Markdown rendered, anything else as numbered lines, with the lines of a `#L10` or `#L10-L20` fragment marked.
 
-`assets/viewer.html` has exactly one `__KNOWLEDGE_DATA__` placeholder for script-safe JSON. Treat contents as untrusted text: no raw Markdown HTML execution, unsafe URL schemes, external scripts, fonts, analytics or fetches. Render readable basic Markdown, pipe tables and wikilinks; leave unsupported syntax as text. The viewer has a tree of areas with their notes (a note is listed under its first area; superseded notes are not listed), a search over pages, gaps and the cited files, and five places: the overview, a page, the gap queue, the map and recent changes. A spec page shows its title, `summary`, related pages and the gaps about it that are not closed, then folded sections for the page text (shown unfolded when the page has no `summary` or holds a table, as a reference note does) and its source files. Navigation keeps a trail for Back and Forward and writes the place into the address (`#/page/notes/example`, `#/gaps`), so a reload or a copied link returns to it. The map draws one frame per primary area (the area page, or the first entry of `areas`) with its pages inside; an edge between a page and its primary area is not drawn because the frame says it, links inside one area are solid and links across areas dashed; `nav` pages are not drawn. Recent changes reads `history`, `pending` and the "changed source" lines of `warnings`. "Copy for AI" only composes text from the page, a choice of what the agent should do and the reader's own words, and copies it to the clipboard. The reader's name, the recently viewed pages and the last commit seen are kept in the browser's `localStorage`, and the viewer works without it.
+`assets/viewer.html` has exactly one `__KNOWLEDGE_DATA__` placeholder for script-safe JSON. Treat contents as untrusted text: no raw Markdown HTML execution, unsafe URL schemes, external scripts, fonts, analytics or fetches. Render readable basic Markdown, pipe tables and wikilinks; leave unsupported syntax as text. The viewer has a tree of areas with their notes (a note is listed under its first area; superseded notes are not listed), a search over pages, gaps and the cited files, and five places: the overview, a page, the gap queue, the map and recent changes. A note shows its title, `summary`, the page text and the gaps about it that are not closed, then its source files folded; an area shows its notes with their summaries and folds its own text. The pages linked to or from the page are a short list beside it. Navigation keeps a trail for Back and Forward and writes the place into the address (`#/page/notes/example`, `#/gaps`), so a reload or a copied link returns to it. The map draws one frame per primary area (the area page, or the first entry of `areas`) with its pages inside; an edge between a page and its primary area is not drawn because the frame says it, links inside one area are solid and links across areas dashed; `nav` pages are not drawn. Recent changes reads `history`, `pending` and the "changed source" lines of `warnings`. "Copy for AI" only composes text from the page, a choice of what the agent should do and the reader's own words, and copies it to the clipboard. The reader's name, the recently viewed pages and the last commit seen are kept in the browser's `localStorage`, and the viewer works without it.
 
 ## Format references
 

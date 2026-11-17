@@ -769,6 +769,16 @@
         font-size: 14px;
         text-align: left;
       }
+      .recent button.more {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .pagefoot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 14px;
+      }
       .recent button:hover,
       .here-path button:hover {
         color: var(--accent-ink);
@@ -985,6 +995,11 @@
         padding: 7px 10px;
         text-align: left;
         vertical-align: top;
+      }
+      .article td.rule-id {
+        font: 12.5px/1.7 var(--mono);
+        color: var(--muted);
+        white-space: nowrap;
       }
       .article th {
         background: var(--soft);
@@ -1568,7 +1583,7 @@
           box = { x: 0, y: 0, w: 1000, h: 700 },
           initialBox = { ...box };
         const labels = {
-          current: "Supported by sources",
+          current: "Checked against the code",
           partial: "Partial",
           planned: "Planned",
           unverified: "Unverified",
@@ -2031,7 +2046,8 @@
                 const tr = el("tr"),
                   row = cells(lines[i]);
                 header.forEach((_, k) => {
-                  const td = el("td");
+                  // A rule's number (BR-PROFILE-01) is quoted in tickets and chats, so it stays on one line and reads as a code.
+                  const td = el("td", null, k === 0 && /^BR-[A-Z0-9]+(-[A-Z0-9]+)*-\d{2,4}$/.test((row[0] || "").trim()) ? "rule-id" : null);
                   inline(td, row[k] || "", n);
                   tr.append(td);
                 });
@@ -2490,6 +2506,30 @@
           if (from && routeLabel(from))
             card.append(el("p", "You came from " + routeLabel(from) + ". Back returns there.", "muted small"));
           box.append(card);
+          // Pages this one links to or is linked from: a short list beside the text, not a block inside it.
+          if (layerOf(n) === "spec") {
+            const related = neighbours(n, "spec").filter(
+              (r) => r.id !== parent?.id && !(n.type === "area" && primaryArea(r) === n.id),
+            );
+            if (related.length) {
+              const list = el("div", null, "recent"),
+                keep = 6;
+              list.append(el("div", "Related", "mono-label"));
+              related.forEach((r, i) => {
+                const b = button(r.title, null, () => openNode(r));
+                if (i >= keep) b.hidden = true;
+                list.append(b);
+              });
+              if (related.length > keep) {
+                const more = button("Show " + (related.length - keep) + " more", "more", () => {
+                  [...list.children].forEach((c) => (c.hidden = false));
+                  more.hidden = true;
+                });
+                list.append(more);
+              }
+              box.append(list);
+            }
+          }
           const others = recent.filter((id) => id !== n.id).slice(0, 5);
           if (others.length) {
             const list = el("div", null, "recent");
@@ -2520,10 +2560,14 @@
           );
           if (summary) main.append(el("p", summary, "lead"));
           const meta = el("div", null, "metarow");
-          meta.append(isGap(n) ? stateBadge(n) : statusBadge(n));
+          // A page whose code moved on says only that: "checked" beside "changed since" reads as a contradiction.
+          const changed = !isGap(n) && n.stale && n.status !== "stale";
+          if (isGap(n)) meta.append(stateBadge(n));
+          else if (!(changed && n.status === "current")) meta.append(statusBadge(n));
           if (recheckOutdated(n)) meta.append(outdatedBadge());
-          if (!isGap(n) && n.stale && n.status !== "stale") meta.append(el("span", "Sources changed since the last review", "badge stale"));
-          meta.append(el("span", repoPath(n), "path"));
+          if (changed) meta.append(el("span", "Code changed since the last check", "badge stale"));
+          // The file path of a spec page is for the person who edits it, so it sits at the foot of the page.
+          if (layer !== "spec") meta.append(el("span", repoPath(n), "path"));
           main.append(meta);
 
           if (isGap(n)) {
@@ -2564,18 +2608,9 @@
               );
             main.append(markdown(bodyOf(n), n));
           } else if (layer === "spec") {
-            // A reference note's table is what the reader came for, so it is shown, not folded away.
-            const reference = n.type === "note" && /^ {0,3}\|?[ \t]*:?-+:?[ \t]*\|/m.test(bodyOf(n));
+            // A note is read as written: what the feature is for and its rules. An area is a map of its notes.
             if (n.type === "area") main.append(featureList(featuresOf(n)));
-            else if (!summary || reference) main.append(markdown(bodyOf(n), n)); // nothing plainer to show yet
-            const related = neighbours(n, "spec").filter(
-              (r) => r.id !== parent?.id && !(n.type === "area" && primaryArea(r) === n.id),
-            );
-            if (related.length) {
-              const chips = el("div", null, "chips");
-              related.forEach((r) => chips.append(button(r.title, "chip", () => openNode(r))));
-              main.append(el("div", "Related", "mono-label"), chips);
-            }
+            else main.append(markdown(bodyOf(n), n));
             const about = gapsAbout(n).filter((g) => !["done", "rejected", "duplicate"].includes(stateOf(g)));
             if (about.length) {
               const card = el("section", null, "card"),
@@ -2586,8 +2621,7 @@
               main.append(card);
             }
             const folds = el("div");
-            if (n.type === "area" || (summary && !reference))
-              folds.append(fold(n.type === "area" ? "More about this area" : "How it works in the code", markdown(bodyOf(n), n)));
+            if (n.type === "area") folds.append(fold("More about this area", markdown(bodyOf(n), n)));
             const sources = (Array.isArray(n.sources) ? n.sources : []).filter(str);
             if (sources.length) {
               const ul = el("ul", null, "link-list");
@@ -2598,7 +2632,10 @@
               });
               folds.append(fold("Source files (" + sources.length + ")", ul));
             }
-            if (n.updated) folds.append(el("p", "Updated " + n.updated, "muted small"));
+            const foot = el("p", null, "muted small pagefoot");
+            if (n.updated) foot.append(el("span", "Updated " + n.updated));
+            foot.append(el("span", repoPath(n), "path"));
+            folds.append(foot);
             main.append(folds);
           } else main.append(markdown(bodyOf(n), n));
           page.append(main, rail(n));

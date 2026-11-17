@@ -623,6 +623,19 @@ class GapLayerTests(Fixture):
         status, err = self.errors()
         self.assertEqual(status, 0, err)
 
+    def test_a_rule_number_is_used_once(self):
+        rules = '## Business rules\n\n| ID | Rule |\n| --- | --- |\n| BR-PROFILE-01 | A name has 1 to 120 characters. |\n| BR-PROFILE-02 | The email cannot be changed here. |\n'
+        self.note('notes/n.md', 'n', sources=['source.txt'], body=rules)
+        self.note('notes/m.md', 'm', sources=['source.txt'], body='| ID | Rule |\n| --- | --- |\n| BR-TEAM-01 | Only owners rename a team. |\n\nSee BR-PROFILE-01.\n\n```\n| BR-PROFILE-01 | an example |\n```')
+        status, err = self.errors()
+        self.assertEqual(status, 0, err)
+        # the same number on another page, and twice on one page
+        self.note('notes/m.md', 'm', sources=['source.txt'], body='| ID | Rule |\n| --- | --- |\n| BR-PROFILE-02 | Something else. |')
+        self.assertInvalid('notes/n.md: rule BR-PROFILE-02 is numbered twice (also on notes/m.md)')
+        self.note('notes/m.md', 'm', sources=['source.txt'], body='')
+        self.note('notes/n.md', 'n', sources=['source.txt'], body=rules + '| BR-PROFILE-01 | A second rule with the first number. |')
+        self.assertInvalid('notes/n.md: rule BR-PROFILE-01 is numbered twice (on this page)')
+
     def test_run_pages_cannot_link_to_vault_pages(self):
         for body in ('[[notes/n]]', 'see [[n|the note]] and [[areas/a]]', '![[notes/n]]', '[n](../notes/n.md)', '[n]: ../00-index.md'):
             with self.subTest(body=body):

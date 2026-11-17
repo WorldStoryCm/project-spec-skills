@@ -12,8 +12,6 @@ updated: "2026-11-16"
 
 # What a cancellation request returns
 
-Areas: [[areas/pickups|Pickup cancellation]] and [[areas/access|Customer access]].
-
 Every answer of `cancel_request`, the in-process adapter in [routes.py](../../../src/routes.py): three, one for each way out of `cancel_pickup` in [pickups.py](../../../src/pickups.py). The checks run in the order of the rows, and the first one that fails decides the answer.
 
 | Case | Condition | Answer | Pickup state afterwards |
@@ -24,4 +22,4 @@ Every answer of `cancel_request`, the in-process adapter in [routes.py](../../..
 
 There is no fourth answer: the adapter catches only `PermissionError` and `ValueError`, and any other exception propagates to its caller. Because [[notes/ownership-check|the owner check]] runs first, the answer for another customer's pickup does not depend on its state. [[notes/cancellation-boundary|The state rule]] decides the second row, so a `packed` pickup of the caller's own is refused.
 
-The [existing tests](../../../tests/test_pickups.py) cover each row once (another customer, `picked_up`, `requested`); the first two assert the status and the unchanged state but not the `error` text. They passed in the example check. The answers are dictionaries returned in-process, not observed HTTP responses.
+The [existing tests](../../../tests/test_pickups.py) cover each row once (another customer, `picked_up`, `requested`); the first two assert the status and the unchanged state but not the `error` text. The answers are dictionaries returned in-process, not observed HTTP responses.
