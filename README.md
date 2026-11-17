@@ -59,7 +59,7 @@ The screenshots show the fictional [Parcel Desk](examples/parcel-desk/README.md)
 
 ### Open it with one command
 
-With the [package](#as-a-package) in your project, add a script to `package.json`:
+With the [package](#with-npm) installed in your project, add a script to `package.json`:
 
 ```json
 {
@@ -138,17 +138,24 @@ The graph records relationships between explanations. It does not infer a comple
 
 These are [Agent Skills](https://agentskills.io/specification): each folder has a `SKILL.md` entry point. They require an agent that can read your repository. The knowledge helpers need **Python 3.10+** and **Git**; they have no package dependencies. No MCP server, cloud service, paid API or Obsidian plugin is required by the bundle.
 
-### As a package
+### With npm
 
-The repository is also an npm package with one command, `project-spec`. It needs Node 18+ in addition to Python. It is installed from GitHub; it is not on the npm registry.
+The package is [`project-spec`](https://www.npmjs.com/package/project-spec) on the npm registry, with one command of the same name. It needs Node 18+ in addition to Python. Nothing has to be installed first:
 
 ```sh
-npm install --save-dev github:WorldStoryCm/project-spec-skills
 npx project-spec install --claude      # or --codex, or --dir knowledge/tooling
-npx project-spec serve                 # the viewer for this project
+npx project-spec serve                 # the viewer for the project in the current folder
 ```
 
-The lockfile pins the version for everyone on the project, and `npm update project-spec-skills` moves it forward. The command then keeps every copy of the skills in step with that version:
+Then ask your agent to use the `project-knowledge` skill ([example prompts](#example-prompts)).
+
+To pin one version for everyone on a project, add it as a development dependency:
+
+```sh
+npm install --save-dev project-spec
+```
+
+The lockfile then pins the version, and `npm update project-spec` moves it forward. The command keeps every copy of the skills in step with that version:
 
 ```sh
 npx project-spec status    # where the copies are and whether each is current
@@ -157,7 +164,18 @@ npx project-spec update    # refresh every copy that status lists
 
 `status` and `update` look in `~/.claude/skills`, `~/.codex/skills` and the usual folders of the current project (`knowledge/tooling`, `.claude/skills`, `.codex/skills`, `.agents/skills`). `update` refreshes what is there and adds nothing new; `install` adds. A copy you edited by hand is not replaced unless you pass `--force`, and the old files are kept under `~/.project-spec/backups` first. `--skills project-knowledge` limits an install to the skills you name.
 
-Outside any project, `npx github:WorldStoryCm/project-spec-skills status` runs the same command without installing it.
+To run the unreleased version from this repository, use `npx github:WorldStoryCm/project-spec-skills status` in place of `npx project-spec status`.
+
+### Claude Code plugin
+
+The repository is also a plugin marketplace for Claude Code. Inside Claude Code:
+
+```text
+/plugin marketplace add WorldStoryCm/project-spec-skills
+/plugin install project-spec@project-spec-skills
+```
+
+The two skills then appear as `/project-spec:project-knowledge` and `/project-spec:spec-change`, and Claude Code updates them with the plugin. The plugin does not add the `project-spec` command; ask the agent to open the viewer, or use `npx project-spec serve`.
 
 ### Codex
 
@@ -171,7 +189,7 @@ skills/spec-change
 
 If you already have a skill with the same name, compare versions before replacing it. The installer in Codex handles its own destination. In Codex you can name a skill with `$name`, for example `$spec-change`.
 
-### Claude Code
+### Claude Code, by hand
 
 Copy the whole skill folder (it contains the references and helper scripts) to one of:
 

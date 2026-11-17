@@ -135,6 +135,24 @@ try {
   assert.ok(/check: \d+ notes/.test(r.out), r.out);
   assert.equal(run(['check'], { env: { PROJECT_SPEC_PYTHON: 'no-such-python-anywhere' } }).code, 2);
 
+  // the Claude Code plugin manifest names the same version, and the marketplace lists that plugin
+  const pkg = JSON.parse(read(path.join(ROOT, 'package.json')));
+  const plugin = JSON.parse(read(path.join(ROOT, '.claude-plugin/plugin.json')));
+  const market = JSON.parse(read(path.join(ROOT, '.claude-plugin/marketplace.json')));
+  assert.equal(plugin.version, pkg.version, 'plugin.json and package.json name different versions');
+  assert.deepEqual(market.plugins.map(p => [p.name, p.source]), [[plugin.name, './']]);
+  assert.equal(Object.keys(pkg.bin).join(), 'project-spec');
+
+  // what goes to the npm registry: the command and the skills, and nothing a local run left behind
+  const npm = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], { cwd: ROOT, encoding: 'utf8' });
+  if (npm.status === 0) {
+    const packed = JSON.parse(npm.stdout)[0].files.map(f => f.path);
+    for (const needed of ['bin/project-spec.mjs', 'README.md', 'LICENSE', ...skills.map(n => `skills/${n}/SKILL.md`), 'skills/project-knowledge/assets/viewer.html'])
+      assert.ok(packed.includes(needed), `the package lacks ${needed}`);
+    const stray = packed.filter(f => /__pycache__|\.pyc$|^examples\/|^docs\/|^scripts\//.test(f));
+    assert.deepEqual(stray, [], 'the package carries files it should not');
+  } else console.log('NOT RUN: package contents (npm not available)');
+
   console.log('PASS: package command installs, updates, reports and starts the helpers');
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });

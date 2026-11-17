@@ -22,7 +22,18 @@ For viewer changes, open a generated example and check search, filters, internal
 
 `skills/project-knowledge/references/gaps.md` is copied byte for byte to `spec-change` so that skill is usable on its own. Edit the project-knowledge copy and re-copy it; compare with `cmp` before sending a change. Keep relative links out of it, since they would resolve from only one of the two places.
 
-The repository is also the `project-spec-skills` npm package: `bin/project-spec.mjs` starts the helpers and installs, updates and reports the copies of the skills. It has no dependencies and must keep none. Raise `version` in `package.json` when a change should reach installed copies, and keep `scripts/test_cli.cjs` passing; `python3 scripts/verify.py` runs it when Node is available.
+The repository is also the `project-spec` npm package and a Claude Code plugin marketplace (`.claude-plugin/`): `bin/project-spec.mjs` starts the helpers and installs, updates and reports the copies of the skills. It has no dependencies and must keep none. Keep `scripts/test_cli.cjs` passing; `python3 scripts/verify.py` runs it when Node is available.
+
+## Releasing
+
+Raise `version` in `package.json` and in `.claude-plugin/plugin.json` to the same number when a change should reach installed copies, and commit. Then tag that commit `v<version>` and push the tag:
+
+```sh
+git tag v0.7.1
+git push origin v0.7.1
+```
+
+The `Publish to npm` workflow checks that the tag matches both files, runs `python3 scripts/verify.py` and publishes to the npm registry through npm trusted publishing, so the repository stores no npm token. A version that is already on the registry is left alone.
 
 ## Scope and publishing
 

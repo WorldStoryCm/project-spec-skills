@@ -1,0 +1,37 @@
+name: Publish to npm
+# Runs when a version tag is pushed: v0.7.1 publishes package.json version 0.7.1.
+# npm trusted publishing (OIDC) authorizes the upload, so no npm token is stored in this repository.
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+  id-token: write # required for OIDC
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - name: The tag names the version in package.json and the plugin manifest
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          plugin="$(node -p "require('./.claude-plugin/plugin.json').version")"
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME does not match package.json $version"; exit 1; }
+          test "$plugin" = "$version" || { echo "plugin.json $plugin does not match package.json $version"; exit 1; }
+      - run: python3 scripts/verify.py
+      - name: Publish, unless this version is already on the registry
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already published; nothing to do"
+            exit 0
+          fi
+          npm publish --access public

@@ -2,6 +2,12 @@
 
 > The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet; `spec-change` has not been run on a real change.
 
+## 2026-11-17: npm package and Claude Code plugin
+
+- The package was packed with `npm pack`, the tarball installed into an empty project, and `project-spec version`, `install --dir`, `status` and `check` were run from it. The packed file list is checked by `scripts/test_cli.cjs` (no compiled Python files, nothing outside the command and the skills).
+- `.claude-plugin/marketplace.json` and `plugin.json` passed `claude plugin validate` (Claude Code 2.1.197). Adding the marketplace and installing the plugin in Claude Code were **NOT RUN**.
+- The `Publish to npm` workflow has not run yet: it first runs on the first version tag pushed after the package exists on the registry and a trusted publisher is configured there.
+
 ## 2026-11-17: one page per feature, numbered rules
 
 Observed facts, with their limits:

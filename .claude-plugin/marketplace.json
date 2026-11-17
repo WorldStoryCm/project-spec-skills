@@ -1,0 +1,16 @@
+{
+  "name": "project-spec-skills",
+  "owner": {
+    "name": "WorldStoryCm"
+  },
+  "metadata": {
+    "description": "Agent skills that keep a readable, source-backed spec of a repository."
+  },
+  "plugins": [
+    {
+      "name": "project-spec",
+      "source": "./",
+      "description": "Keep a spec of a repository that people can read: one page per feature, every business rule numbered, with a local viewer."
+    }
+  ]
+}
