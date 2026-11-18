@@ -1,168 +1,51 @@
 # Project Spec Skills
 
-**Turn a repository into knowledge you can navigate, question, and maintain.**
+**Turn a repository into a spec people can read: one page per feature, every business rule numbered.**
 
-Two agent skills: one to understand existing software and keep that understanding true, one to change it starting from the spec. Start with the code you already have. Keep explanations in English Markdown with links to the evidence.
+Agent skills for the moment after you built fast with AI and now need to know what the product really does. The agent reads the code you already have and writes down how it works. You read the result in a local viewer, question it, and change the product starting from it.
 
-The knowledge skill produces an **Obsidian-compatible vault** with two clearly separated layers:
-
-- an **as-built spec**: exactly how the code is implemented now, derived only from source. Each feature has one page: what it is for, how it works, its fields and its business rules, every rule with a number you can quote. What people or agents agreed in chats is not part of it.
-- a **gap queue**: the agent's guesses about what is missing, doubtful or worth adding, one question per page. People re-check each gap and decide it, with a separate discussion and decision for every item.
-
-To read it there is a small **local viewer**: one command opens the spec as a plain document in your browser, straight from the files on disk, and turns what you read into a request for your agent. [See how it works](#read-the-spec-then-work-from-it). Obsidian works too and is optional. The other skills work with ordinary repository files, with or without a vault.
+This is an early project. It has been used on a few real repositories; [VALIDATION.md](VALIDATION.md) says what was checked and what was not.
 
 ![A feature page in the viewer: what the feature is for, how it works, and its business rules as numbered rows](docs/images/viewer-page.png)
 
-## Pick a skill
+## Start
 
-| For | Skill | What you get |
-| --- | --- | --- |
-| Understand | [project-knowledge](skills/project-knowledge/SKILL.md) | An as-built spec of capabilities and behavior and a separate queue of individually tracked gaps. It also audits written requirements against the code, answers one question or re-checks one gap, keeps the spec in step with Git history and reconciles concurrent vault updates. It never changes application code. |
-| Change (experimental) | [spec-change](skills/spec-change/SKILL.md) | A source-grounded plan with decision gates and observable acceptance criteria, or the change itself: you edit the spec on a branch, the agent reviews the diff and asks its questions before any code, then implements it and checks each changed statement against the code. |
-
-Each skill is independently usable. A useful sequence is:
-
-```mermaid
-flowchart LR
-  A[Map the project] --> B[Read it in the viewer]
-  B --> C[Audit a spec or re-check a gap]
-  C --> D[A person decides, then plan]
-  B --> E[Edit the spec: spec-change]
-  D --> F[Implement and verify]
-  E --> F
-  F --> A
-```
-
-`project-knowledge` never changes application code; `spec-change` is the one that does, and only after it has asked its questions. Reading a test establishes what it expects; only running it produces a test result.
-
-## Read the spec, then work from it
-
-The vault is plain Markdown: easy for an agent to write, tiring for a person to read file by file. The viewer is the reading side. It is one local page that reads the vault from disk every time it loads, so there is nothing to build first.
-
-It is made for one loop:
-
-1. **Read.** A tree lists the areas and the features in each. A feature page says in plain words what the feature is for and how it works, then lists its fields and its numbered business rules; the source files and the properties are folded away. A breadcrumb, Back and Forward and a "You are here" card say where you are, and the related pages are listed beside the text.
-2. **Find.** Search (Cmd/Ctrl+K) covers pages, gaps and the text of the files the pages cite. A rule number such as `BR-CANCEL-02` finds its page.
-3. **Ask.** "Copy for AI" on any page turns the page and your own words into a request for your agent that names the page file. For a gap: recheck it, record a check you did yourself, record your decision, lay out the options, plan it. For any page: change the behavior, ask a question, or remove a page that is only noise. Each choice says what will happen, and you see the exact text before you copy it.
-4. **Let the agent work.** Paste the brief into your agent. With `spec-change` it asks its questions first, edits the spec on a branch, builds the change and checks every changed statement against the code.
-5. **See what moved.** Recent changes lists the pages whose cited sources changed since the last review, the pages not committed yet, and the vault's Git history with what each summary said before and after.
-
-| Search | Copy for AI |
-| --- | --- |
-| ![Search results grouped into features, gaps and files](docs/images/viewer-search.png) | ![The Copy for AI dialog with the exact text that will be copied](docs/images/viewer-copy.png) |
-| **Recent changes** | **Gap queue** |
-| ![The vault's Git history, one line per commit](docs/images/viewer-changes.png) | ![The gap queue filtered by state, kind and area, the most urgent first](docs/images/viewer-gaps.png) |
-
-![The map of pages, one frame per area](docs/images/viewer-map.png)
-
-The screenshots show the fictional [Parcel Desk](examples/parcel-desk/README.md) example. The viewer only reads: it listens on `127.0.0.1`, makes no network requests and writes nothing to the repository. "Copy for AI" puts text on your clipboard; the only thing it keeps in your browser is the name you sign a check or a decision with. A link to a file in the repository opens inside the viewer, Markdown rendered and code with the cited lines marked.
-
-### Open it with one command
-
-With the [package](#with-npm) installed in your project, add a script to `package.json`:
-
-```json
-{
-  "scripts": {
-    "spec": "project-spec serve"
-  }
-}
-```
-
-`npm run spec` then opens the viewer for that project. Without the package, the command is the helper itself, where `<skill>` is the `project-knowledge` folder (`~/.claude/skills/project-knowledge`, `~/.codex/skills/project-knowledge`, or a copy kept inside the repository):
+You need an agent that can read your repository (Claude Code or Codex), Python 3.10+, Git, and Node 18+ for the `npx` commands.
 
 ```sh
-python3 <skill>/scripts/knowledge.py serve --repo . --open
+npx project-spec install --claude      # or --codex
 ```
 
-Give that a short name once, as a `Makefile` target (the second line starts with a tab) or a shell alias:
+Ask your agent:
 
-```make
-spec:
-	python3 <skill>/scripts/knowledge.py serve --repo . --open
+```text
+Use the project-knowledge skill to build a knowledge vault for this repository.
+Describe only what the code does: one page per feature with its business rules,
+and every doubt as its own gap.
 ```
+
+Then read what it wrote:
 
 ```sh
-alias spec='python3 ~/.claude/skills/project-knowledge/scripts/knowledge.py serve --open --repo'
+npx project-spec serve
 ```
 
-The vault is found by itself when the repository has one under `knowledge/`; otherwise add `--vault PATH`. The page is served on port 8757, or another free port when that one is taken; `--port N` picks one. `project-spec serve` opens the browser unless you add `--no-open`; the helper opens it only with `--open`. If the vault has errors, the page lists them.
+There is also a Claude Code plugin, a manual install and a way to pin one version for a team: see [Install and update](docs/install.md).
 
-### Show it on a server
+## What you get
 
-`serve` is for your own machine. To let the rest of the team read the spec on a development or staging server, write the viewer as one file and let your application return it:
+A folder of plain Markdown in your repository (it also opens in Obsidian) with two layers that stay apart:
 
-```sh
-project-spec build --out build/spec.html \
-  --source-url 'https://github.com/OWNER/REPO/blob/{commit}'
-```
+- **The as-built spec.** How the code works now, taken only from the source. Each feature has one page: what it is for, how it works, its fields and its numbered rules. What people agreed in chats is not part of it.
+- **The gap queue.** The agent's questions about what is missing, doubtful or worth adding, one per page. People re-check each one and decide it. The agent never records a decision nobody made.
 
-Without the package the command is `python3 <skill>/scripts/knowledge.py build --repo . --out build/spec.html`. The file is the whole viewer: the pages, the search, the map, the gap queue and the history, with no other files and no network requests. It is a copy of the vault at the moment of the build, so build it again on every deploy.
-
-| Option | What it does |
-| --- | --- |
-| `--out FILE` | Where to write the page. It must be outside the vault: nothing is generated into the vault. |
-| `--source-url URL` | Where a cited file can be read. The file's path in the repository is added to this address, and `{commit}` becomes the commit the page was built from. Without it, cited files are shown as names. |
-| `--with-sources` | Put the text of the cited files into the page, as `serve` does, so they open inside the viewer. Leave it out when people who may not read the repository can open the page. |
-| `--allow-missing-sources` | Do not stop when a cited file is not there. For a build that sees only part of the repository, such as a Docker build whose `.dockerignore` leaves files out. The command lists the files it did not find. |
-
-The spec describes how the product works inside, and with `--with-sources` it carries source code. So treat the file like the repository:
-
-- Keep it out of folders the web server publishes by itself (`public/`, `static/`). Return it from a route that checks who is asking.
-- Build it only for the environments that should have it, and make the route answer 404 everywhere else.
-- If your application sets a `Content-Security-Policy`, the page needs inline scripts and styles and nothing else.
-
-For example, a route in a Next.js application (a sketch: put your own sign-in check where `signedIn()` is):
-
-```ts
-// src/app/development/spec/route.ts
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
-export const dynamic = "force-dynamic";
-
-export async function GET() {
-  if (process.env.SPEC_PAGE !== "on" || !(await signedIn())) {
-    return new Response("Not found", { status: 404 });
-  }
-  const page = await readFile(path.join(process.cwd(), "build/spec.html"));
-  return new Response(page, {
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Robots-Tag": "noindex",
-      "Content-Security-Policy":
-        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
-    },
-  });
-}
-```
-
-The build needs Python, so run it where the application is built (a CI job or a build stage), not inside a running container that has none. Without Git, or without the `.git` folder (a Docker build usually leaves it out), the page is built all the same, with an empty history and no commit to put into `{commit}`. The **Recent changes** page comes from the Git history: in a shallow clone it starts at the first commit that was fetched in full, and the command says so. In GitHub Actions, `fetch-depth: 0` on the checkout step gives it the whole history.
-
-## What a feature page says
-
-Every feature, screen or flow has one page, and all of them have the same sections in the same order. A section the feature does not have is left out.
-
-| Section | What it holds |
-| --- | --- |
-| Opening | What the feature is for, who uses it and where it is found. |
-| `How it works` | What happens, step by step, in the product's words. |
-| `Fields` | One row per input: whether it is required, its rule, the message when it is refused. |
-| `Business rules` | One numbered row per rule, with the values from the code. |
-
-This is the page in the screenshot above, as the agent wrote it:
+A page looks like this:
 
 ```markdown
 # Only requested pickups are currently cancellable
 
 A customer who no longer needs a pickup cancels it, and the service lets that
 happen only before anyone has started work on it.
-
-## How it works
-
-`cancel_pickup` in the service first runs the ownership check, then looks at the
-pickup's state. A pickup that passes both is set to `cancelled` and returned.
 
 ## Business rules
 
@@ -172,226 +55,59 @@ pickup's state. A pickup that passes both is set to `cancelled` and returned.
 | BR-CANCEL-02 | In any other state the cancellation is refused with "Only requested pickups can be cancelled" and nothing is changed. |
 ```
 
-A rule's number is its name. It stays the same when the rule's text changes, a new rule gets the next free number, and a removed rule's number is never used again, so a number quoted in a ticket, a test or a chat keeps pointing at one rule. `check` fails when a number appears twice in the vault.
+A rule keeps its number for good, so a reviewer, a tester or a support person can say "BR-CANCEL-02 is wrong" instead of describing a screen. When a file a page relies on changes, the page is marked for re-reading.
 
-Things the code registers in one place and no single feature owns (background jobs, emails, routes, roles, plan limits) are listed in reference pages: one table with every item. A page cites the one to five files that decide its behavior. When one of them changes, the page is marked "Code changed since the last check" until someone re-reads it.
+## The viewer
 
-### Big features and several apps
+One local page, read from the files on disk. Nothing is built or uploaded.
 
-A feature that is too big for one page (more than about twenty rules, or several kinds of use, such as direct, group and support chats) has **parts**. The vault then has three levels: the area, the feature, and its parts. The feature's page says what it is for and lists its parts; each part is a page of the same shape with its own rules. The viewer shows the parts under their feature.
+1. **Read** a feature page: its purpose, its flow, its rules.
+2. **Find** anything with search, including a rule number.
+3. **Ask**: "Copy for AI" turns the page and your own words into a request for your agent.
+4. **See what moved**: the pages whose code changed since they were last checked.
 
-When the product has several clients, such as a web app and a mobile app, a feature page has one more section, `## Where the apps differ`: a table with what each client does, one row per difference.
+| Search | Copy for AI |
+| --- | --- |
+| ![Search results grouped into features, gaps and files](docs/images/viewer-search.png) | ![The Copy for AI dialog with the exact text that will be copied](docs/images/viewer-copy.png) |
+| **Recent changes** | **Gap queue** |
+| ![The vault's Git history, one line per commit](docs/images/viewer-changes.png) | ![The gap queue filtered by state, kind and area, the most urgent first](docs/images/viewer-gaps.png) |
 
-### How deep the first map goes
+[The viewer](docs/viewer.md) describes every screen, and how to show the spec on a development server for the rest of the team.
 
-The first map starts with an inventory: every page or screen, every server procedure, every job and email, counted from the place that registers them. The agent then takes one feature at a time and finishes it before starting the next. A page whose feature was not read to the end is marked **Partial** and says what is left. A first map of a large project is therefore a number of finished features and a list of the ones not started, not a thin page about everything.
+## The two skills
 
-One command shows what is still missing, by reading the code and the pages:
+| Skill | What it does |
+| --- | --- |
+| [project-knowledge](skills/project-knowledge/SKILL.md) | Writes and maintains the spec and the gap queue. Audits written requirements against the code, answers one question, re-checks one gap, follows Git history. It never changes application code. |
+| [spec-change](skills/spec-change/SKILL.md) (experimental) | Changes the product starting from the spec: you edit the spec on a branch, the agent asks its questions, then implements the change and checks each changed statement against the code. |
 
-```sh
-project-spec coverage                          # every folder, the least covered first
-project-spec coverage --path src/features/chat # one feature: each message and limit no page mentions
-```
-
-Without the package: `python3 <skill>/scripts/coverage.py --repo .`. For each folder it prints how many files a page cites, and how many messages a person can see and how many named limits are on no page. It is a list of places to read, not a score: some of what it lists is left out of the spec on purpose.
-
-## Why use this?
-
-- **Onboarding:** follow a workflow across UI, API, policy, persistence and tests without rediscovering the same paths every session.
-- **Change planning:** see which rules and related areas a change can affect before writing code.
-- **Rules you can point at:** a reviewer, a tester or a support person can say "BR-CANCEL-02 is wrong" instead of describing a screen.
-- **Useful gap reports:** each doubt is its own page, typed as a missing capability, outdated documentation, an unverified scenario, a conflict or an undecided product proposal, and carries who re-checked it and who decided it.
-- **Team memory:** commit the notes with the project. A manual sync reviews changes from all contributors since the last reviewed commit, including older commits and merges.
-
-The graph records relationships between explanations. It does not infer a complete runtime dependency graph or prove that the deployed application works. The agent never records a decision nobody made: accepting, rejecting or deferring a gap is a person's act.
-
-## Install and run
-
-These are [Agent Skills](https://agentskills.io/specification): each folder has a `SKILL.md` entry point. They require an agent that can read your repository. The knowledge helpers need **Python 3.10+** and **Git**; they have no package dependencies. No MCP server, cloud service, paid API or Obsidian plugin is required by the bundle.
-
-### With npm
-
-The package is [`project-spec`](https://www.npmjs.com/package/project-spec) on the npm registry, with one command of the same name. It needs Node 18+ in addition to Python. Nothing has to be installed first:
+## Commands
 
 ```sh
-npx project-spec install --claude      # or --codex, or --dir knowledge/tooling
-npx project-spec serve                 # the viewer for the project in the current folder
-npx project-spec build --out FILE      # the same viewer as one file, to show on a server
-npx project-spec coverage              # what the code has that no spec page mentions yet
+npx project-spec serve                 # read the spec in the browser
+npx project-spec coverage              # what the code has that no page mentions yet
+npx project-spec build --out FILE      # the viewer as one file, to show on a server
+npx project-spec status                # where the skills are installed and whether they are current
+npx project-spec update                # refresh the installed skills
 ```
 
-Then ask your agent to use the `project-knowledge` skill ([example prompts](#example-prompts)).
+## Read more
 
-To pin one version for everyone on a project, add it as a development dependency:
+| Page | What is in it |
+| --- | --- |
+| [Install and update](docs/install.md) | npm, the Claude Code plugin, Codex, a manual copy, keeping copies current. |
+| [The viewer](docs/viewer.md) | Every screen, a short command to open it, and the spec on a server. |
+| [What the spec contains](docs/spec.md) | The sections of a feature page, big features and several apps, how deep the first map goes, the coverage report, the files in the vault. |
+| [Working with the skills](docs/workflows.md) | Example prompts, the example project, keeping the spec current, deciding gaps, two people updating the vault. |
+| [Parcel Desk](examples/parcel-desk/README.md) | A small fictional project with a ready-made vault to try the viewer on. |
+| [VALIDATION.md](VALIDATION.md) | What was actually checked for each release, and the limits. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Checks, skill boundaries and how releases are made. |
 
-```sh
-npm install --save-dev project-spec
-```
+## What it does not do
 
-The lockfile then pins the version, and `npm update project-spec` moves it forward. The command keeps every copy of the skills in step with that version:
+- The agent writes the claims. The helpers check structure and track which files changed; a helper alone does not understand your code.
+- The spec says what the code does. It does not prove that the deployed application works.
+- Nothing runs by itself: no schedule, no hooks, no commits or pushes. You share the Markdown through your normal Git workflow.
+- No MCP server, cloud service, paid API or Obsidian plugin is needed.
 
-```sh
-npx project-spec status    # where the copies are and whether each is current
-npx project-spec update    # refresh every copy that status lists
-```
-
-`status` and `update` look in `~/.claude/skills`, `~/.codex/skills` and the usual folders of the current project (`knowledge/tooling`, `.claude/skills`, `.codex/skills`, `.agents/skills`). `update` refreshes what is there and adds nothing new; `install` adds. A copy you edited by hand is not replaced unless you pass `--force`, and the old files are kept under `~/.project-spec/backups` first. `--skills project-knowledge` limits an install to the skills you name.
-
-To run the unreleased version from this repository, use `npx github:WorldStoryCm/project-spec-skills status` in place of `npx project-spec status`.
-
-### Claude Code plugin
-
-The repository is also a plugin marketplace for Claude Code. Inside Claude Code:
-
-```text
-/plugin marketplace add WorldStoryCm/project-spec-skills
-/plugin install project-spec@project-spec-skills
-```
-
-The two skills then appear as `/project-spec:project-knowledge` and `/project-spec:spec-change`, and Claude Code updates them with the plugin. The plugin does not add the `project-spec` command; ask the agent to open the viewer, or use `npx project-spec serve`.
-
-### Codex
-
-Ask the built-in skill installer:
-
-```text
-Install these skills from WorldStoryCm/project-spec-skills:
-skills/project-knowledge
-skills/spec-change
-```
-
-If you already have a skill with the same name, compare versions before replacing it. The installer in Codex handles its own destination. In Codex you can name a skill with `$name`, for example `$spec-change`.
-
-### Claude Code, by hand
-
-Copy the whole skill folder (it contains the references and helper scripts) to one of:
-
-- `~/.claude/skills/<name>/` to use it in all your projects, or
-- `.claude/skills/<name>/` inside one project.
-
-```sh
-git clone https://github.com/WorldStoryCm/project-spec-skills.git
-mkdir -p ~/.claude/skills
-cp -R project-spec-skills/skills/project-knowledge ~/.claude/skills/
-cp -R project-spec-skills/skills/spec-change ~/.claude/skills/
-```
-
-Then ask in plain language, or invoke a skill by name with `/<name>`, for example `/spec-change`. Claude Code finds a skill from its description, so an ordinary request often picks the right one.
-
-### Example prompts
-
-These work in any host; use `$name` or `/name` where your host supports it, or just say which skill you mean.
-
-```text
-Use the project-knowledge skill to build an English knowledge vault for this repository.
-Describe only what the code does: one page per feature with its business rules,
-each claim linked to source, and every doubt as its own gap.
-```
-
-```text
-Use the project-knowledge skill to audit docs/checkout.md against the checkout implementation.
-Prioritize real mismatches; record each as a separate open gap.
-```
-
-```text
-Use the project-knowledge skill to re-check the gap "cancelled order still reserves stock".
-Read the call path and relevant tests, write the result into the gap's Recheck
-section, and leave the decision to me.
-```
-
-```text
-Use the spec-change skill to plan the accepted gap "reservation-release".
-Include affected modules, concurrency checks and acceptance criteria. Plan only.
-```
-
-```text
-Use the spec-change skill. I edited the spec on this branch; the diff against main
-is the change request. Ask your questions first, then implement it and show me
-which statement is covered by which check.
-```
-
-### Any agent with repository access
-
-Clone this repository, then ask the agent to read the chosen `skills/<name>/SKILL.md` and follow it in your target project. Keep that skill's directory intact so its references and scripts resolve. Use your host's documented installation mechanism if it supports skills. Hosts other than Codex and Claude Code have not been integration-tested, and the format change described in [VALIDATION.md](VALIDATION.md) has not yet been tested with an agent on any host.
-
-## Try the example first
-
-[Parcel Desk](examples/parcel-desk/README.md) is a small, fictional pickup service with a real spec/code disagreement and a ready-made knowledge vault. The vault shows three gaps at different points of the lifecycle (needs recheck, needs decision, accepted with a plan). It includes example audit, investigation and plan outputs.
-
-```sh
-git clone https://github.com/WorldStoryCm/project-spec-skills.git
-cd project-spec-skills
-python3 scripts/verify.py
-```
-
-Start the viewer on the example:
-
-```sh
-python3 skills/project-knowledge/scripts/knowledge.py serve --repo examples/parcel-desk --open
-```
-
-Search for **cancellation**, open a gap, follow its links and try "Copy for AI" on it. [Read the spec, then work from it](#read-the-spec-then-work-from-it) describes every screen.
-
-To use Obsidian, choose **Open folder as vault** and select `examples/parcel-desk/knowledge/parcel-desk`. Open `00-index`, then **Graph view: Open graph view** from the command palette (Cmd/Ctrl+G). In graph settings, **Existing files only** hides unresolved source links outside the vault. Pages cluster around their area because each page links to it; run pages carry no links, so they do not pull the clusters together. To see the spec alone, put `-path:gaps -path:plans -path:runs` in the graph's search filter, and add a color group per folder (`path:areas`, `path:notes`, `path:gaps`) under **Groups**. **Open local graph** shows only the neighbours of the page you are reading. Gap properties are searchable, for example `[decision:open]` or `[kind:verification-gap]`. See [Obsidian's graph guide](https://help.obsidian.md/plugins/graph).
-
-Source links point outside the vault into the repository. Some hosts do not open these paths; the note's `sources` property gives the repository-relative path for your editor. All example application data is invented.
-
-## Keep knowledge current
-
-```text
-Use the project-knowledge skill to sync: review all integrated changes since the last
-reviewed checkpoint, update the affected spec notes, and revisit gaps whose
-sources changed.
-```
-
-Or narrow the work:
-
-```text
-Ask project-knowledge to explore permissions and deepen the access-control notes.
-Ask project-knowledge to work the gaps: re-verify open ones against the current code
-and list which are waiting for my decision.
-Ask project-knowledge to check links and source freshness.
-```
-
-The agent researches and writes the claims. The Python helpers validate structure, track source fingerprints and render views; running a helper alone does not understand your code. A scan identifies candidate changes, and fingerprints are accepted and the Git checkpoint advanced only after review. See the [sync workflow](skills/project-knowledge/references/sync.md). If part of the range cannot be accepted yet, for example because another contributor has uncommitted edits to a file, mark it `deferred`: the rest is accepted, the checkpoint stays where it is and the helper exits with status 3 (not 0, and not 2, which is a usage error).
-
-If `check` fails on a vault written before the spec/gap split, follow the [migration guide](skills/project-knowledge/references/migrate.md). The same guide has the regroup pass for a vault whose feature pages lack the sections above, or whose rules were spread over separate table pages per kind.
-
-Everything is manual and nothing is published: the bundle installs no schedule or hooks, and does not commit, push or synchronize other clones. Share the Markdown, reviewed state and chosen skill version through your normal Git workflow. Personal Obsidian settings and local scan reports should stay ignored.
-
-### Gaps are decided by people
-
-A gap starts open. Anyone can re-check it (ask `project-knowledge` to recheck it) and the result is written into the gap with who did it and when. Then a person accepts, rejects or defers it, or the agent finds the code already closes it and marks it done. Only an accepted gap gets a plan. Each gap page has its own `Discussion` and `Decision` sections, and the viewer lists the queue by state. A recheck means the same thing for every kind of gap, proposals included: it asks only whether the page's description of current behavior still holds in the code ("confirmed (still holds)" or "not reproduced (no longer holds)"), never whether the proposal is a good idea. Details are in [gaps.md](skills/project-knowledge/references/gaps.md).
-
-### When two people update the vault
-
-```text
-Use the project-knowledge skill to merge our knowledge updates from main
-and teammate/knowledge. Preserve both contributors' useful pages and stable IDs,
-check overlapping claims against source, and report unresolved conflicts.
-```
-
-The agent compares the common base and both versions, combines supported changes, and retains unresolved claims with their provenance. If two people recorded different decisions on the same gap, it reopens that gap, keeps both positions in its discussion and reports it. A read-only inspector finds changed paths, overlaps and ID collisions. Reviewed fingerprints and Git checkpoints need explicit reconciliation; they are never made current by picking the newest JSON. Derived views are rebuilt from the resolved pages. See the [merge workflow](skills/project-knowledge/references/merge.md).
-
-Use separate branches or worktrees, or one writer per page, for concurrent work. The local finish lock protects bookkeeping, not simultaneous editing across computers. Merge is an agent workflow, not an automatic Git merge driver.
-
-## What the files mean
-
-```text
-knowledge/<project>/
-  00-index.md           start here
-  areas/                maps of related capabilities (spec)
-  notes/                one page per feature, plus reference lists (spec)
-  gaps/                 one question per page (gap)
-  plans/                one plan per accepted gap (gap)
-  runs/                 review history and evidence limits
-  .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint)
-```
-
-Spec pages never link to gaps; a gap links to the spec notes it is about. A gap that needs attention is a reason to look, not a defect list: it can mean unverified behavior, an unmet requirement or an undecided proposal. The [format contract](skills/project-knowledge/references/format.md) explains the page types, properties and evidence model. Helpers support this format; they are not a general Obsidian vault importer.
-
-## Contributing and verification
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the checks, skill boundaries and expectations for examples. [VALIDATION.md](VALIDATION.md) records the actual release checks and limitations. Small, evidence-backed improvements are welcome, especially reproducible cases where a skill confuses intended behavior, implemented behavior and runtime evidence.
-
-The shipped skills and examples are original work, licensed under [MIT](LICENSE). This is an independent project; Obsidian and the agent hosts are not its sponsors. No third-party skill collection is bundled.
+The skills and examples are original work under the [MIT license](LICENSE). This is an independent project; Obsidian and the agent hosts are not its sponsors.
