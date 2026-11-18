@@ -313,20 +313,29 @@ def line_ending_variant(data, old):
     return old in {hashlib.sha256(lf).hexdigest(), hashlib.sha256(lf.replace(b'\n', b'\r\n')).hexdigest()}
 
 
+def run_git(repo, args, **options):
+    """Git's answer for the repository. Where Git is not installed (a build container, say) it is the answer
+    of a folder that is not a work tree, so the caller goes on without history instead of stopping."""
+    try:
+        return subprocess.run(['git', '-C', str(repo), *args], capture_output=True, **options)
+    except FileNotFoundError:
+        return subprocess.CompletedProcess(args, 127, b'', b'')
+
+
 def head_blob(repo, source):
     """Bytes of the source as committed at HEAD, or None when HEAD has no such file (untracked, new or no commits)."""
-    result = subprocess.run(['git', '-C', str(repo), 'cat-file', 'blob', f'HEAD:./{posixpath.normpath(source)}'], capture_output=True)
+    result = run_git(repo, ['cat-file', 'blob', f'HEAD:./{posixpath.normpath(source)}'])
     return None if result.returncode else result.stdout
 
 
 def uncommitted_paths(repo):
     """Repo-relative paths Git reports as modified, staged or untracked (one status call), or None outside a work tree."""
-    probe = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--is-inside-work-tree', '--show-prefix'], capture_output=True)
+    probe = run_git(repo, ['rev-parse', '--is-inside-work-tree', '--show-prefix'])
     lines = probe.stdout.decode(errors='replace').split('\n')
     if probe.returncode or lines[0] != 'true':
         return None
     prefix = lines[1] if len(lines) > 1 else ''
-    status = subprocess.run(['git', '-C', str(repo), 'status', '--porcelain=v1', '-z', '--untracked-files=all'], capture_output=True)
+    status = run_git(repo, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])
     if status.returncode:
         return None
     raw, found, i = status.stdout.split(b'\0'), set(), 0
@@ -697,7 +706,7 @@ def front_value(line):
 
 def shallow_commits(repo):
     """Commits whose parents a shallow clone left out. Empty in a full clone and outside Git."""
-    found = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--git-path', 'shallow'], capture_output=True)
+    found = run_git(repo, ['rev-parse', '--git-path', 'shallow'])
     if found.returncode:
         return set()
     try:
@@ -715,21 +724,21 @@ def vault_history(repo, vault):
     spec, prefix = page_pathspec(repo, vault)
     if spec is None:
         return []
-    head = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD'], capture_output=True)
+    head = run_git(repo, ['rev-parse', 'HEAD'])
     if head.returncode:
         return []
     key = (str(repo), str(vault), head.stdout.strip())
     if key in _history_cache:
         return _history_cache[key]
     # Git prints paths from the top of the work tree, which may be above the repository folder given here.
-    top = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--show-prefix'], capture_output=True).stdout.decode(errors='replace').strip()
+    top = run_git(repo, ['rev-parse', '--show-prefix']).stdout.decode(errors='replace').strip()
     prefix = top + prefix
     # A marker nobody could have written into a commit message or a page beforehand separates the commits.
     marker = '\x01' + os.urandom(12).hex() + '\x01'
     try:
-        log = subprocess.run(['git', '-C', str(repo), '-c', 'core.quotepath=off', 'log', f'-n{HISTORY_COMMITS}', '--date=short', '--no-color',
+        log = run_git(repo, ['-c', 'core.quotepath=off', 'log', f'-n{HISTORY_COMMITS}', '--date=short', '--no-color',
                               '--no-renames', '-p', '-U0', f'--format={marker}%H%x02%ad%x02%s', '--', *spec],
-                             capture_output=True, timeout=20)
+                      timeout=20)
     except subprocess.TimeoutExpired:
         return []
     if log.returncode:
@@ -774,11 +783,10 @@ def vault_pending(repo, vault):
     spec, prefix = page_pathspec(repo, vault)
     if spec is None:
         return []
-    status = subprocess.run(['git', '-C', str(repo), '-c', 'core.quotepath=off', 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames', '--', *spec],
-                            capture_output=True)
+    status = run_git(repo, ['-c', 'core.quotepath=off', 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames', '--', *spec])
     if status.returncode:
         return []
-    top = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--show-prefix'], capture_output=True).stdout.decode(errors='replace').strip()
+    top = run_git(repo, ['rev-parse', '--show-prefix']).stdout.decode(errors='replace').strip()
     pending = []
     for item in status.stdout.split(b'\0'):
         text = os.fsdecode(item)
@@ -829,7 +837,7 @@ def built_page(repo, vault, notes, edges, warnings, with_sources=False, source_u
     The text of cited repository files is left out unless asked for, because the file may be shown to people
     who cannot read the repository. Returns (html, payload).
     """
-    head = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD'], capture_output=True)
+    head = run_git(repo, ['rev-parse', 'HEAD'])
     commit = '' if head.returncode else head.stdout.decode('ascii', errors='replace').strip()
     payload = page_payload(repo, vault, notes, edges, warnings, with_sources) | {
         'built': True, 'commit': commit, 'sourceUrl': source_base(source_url, commit) if source_url else ''}

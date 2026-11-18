@@ -7,6 +7,7 @@
 - `build` has automated tests: the page is written without the text of cited files unless asked, `--out` inside the vault and a vault with errors are refused, `{commit}` in `--source-url` is filled in, and a shallow clone's first commit is left out of the history. The viewer tests cover links to the code host and file names without one. `python3 scripts/verify.py` passed.
 - The page was built for the example and for a real vault of 237 pages (about 1 MB without source text, 4.8 MB with the text of 488 files), served by a plain local HTTP server and opened in headless Chrome: a feature page, the links to the code host and the Recent changes page were checked.
 - `--allow-missing-sources` (0.8.1) has an automated test: a cited file that is not there stops the build without the option and is listed with it.
+- A real Docker build of an application (Alpine, no Git, no `.git` folder) first failed with `No such file or directory: 'git'`. The helper now treats a missing Git as a folder without history; the same image build then wrote the page. This has an automated test.
 - **NOT RUN:** the page behind a real application route, the Next.js example in the README, a build inside a CI job, and a browser other than Chrome.
 
 ## 2026-11-17: npm package and Claude Code plugin

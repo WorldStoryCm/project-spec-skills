@@ -634,6 +634,26 @@ class GapLayerTests(Fixture):
         self.assertEqual(self.run_cli('check')[0], 1)
         self.assertIn('only for build', self.refused('check', '--allow-missing-sources'))
 
+    def test_build_and_serve_work_where_git_is_not_installed(self):
+        import os
+        from unittest import mock
+        k._history_cache.clear()
+        self.vault.rename(self.repo / 'vault')
+        self.vault = self.repo / 'vault'
+        self.git('init', '-q')
+        self.git('add', '-A')
+        self.git('commit', '-q', '-m', 'First')
+        empty = self.root / 'no-tools'
+        empty.mkdir()
+        with mock.patch.dict(os.environ, {'PATH': str(empty)}):
+            status, printed, err, data = self.built()
+            self.assertEqual((status, data['commit'], data['history'], data['pending']), (0, '', [], []), err)
+            self.assertNotIn('commit ', printed)
+            self.assertIn('knowledge-data', k.live_page(self.repo.resolve(), self.vault.resolve()))
+            self.assertIn('--ignore-dirty needs --repo to be a Git work tree', self.refused('check', '--ignore-dirty'))
+        k._history_cache.clear()
+        self.assertEqual([c['subject'] for c in self.built()[3]['history']], ['First'], 'with Git back, the history is too')
+
     def test_build_links_cited_files_to_the_commit_it_was_built_from(self):
         k._history_cache.clear()
         self.vault.rename(self.repo / 'vault')
