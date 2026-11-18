@@ -104,6 +104,7 @@ Without the package the command is `python3 <skill>/scripts/knowledge.py build -
 | `--out FILE` | Where to write the page. It must be outside the vault: nothing is generated into the vault. |
 | `--source-url URL` | Where a cited file can be read. The file's path in the repository is added to this address, and `{commit}` becomes the commit the page was built from. Without it, cited files are shown as names. |
 | `--with-sources` | Put the text of the cited files into the page, as `serve` does, so they open inside the viewer. Leave it out when people who may not read the repository can open the page. |
+| `--allow-missing-sources` | Do not stop when a cited file is not there. For a build that sees only part of the repository, such as a Docker build whose `.dockerignore` leaves files out. The command lists the files it did not find. |
 
 The spec describes how the product works inside, and with `--with-sources` it carries source code. So treat the file like the repository:
 
@@ -137,7 +138,7 @@ export async function GET() {
 }
 ```
 
-The build needs Python and Git, so run it where the application is built (a CI job or a build stage), not inside a running container that has neither. The **Recent changes** page comes from the Git history: in a shallow clone it starts at the first commit that was fetched in full, and the command says so. In GitHub Actions, `fetch-depth: 0` on the checkout step gives it the whole history.
+The build needs Python, so run it where the application is built (a CI job or a build stage), not inside a running container that has none. Without Git, or without the `.git` folder (a Docker build usually leaves it out), the page is built all the same, with an empty history and no commit to put into `{commit}`. The **Recent changes** page comes from the Git history: in a shallow clone it starts at the first commit that was fetched in full, and the command says so. In GitHub Actions, `fetch-depth: 0` on the checkout step gives it the whole history.
 
 ## What a feature page says
 

@@ -347,9 +347,12 @@ def error_page(message):
     return head if head.endswith('.md') else None
 
 
-def load_vault(repo, vault, freshness=True, dirty=None, report=None):
+def load_vault(repo, vault, freshness=True, dirty=None, report=None, absent=None):
     """dirty: repo-relative paths with uncommitted changes. Their freshness warning is marked, not counted, only when
     the accepted fingerprint equals the file's HEAD blob (up to LF/CRLF), so the sole drift is uncommitted.
+
+    absent, when given, collects cited files that are not there instead of reporting them: for a build that sees
+    only part of the repository, such as a Docker build context. Their pages are not marked as changed.
 
     report, when given, receives 'failed': {page path: parsed id or None} for pages that failed validation.
     """
@@ -541,6 +544,9 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None):
                 if credential_path(path.resolve().relative_to(repo).as_posix()):
                     raise ValueError('credential source is forbidden')
                 if not path.is_file():
+                    if absent is not None and not path.exists():
+                        absent.append(source)
+                        continue
                     if closed:
                         warnings.append(f'{rel}: missing source {source}')
                         note['stale'] = True
@@ -868,6 +874,8 @@ def main(argv=None):
     parser.add_argument('--out', type=Path, help='build: the HTML file to write, outside the vault')
     parser.add_argument('--with-sources', action='store_true', help='build: include the text of the repository files the pages cite')
     parser.add_argument('--source-url', default='', help='build: where a cited file can be read, e.g. https://github.com/OWNER/REPO/blob/{commit}')
+    parser.add_argument('--allow-missing-sources', action='store_true',
+                        help='build: do not stop when a cited file is not there, for a build that sees only part of the repository')
     parser.add_argument('--ignore-dirty', action='store_true',
                         help='check: do not count freshness warnings for sources with uncommitted changes (needs a Git work tree)')
     group = parser.add_mutually_exclusive_group()
@@ -882,8 +890,8 @@ def main(argv=None):
         parser.error('--open is only for serve')
     if args.command == 'build' and not args.out:
         parser.error('build requires --out FILE')
-    if args.command != 'build' and (args.out or args.with_sources or args.source_url):
-        parser.error('--out, --with-sources and --source-url are only for build')
+    if args.command != 'build' and (args.out or args.with_sources or args.source_url or args.allow_missing_sources):
+        parser.error('--out, --with-sources, --source-url and --allow-missing-sources are only for build')
     if args.command == 'snapshot' and not (args.all or args.notes):
         parser.error('snapshot requires --all or --notes')
     if args.command != 'snapshot' and (args.all or args.notes):
@@ -917,7 +925,8 @@ def main(argv=None):
         if dirty is None:
             parser.error('--ignore-dirty needs --repo to be a Git work tree')
     report = {}
-    notes, edges, errors, warnings, baseline = load_vault(repo, vault, args.command != 'snapshot', dirty, report)
+    absent = [] if args.allow_missing_sources else None
+    notes, edges, errors, warnings, baseline = load_vault(repo, vault, args.command != 'snapshot', dirty, report, absent)
     ignored = []
     if args.command == 'snapshot' and args.notes:
         # Only the selected pages must be valid; errors elsewhere are counted, not blocking.
@@ -964,6 +973,9 @@ def main(argv=None):
               + (f', commit {payload["commit"][:7]}' if payload['commit'] else ''))
         print('build: ' + (f'the text of {files} cited source files is inside the file; show it only to people who may read the repository'
                            if args.with_sources else 'cited source files are named but their text is not included (--with-sources adds it)'))
+        if absent:
+            names = sorted(set(absent))
+            print(f'build: {len(names)} cited files are not in this folder, so nobody compared them with the pages: ' + ', '.join(names[:8]) + (' ...' if len(names) > 8 else ''))
         if shallow_commits(repo):
             print('build: this is a shallow clone, so the Changes page starts at the first commit that was fetched in full; fetch the whole history to show more')
         return 0

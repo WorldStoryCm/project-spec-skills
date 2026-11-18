@@ -612,6 +612,28 @@ class GapLayerTests(Fixture):
         self.assertEqual((status, data['files']['source.txt']['text']), (0, 'evidence'))
         self.assertIn('the text of 1 cited source files is inside the file', printed)
 
+    def test_build_can_run_where_part_of_the_repository_is_missing(self):
+        self.note('notes/m.md', 'm', sources=['source.txt', 'Dockerfile'])
+        status, _, err, data = self.built()
+        self.assertEqual((status, data), (1, None))
+        self.assertIn('source is missing or not a file', err)
+        status, printed, err, data = self.built('--allow-missing-sources')
+        self.assertEqual(status, 0)
+        self.assertIn('build: 1 cited files are not in this folder, so nobody compared them with the pages: Dockerfile', printed)
+        self.assertNotIn('Dockerfile', err)
+        self.note('notes/o.md', 'o', sources=['Dockerfile'])
+        data = self.built('--allow-missing-sources')[3]
+        pages = {n['id']: (n['sources'], n['stale']) for n in data['nodes']}
+        self.assertEqual(pages['o'], (['Dockerfile'], False), 'a file nobody could read does not mark its page as changed')
+        self.assertEqual(pages['m'], (['source.txt', 'Dockerfile'], True), 'source.txt has no accepted fingerprint')
+        (self.vault / 'notes/o.md').unlink()
+        # a folder where a file should be is still an error, and so is the same vault for check
+        (self.repo / 'Dockerfile').mkdir()
+        self.assertEqual(self.built('--allow-missing-sources')[0], 1)
+        (self.repo / 'Dockerfile').rmdir()
+        self.assertEqual(self.run_cli('check')[0], 1)
+        self.assertIn('only for build', self.refused('check', '--allow-missing-sources'))
+
     def test_build_links_cited_files_to_the_commit_it_was_built_from(self):
         k._history_cache.clear()
         self.vault.rename(self.repo / 'vault')

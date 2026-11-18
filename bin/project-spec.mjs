@@ -25,7 +25,7 @@ const USAGE = `project-spec ${PACKAGE.version}
 Read the spec
   project-spec serve [--repo DIR] [--vault DIR] [--port N] [--no-open]
       Open the viewer for the repository (default: the current folder).
-  project-spec build --out FILE [--source-url URL] [--with-sources] [--repo DIR] [--vault DIR]
+  project-spec build --out FILE [--source-url URL] [--with-sources] [--allow-missing-sources]
       Write the viewer as one HTML file, to show the spec on a server.
   project-spec check | snapshot [options]
       The knowledge helper; --repo defaults to the current folder.
