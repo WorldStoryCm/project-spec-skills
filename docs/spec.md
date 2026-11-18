@@ -48,6 +48,8 @@ When the product has several clients, such as a web app and a mobile app, a feat
 
 The first map starts with an inventory: every page or screen, every server procedure, every job and email, counted from the place that registers them. The agent then takes one feature at a time and finishes it before starting the next. A page whose feature was not read to the end is marked **Partial** and says what is left. A first map of a large project is therefore a number of finished features and a list of the ones not started, not a thin page about everything.
 
+The agent keeps that inventory as a checklist in the vault, `.knowledge/inventory.md`: one heading per feature with its state (not started, in progress, finished) and one checkbox per entry point. It ticks the boxes as it reads, adds whatever it comes across on the way, and at the end compares the list with the code once more. When a session stops halfway, the next one reads this file and continues from the feature that was in progress, so a large map can be made over several sessions. It is a plain Markdown file: open it to see how far the map has got.
+
 One command shows what is still missing, by reading the code and the pages:
 
 ```sh
@@ -67,7 +69,8 @@ knowledge/<project>/
   gaps/                 one question per page (gap)
   plans/                one plan per accepted gap (gap)
   runs/                 review history and evidence limits
-  .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint)
+  .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint),
+                        inventory.md (the checklist of the map)
 ```
 
 Spec pages never link to gaps; a gap links to the spec notes it is about. A gap that needs attention is a reason to look, not a defect list: it can mean unverified behavior, an unmet requirement or an undecided proposal. The [format contract](../skills/project-knowledge/references/format.md) explains the page types, properties and evidence model. Helpers support this format; they are not a general Obsidian vault importer.

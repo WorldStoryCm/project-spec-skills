@@ -2,6 +2,12 @@
 
 > The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet; `spec-change` has not been run on a real change.
 
+## 2026-11-18: a checklist for the first map
+
+- 0.9.2 gives the inventory a file of its own, `.knowledge/inventory.md`, with a state per feature and a checkbox per entry point, and tells the agent to write it before the first page, to add what it finds on the way, to compare it with the code at the end and to continue from it when a session was interrupted. Before, the inventory was a list on the run page with no format and nothing said about continuing.
+- This is a change to the instructions only. No helper reads the file, so nothing checks that it is true. `python3 scripts/verify.py` passed.
+- **NOT RUN:** no agent has yet made a map with it, so it is not observed that an agent keeps the file current, or that a second session continues from it instead of starting again.
+
 ## 2026-11-18: depth of a first map
 
 Observed on a second real project, a monorepo with a web app and a mobile app (about 5,400 code files, 600,000 lines without migrations):

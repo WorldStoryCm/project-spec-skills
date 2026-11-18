@@ -14,7 +14,8 @@ knowledge/<project>/
   gaps/                 one question per page (gap)
   plans/                one plan per accepted gap (gap)
   runs/                 review history and evidence limits
-  .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint)
+  .knowledge/           sources.json (reviewed fingerprints), review.json (reviewed Git checkpoint),
+                        inventory.md (the checklist of the map)
 ```
 
 Nothing in the vault is generated for reading: every file is a page someone wrote or the reviewed state under `.knowledge/`. The local reports of a sync scan (`sync.html`, `.knowledge/sync-plan.json`, `.knowledge/sync-status.md`) are ignored by Git and are not part of the vault's content. The viewer shows the spec and the gap queue from the pages themselves.
@@ -164,6 +165,44 @@ The validator enforces these body rules:
 4. A rule number (`BR-PROFILE-01` in the first cell of a table row on a note) appears once in the vault. The same number on two rows, on one page or two, is an error: a number names one rule for good.
 5. A gap has six `##` sections with exactly these headings, each once: `Current behavior`, `Gap`, `Evidence`, `Recheck`, `Discussion`, `Decision`. Headings inside code fences do not count.
 6. When `decision` is not `open`, `Decision` needs text; when `recheck` is not `not-checked`, `Recheck` needs text.
+
+## The inventory file
+
+`.knowledge/inventory.md` is the checklist of a map: what the product has, and how far the spec has got with it. The agent writes it before the first page and keeps it true afterwards ([the rules](../SKILL.md#the-inventory-file)); no helper reads it, and like everything under `.knowledge/` it is not a page of the vault. It is committed with the vault, which is how a second session, or a second person, continues where the first one stopped.
+
+```markdown
+# Inventory
+
+Taken at `4f2a9c1` on 2026-11-18. Apps and packages: web-app, mobile-app, packages/api, packages/jobs.
+
+## Chats: in progress
+
+Folders: web-app/src/features/messages, mobile-app/src/features/messages, packages/api/src/chat
+Pages: notes/chats, notes/chats-group
+Left: the support chat screens, the mobile app
+
+- [x] web /messages
+- [x] web /messages/[id]
+- [ ] mobile ChatScreen
+- [x] api chat.send
+- [ ] job chat-digest
+
+## Reviews: not started
+
+Folders: web-app/src/features/reviews
+
+- [ ] web /products/[id]/reviews
+- [ ] api review.create
+
+## Left out
+
+- packages/storybook: a component gallery for developers, no behavior of the product
+```
+
+- A feature's heading is its name and one of three states: `not started`, `in progress`, `finished`. A feature with parts is still one heading; its parts are among its pages.
+- One checkbox per entry point: the client or kind (`web`, `mobile`, `admin`, `api`, `job`, `email`) and the name the code registers it under. A box is ticked when the entry point was followed to the code that decides its behavior, not when it was seen.
+- `Pages` names the feature's pages by path. `Left` says in words what is not read yet, and is the same thing the `partial` page says in its last line. A `finished` feature has every box ticked and no `Left` line.
+- "Left out" holds what was looked at and is not part of the product, each with its reason.
 
 ## Helper
 
