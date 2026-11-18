@@ -791,6 +791,15 @@
       details.fold > :last-child {
         margin-bottom: 20px;
       }
+      .fold-rows .row {
+        padding-left: 0;
+        padding-right: 0;
+      }
+      .more-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
       .here-path {
         display: flex;
         flex-direction: column;
@@ -1697,7 +1706,12 @@
             "Someone has to confirm that the page's description of the current code is still right.",
           "needs-decision":
             "Rechecked; waiting for a person to accept, reject or defer.",
+          history:
+            "Closed questions: done, rejected, or a duplicate of another. They are kept for the reason behind a rule.",
         };
+        // A closed gap is out of the queue: it is history, read for the reason behind a rule.
+        const CLOSED_STATES = ["done", "rejected", "duplicate"],
+          OPEN_STATES = STATES.filter((s) => !CLOSED_STATES.includes(s));
         const recheckLabels = {
           "not-checked": "Not checked",
           confirmed: "Confirmed (still holds)",
@@ -1727,6 +1741,10 @@
               : "needs-recheck";
           return STATES.includes(decision) ? decision : "needs-recheck";
         };
+        const isClosed = (n) => CLOSED_STATES.includes(stateOf(n));
+        // The day a gap was closed, as far as the page says: the decision, else the recheck that closed it.
+        const closedOn = (n) => str(n.decidedOn) || str(n.recheckedOn) || str(n.updated);
+        const byClosed = (a, b) => closedOn(b).localeCompare(closedOn(a)) || byTitle(a, b);
         const recheckOutdated = (n) =>
           isGap(n) && (n.recheckOutdated === true || n.recheck === "outdated");
         const stateRank = (n) => {
@@ -2784,7 +2802,10 @@
             // A note is read as written: what the feature is for and its rules. An area is a map of its notes.
             if (n.type === "area") main.append(featureList(featuresOf(n)));
             else main.append(markdown(bodyOf(n), n));
-            const about = gapsAbout(n).filter((g) => !["done", "rejected", "duplicate"].includes(stateOf(g)));
+            const asked = gapsAbout(n),
+              about = asked.filter((g) => !isClosed(g)),
+              // a duplicate is answered on the gap it repeats, so it is not a closed question of its own
+              closed = asked.filter((g) => isClosed(g) && stateOf(g) !== "duplicate").sort(byClosed);
             if (about.length) {
               const card = el("section", null, "card"),
                 head = el("div", null, "card-head");
@@ -2795,6 +2816,11 @@
             }
             const folds = el("div");
             if (n.type === "area") folds.append(fold("More about this area", markdown(bodyOf(n), n)));
+            if (closed.length) {
+              const list = el("div", null, "fold-rows");
+              closed.forEach((g) => list.append(gapRow(g)));
+              folds.append(fold("Closed questions (" + closed.length + ")", list));
+            }
             const sources = (Array.isArray(n.sources) ? n.sources : []).filter(str);
             if (sources.length) {
               const ul = el("ul", null, "link-list");
@@ -2815,7 +2841,9 @@
           view.append(page);
         }
 
-        let gapState = "all",
+        const GAP_PORTION = 40;
+        let gapState = "open", // "open", one of the open states, or "history"
+          gapShown = GAP_PORTION,
           gapArea = "",
           gapKind = "",
           gapPriority = ""; // "" for all, "none" for gaps without one, otherwise the value
@@ -2846,17 +2874,21 @@
                 (!gapKind || n.kind === gapKind) &&
                 (!gapPriority || (priorityOf(n) || "none") === gapPriority),
             ),
-            again = () => show();
+            again = () => {
+              gapShown = GAP_PORTION;
+              show();
+            },
+            history = pool.filter(isClosed).length;
           head.append(
             pills(
               "State",
-              // A state with no gaps under the current filters is left out, unless it is the one selected.
+              // The queue is the open work; what is closed is one step away, under History. A state with
+              // no gaps under the current filters is left out, unless it is the one selected.
               [
-                ["all", "All", pool.length],
-                ...STATES.map((s) => [s, stateLabels[s], pool.filter((g) => stateOf(g) === s).length]).filter(
-                  ([s, , count]) => count || s === gapState,
-                ),
-              ],
+                ["open", "Open", pool.length - history],
+                ...OPEN_STATES.map((s) => [s, stateLabels[s], pool.filter((g) => stateOf(g) === s).length]),
+                ["history", "History", history],
+              ].filter(([s, , count]) => count || s === gapState || s === "open"),
               gapState,
               (s) => {
                 gapState = s;
@@ -2900,14 +2932,30 @@
               ),
             );
           const shown = pool
-            .filter((g) => gapState === "all" || stateOf(g) === gapState)
-            .sort(byGapOrder);
+            .filter((g) => (gapState === "open" ? !isClosed(g) : gapState === "history" ? isClosed(g) : stateOf(g) === gapState))
+            .sort(gapState === "history" ? byClosed : byGapOrder);
           if (shown.length) {
-            const card = el("section", null, "card");
+            // A long queue comes in portions: the most urgent are in the first one, the rest one press away.
+            const card = el("section", null, "card"),
+              more = el("div", null, "more-row");
             card.id = "gap-list";
-            shown.forEach((g) => card.append(gapRow(g)));
-            box.append(card);
-          } else box.append(el("p", "No gaps match. Try other filters.", "empty"));
+            const fill = () => {
+              const upto = Math.min(gapShown, shown.length);
+              card.replaceChildren(...shown.slice(0, upto).map(gapRow));
+              more.replaceChildren();
+              if (shown.length <= GAP_PORTION) return;
+              if (upto < shown.length)
+                more.append(
+                  button("Show " + Math.min(GAP_PORTION, shown.length - upto) + " more", "btn", () => {
+                    gapShown += GAP_PORTION;
+                    fill();
+                  }),
+                );
+              more.append(el("span", upto + " of " + shown.length, "muted small"));
+            };
+            fill();
+            box.append(card, more);
+          } else box.append(el("p", gapState === "history" ? "Nothing is closed yet." : "No gaps match. Try other filters.", "empty"));
           view.append(box);
         }
 

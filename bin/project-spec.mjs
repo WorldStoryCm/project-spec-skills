@@ -10,6 +10,11 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SKILLS = path.join(ROOT, 'skills');
+// The viewer is not part of a skill: a skill holds only what writing a spec needs. It lives in the package, and a
+// copy of the skill gets it only when asked (--with-viewer) or when it already had one.
+const VIEWER = path.join(ROOT, 'viewer', 'viewer.html');
+const VIEWER_SKILL = 'project-knowledge';
+const VIEWER_REL = 'assets/viewer.html';
 const PACKAGE = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const MARKER = '.project-spec.json'; // written into every copy: which version it is and what its files looked like
 const SKIP = new Set(['__pycache__', '.DS_Store', MARKER]);
@@ -38,8 +43,10 @@ Read the spec
 Keep the skills current
   project-spec status
       Where copies of the skills are and whether they match this version.
-  project-spec install [--claude] [--codex] [--dir DIR]... [--skills a,b] [--force]
+  project-spec install [--claude] [--codex] [--dir DIR]... [--skills a,b] [--with-viewer | --no-viewer] [--force]
       Copy the skills into ~/.claude/skills, ~/.codex/skills or a folder you name.
+      A copy holds the instructions and the helpers. --with-viewer adds the viewer page to it, for a
+      place without Node; --no-viewer takes it out of a copy that has it.
   project-spec update [--force]
       Refresh every copy that status lists and remove retired skills. Nothing new is added.
 
@@ -62,6 +69,15 @@ const skillNames = () =>
     .map(e => e.name)
     .sort();
 
+const sha = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const hasViewer = dir => fs.existsSync(path.join(dir, VIEWER_REL));
+// The files a copy of a skill should have: the skill's own, and the viewer when this copy carries it.
+function freshFiles(name, viewer) {
+  const fresh = filesOf(path.join(SKILLS, name));
+  if (viewer && name === VIEWER_SKILL) fresh[VIEWER_REL] = sha(VIEWER);
+  return fresh;
+}
+
 function filesOf(dir, base = dir, out = {}) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (SKIP.has(entry.name) || entry.name.endsWith('.pyc')) continue;
@@ -82,9 +98,10 @@ function readMarker(dir) {
 }
 
 // What a copy is, compared with this package: current, older, modified by hand, unknown, or absent.
-function inspect(dir, name) {
+// `viewer` says whether the copy should carry the viewer; left out, a copy keeps what it has.
+function inspect(dir, name, viewer = hasViewer(dir)) {
   if (!fs.existsSync(path.join(dir, 'SKILL.md'))) return { state: 'absent' };
-  const fresh = filesOf(path.join(SKILLS, name));
+  const fresh = freshFiles(name, viewer);
   const now = filesOf(dir);
   const same = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(k => a[k] === b[k]);
   const marker = readMarker(dir);
@@ -114,24 +131,32 @@ function backup(dir, name) {
 
 // Copies one skill into place. Files an earlier install put there and this version no longer has are removed;
 // files nobody recorded (yours) are left alone.
-function place(dir, name) {
+function place(dir, name, viewer) {
   const source = path.join(SKILLS, name);
-  const fresh = filesOf(source);
+  const fresh = freshFiles(name, viewer);
   const marker = readMarker(dir);
   for (const old of Object.keys(marker ? marker.files : {})) {
     if (fresh[old] === undefined) fs.rmSync(path.join(dir, old), { force: true });
   }
+  if (name === VIEWER_SKILL && !viewer) {
+    fs.rmSync(path.join(dir, VIEWER_REL), { force: true });
+    try {
+      fs.rmdirSync(path.dirname(path.join(dir, VIEWER_REL))); // only when nothing else is in it
+    } catch {}
+  }
   for (const rel of Object.keys(fresh)) {
     const to = path.join(dir, rel);
     fs.mkdirSync(path.dirname(to), { recursive: true });
-    fs.copyFileSync(path.join(source, rel), to);
+    fs.copyFileSync(rel === VIEWER_REL && name === VIEWER_SKILL ? VIEWER : path.join(source, rel), to);
   }
   fs.writeFileSync(path.join(dir, MARKER), JSON.stringify({ package: PACKAGE.name, version: PACKAGE.version, commit: commit(), files: fresh }, null, 2) + '\n');
 }
 
-function apply(root, name, force, lines) {
+// `viewer`: true adds the viewer to the copy, false takes it out, undefined keeps what the copy has (none when new).
+function apply(root, name, force, lines, viewer) {
   const dir = path.join(root, name);
-  const found = inspect(dir, name);
+  const carries = name === VIEWER_SKILL && (viewer === undefined ? hasViewer(dir) : viewer);
+  const found = inspect(dir, name, carries);
   const label = `${shorten(dir)}`;
   if (found.state === 'current' && !found.adopt) return lines.push(`  ${label}: already current`);
   if (found.state === 'modified' && !force) {
@@ -140,8 +165,8 @@ function apply(root, name, force, lines) {
   }
   let kept = '';
   if (found.state === 'modified' || found.state === 'unknown') kept = `; the old copy is in ${shorten(backup(dir, name))}`;
-  place(dir, name);
-  lines.push(`  ${label}: ${found.state === 'absent' ? 'installed' : found.adopt ? 'recorded as current' : 'updated'} to ${PACKAGE.version}${kept}`);
+  place(dir, name, carries);
+  lines.push(`  ${label}: ${found.state === 'absent' ? 'installed' : found.adopt ? 'recorded as current' : 'updated'} to ${PACKAGE.version}${carries ? ', with the viewer' : ''}${kept}`);
 }
 
 const shorten = p => (p.startsWith(os.homedir() + path.sep) ? '~' + p.slice(os.homedir().length) : p);
@@ -195,7 +220,7 @@ function status(args) {
     for (const name of names) {
       const found = inspect(path.join(root, name), name);
       if (found.state !== 'current' && found.state !== 'absent') behind++;
-      console.log(`  ${name}: ${STATE_TEXT[found.state](found)}`);
+      console.log(`  ${name}: ${STATE_TEXT[found.state](found)}${name === VIEWER_SKILL && hasViewer(path.join(root, name)) ? ', with the viewer' : ''}`);
     }
     for (const name of retiredIn(root)) {
       behind++;
@@ -212,7 +237,11 @@ function install(args) {
   if (flag(args, '--codex')) roots.push(homes()[1]);
   roots.push(...take(args, '--dir').map(d => path.resolve(d)));
   const only = take(args, '--skills').flatMap(v => v.split(',')).map(v => v.trim()).filter(Boolean);
+  const withViewer = flag(args, '--with-viewer');
+  const noViewer = flag(args, '--no-viewer');
   done(args);
+  if (withViewer && noViewer) throw new Problem('--with-viewer and --no-viewer cannot be used together');
+  const viewer = withViewer ? true : noViewer ? false : undefined;
   if (!roots.length) throw new Problem('say where to install: --claude, --codex or --dir DIR');
   const names = skillNames();
   const unknown = only.filter(n => !names.includes(n));
@@ -220,7 +249,7 @@ function install(args) {
   let ok = true;
   for (const root of roots) {
     const lines = [];
-    for (const name of only.length ? only : names) if (apply(root, name, force, lines) === false) ok = false;
+    for (const name of only.length ? only : names) if (apply(root, name, force, lines, viewer) === false) ok = false;
     console.log(lines.join('\n'));
   }
   return ok ? 0 : 1;

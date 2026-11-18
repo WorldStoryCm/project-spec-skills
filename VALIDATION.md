@@ -2,6 +2,19 @@
 
 > The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet; `spec-change` has not been run on a real change.
 
+## 2026-11-18: a skill copy without the viewer and the tests
+
+- A copy of `project-knowledge` was 9,179 lines, of which 3,879 were the viewer page and 2,432 the helper tests. 0.10.0 moves the page to `viewer/` in the package and the tests to `tests/` in the repository; a copy is now the instructions and four helpers.
+- `serve` and `build` find the page in the package or clone, or in a copy made with `install --with-viewer`, and otherwise stop with a message naming `npx project-spec serve`. `update` keeps the page in a copy that has it, so copies made by earlier versions keep working, and removes the old test files. `--viewer FILE` shows the vault with a page of one's own. All of this has automated tests, including a build run from an installed copy with and without the page. `python3 scripts/verify.py` passed.
+- The package was packed, installed into an empty project and tried: `install --dir`, the files in the copy, `build` from the package, and `build` from the copy with and without `--with-viewer`.
+- **NOT RUN:** the Claude Code plugin and third-party skill installers with the new layout, and a custom page with `--viewer` beyond the automated test.
+
+## 2026-11-18: a long gap queue and closed gaps
+
+- Seen on a real vault with 184 gaps: the queue was one list of 184 rows with the seven closed ones among them, and a feature's page showed no trace of a question that had been decided.
+- 0.10.0: the queue shows open gaps only, forty at a time; closed gaps (done, rejected, duplicate) are under History, the most recently closed first, and on the feature's page in a fold. The viewer tests cover the counts, the portions, History and the fold. `python3 scripts/verify.py` passed, and the queue, History and a feature page were opened in headless Chrome on that vault.
+- The rule that closing a gap puts its answer on the feature's page as a numbered rule, named in the gap's `Decision`, is an instruction only: nothing checks it, and no agent has closed a gap under it yet.
+
 ## 2026-11-18: a checklist for the first map
 
 - 0.9.2 gives the inventory a file of its own, `.knowledge/inventory.md`, with a state per feature and a checkbox per entry point, and tells the agent to write it before the first page, to add what it finds on the way, to compare it with the code at the end and to continue from it when a session was interrupted. Before, the inventory was a list on the run page with no format and nothing said about continuing.

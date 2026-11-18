@@ -24,6 +24,8 @@ For viewer changes, open a generated example and check search, filters, internal
 
 The repository is also the `project-spec` npm package and a Claude Code plugin marketplace (`.claude-plugin/`): `bin/project-spec.mjs` starts the helpers and installs, updates and reports the copies of the skills. It has no dependencies and must keep none. Keep `scripts/test_cli.cjs` passing; `python3 scripts/verify.py` runs it when Node is available.
 
+A skill folder holds only what an agent needs to do the skill's work, because every installer copies the whole folder into people's projects. The viewer page is `viewer/viewer.html` and the helper tests are in `tests/`; keep both out of `skills/`.
+
 ## Releasing
 
 Raise `version` in `package.json` and in `.claude-plugin/plugin.json` to the same number when a change should reach installed copies, and commit. Then tag that commit `v<version>` and push the tag:

@@ -8,7 +8,8 @@ It is made for one loop:
 2. **Find.** Search (Cmd/Ctrl+K) covers pages, gaps and the text of the files the pages cite. A rule number such as `BR-CANCEL-02` finds its page.
 3. **Ask.** "Copy for AI" on any page turns the page and your own words into a request for your agent that names the page file. For a gap: recheck it, record a check you did yourself, record your decision, lay out the options, plan it. For any page: change the behavior, ask a question, or remove a page that is only noise. Each choice says what will happen, and you see the exact text before you copy it.
 4. **Let the agent work.** Paste the brief into your agent. With `spec-change` it asks its questions first, edits the spec on a branch, builds the change and checks every changed statement against the code.
-5. **See what moved.** Recent changes lists the pages whose cited sources changed since the last review, the pages not committed yet, and the vault's Git history with what each summary said before and after.
+5. **Decide.** The gap queue lists the open questions, the most urgent first and forty at a time, with filters for state, area, kind and priority. A closed question (done, rejected or a duplicate) leaves the queue: it is under **History**, and on its feature's page under "Closed questions", so the reason behind a rule stays one press away.
+6. **See what moved.** Recent changes lists the pages whose cited sources changed since the last review, the pages not committed yet, and the vault's Git history with what each summary said before and after.
 
 | Search | Copy for AI |
 | --- | --- |
@@ -32,7 +33,9 @@ With the [package](install.md#with-npm) installed in your project, add a script 
 }
 ```
 
-`npm run spec` then opens the viewer for that project. Without the package, the command is the helper itself, where `<skill>` is the `project-knowledge` folder (`~/.claude/skills/project-knowledge`, `~/.codex/skills/project-knowledge`, or a copy kept inside the repository):
+`npm run spec` then opens the viewer for that project; without adding the package, `npx project-spec serve` does the same.
+
+The viewer is part of the package, not of the skill: a copy of the skill holds the instructions and the helpers that write and check a spec, and no page. Where there is no Node, add the page to a copy with `npx project-spec install --dir <folder> --with-viewer` from a machine that has it (or work from a clone of this repository), and the command is the helper itself, where `<skill>` is the `project-knowledge` folder:
 
 ```sh
 python3 <skill>/scripts/knowledge.py serve --repo . --open
@@ -51,6 +54,14 @@ alias spec='python3 ~/.claude/skills/project-knowledge/scripts/knowledge.py serv
 
 The vault is found by itself when the repository has one under `knowledge/`; otherwise add `--vault PATH`. The page is served on port 8757, or another free port when that one is taken; `--port N` picks one. `project-spec serve` opens the browser unless you add `--no-open`; the helper opens it only with `--open`. If the vault has errors, the page lists them.
 
+## Without the viewer
+
+The vault is the product; the viewer is one way to read it. Three others:
+
+- **Obsidian.** Choose **Open folder as vault** and pick the vault folder. Links, properties, search and the graph work as they are ([details](workflows.md)). It has no gap queue by state and priority, no "Copy for AI" and no mark on a page whose code changed.
+- **Your agent.** Ask it in words: "list the gaps that wait for my decision", "recheck the high-priority gaps", "what does the spec say about cancelling an order". The `project-knowledge` skill has a mode for each.
+- **A page of your own.** `project-spec serve --viewer FILE` and `build --viewer FILE` show the vault with any HTML file that contains `__KNOWLEDGE_DATA__` once; the helper puts the pages, links and gap states there as JSON ([the data contract](../skills/project-knowledge/references/format.md)).
+
 ## Show it on a server
 
 `serve` is for your own machine. To let the rest of the team read the spec on a development or staging server, write the viewer as one file and let your application return it:
@@ -60,7 +71,7 @@ project-spec build --out build/spec.html \
   --source-url 'https://github.com/OWNER/REPO/blob/{commit}'
 ```
 
-Without the package the command is `python3 <skill>/scripts/knowledge.py build --repo . --out build/spec.html`. The file is the whole viewer: the pages, the search, the map, the gap queue and the history, with no other files and no network requests. It is a copy of the vault at the moment of the build, so build it again on every deploy.
+In a copy of the skill that has the viewer (`install --with-viewer`), the same command is `python3 <skill>/scripts/knowledge.py build --repo . --out build/spec.html`. The file is the whole viewer: the pages, the search, the map, the gap queue and the history, with no other files and no network requests. It is a copy of the vault at the moment of the build, so build it again on every deploy.
 
 | Option | What it does |
 | --- | --- |

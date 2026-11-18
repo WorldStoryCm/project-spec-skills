@@ -44,6 +44,9 @@ try {
   for (const name of skills) assert.ok(fs.existsSync(path.join(claude, name, 'SKILL.md')), name);
   assert.equal(read(path.join(claude, 'project-knowledge/scripts/knowledge.py')), read(path.join(ROOT, 'skills/project-knowledge/scripts/knowledge.py')));
   assert.ok(!fs.existsSync(path.join(claude, 'project-knowledge/scripts/__pycache__')));
+  // a copy holds what writing a spec needs: the instructions and the helpers, no viewer page and no tests
+  assert.ok(!fs.existsSync(path.join(claude, 'project-knowledge/assets')));
+  assert.deepEqual(fs.readdirSync(path.join(claude, 'project-knowledge/scripts')).sort(), ['coverage.py', 'knowledge.py', 'maintain.py', 'merge.py']);
   const marker = JSON.parse(read(path.join(claude, 'spec-change/.project-spec.json')));
   assert.equal(marker.version, VERSION);
   assert.deepEqual(Object.keys(marker.files).sort(), ['LICENSE', 'SKILL.md', 'agents/openai.yaml', 'references/gaps.md', 'references/plan.md']);
@@ -123,6 +126,47 @@ try {
   assert.ok(r.out.includes('Not installed there, so left out:') && r.out.includes('~/.claude/skills/spec-change'), r.out);
   assert.ok(!fs.existsSync(path.join(claude, 'spec-change')));
 
+  // the viewer goes into a copy only when asked, stays in a copy that has it, and comes out when asked
+  const lean = path.join(project, 'lean');
+  const page = path.join(lean, 'project-knowledge/assets/viewer.html');
+  const example = path.join(ROOT, 'examples/parcel-desk');
+  const helper = (...args) => spawnSync(process.platform === 'win32' ? 'python' : 'python3', [path.join(lean, 'project-knowledge/scripts/knowledge.py'), ...args, '--repo', example], { encoding: 'utf8' });
+  assert.equal(run(['install', '--dir', lean, '--with-viewer', '--no-viewer']).code, 2);
+  r = run(['install', '--dir', lean, '--skills', 'project-knowledge']);
+  assert.ok(r.out.includes(`installed to ${VERSION}`) && !r.out.includes('with the viewer'), r.out);
+  let built = helper('build', '--out', path.join(temp, 'lean.html'));
+  assert.equal(built.status, 2, built.stderr);
+  assert.ok(built.stderr.includes('the viewer is not part of this copy of the skill') && built.stderr.includes('npx project-spec serve'), built.stderr);
+  assert.equal(helper('check').status, 0, 'a copy without the viewer still checks a vault');
+  r = run(['install', '--dir', lean, '--skills', 'project-knowledge', '--with-viewer']);
+  assert.ok(r.out.includes(`updated to ${VERSION}, with the viewer`), r.out);
+  assert.equal(read(page), read(path.join(ROOT, 'viewer/viewer.html')));
+  built = helper('build', '--out', path.join(temp, 'lean.html'));
+  assert.equal(built.status, 0, built.stderr);
+  assert.ok(read(path.join(temp, 'lean.html')).includes('Parcel Desk'));
+  // a copy an earlier version made: it has the viewer and the helper tests; update keeps the first and removes the second
+  const before = JSON.parse(read(path.join(lean, 'project-knowledge/.project-spec.json')));
+  fs.writeFileSync(path.join(lean, 'project-knowledge/scripts/test_knowledge.py'), 'old test');
+  fs.writeFileSync(page, 'old viewer');
+  before.version = '0.9.2';
+  before.files['scripts/test_knowledge.py'] = sha('old test');
+  before.files['assets/viewer.html'] = sha('old viewer');
+  fs.writeFileSync(path.join(lean, 'project-knowledge/.project-spec.json'), JSON.stringify(before));
+  const inLean = { cwd: project };
+  fs.mkdirSync(path.join(project, '.agents/skills'), { recursive: true });
+  fs.renameSync(path.join(lean, 'project-knowledge'), path.join(project, '.agents/skills/project-knowledge'));
+  const agents = path.join(project, '.agents/skills/project-knowledge');
+  assert.ok(run(['status'], inLean).out.includes('project-knowledge: older (0.9.2), with the viewer'), run(['status'], inLean).out);
+  r = run(['update'], inLean);
+  assert.ok(r.out.includes(`.agents/skills/project-knowledge: updated to ${VERSION}, with the viewer`), r.out);
+  assert.equal(read(path.join(agents, 'assets/viewer.html')), read(path.join(ROOT, 'viewer/viewer.html')));
+  assert.ok(!fs.existsSync(path.join(agents, 'scripts/test_knowledge.py')));
+  r = run(['install', '--dir', path.join(project, '.agents/skills'), '--skills', 'project-knowledge', '--no-viewer']);
+  assert.ok(r.out.includes(`updated to ${VERSION}`) && !r.out.includes('with the viewer'), r.out);
+  assert.ok(!fs.existsSync(path.join(agents, 'assets')));
+  assert.ok(run(['status'], inLean).out.includes('Everything installed is current.'));
+  fs.rmSync(path.join(project, '.agents'), { recursive: true });
+
   // the helpers are started from the package, in the current folder by default
   const dry = { env: { PROJECT_SPEC_DRY_RUN: '1', PROJECT_SPEC_PYTHON: 'py' } };
   const script = path.join(ROOT, 'skills/project-knowledge/scripts');
@@ -149,9 +193,9 @@ try {
   const npm = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], { cwd: ROOT, encoding: 'utf8' });
   if (npm.status === 0) {
     const packed = JSON.parse(npm.stdout)[0].files.map(f => f.path);
-    for (const needed of ['bin/project-spec.mjs', 'README.md', 'LICENSE', ...skills.map(n => `skills/${n}/SKILL.md`), 'skills/project-knowledge/assets/viewer.html'])
+    for (const needed of ['bin/project-spec.mjs', 'README.md', 'LICENSE', ...skills.map(n => `skills/${n}/SKILL.md`), 'viewer/viewer.html'])
       assert.ok(packed.includes(needed), `the package lacks ${needed}`);
-    const stray = packed.filter(f => /__pycache__|\.pyc$|^examples\/|^docs\/|^scripts\//.test(f));
+    const stray = packed.filter(f => /__pycache__|\.pyc$|^examples\/|^docs\/|^scripts\/|^tests\/|\/test_[^/]*\.py$|^skills\/.*\.html$/.test(f));
     assert.deepEqual(stray, [], 'the package carries files it should not');
   } else console.log('NOT RUN: package contents (npm not available)');
 

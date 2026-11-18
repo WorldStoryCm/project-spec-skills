@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 
-SCRIPT = Path(__file__).with_name('merge.py')
+SCRIPT = Path(__file__).resolve().parent.parent / 'skills/project-knowledge/scripts' / 'merge.py'
 
 
 class MergeTests(unittest.TestCase):

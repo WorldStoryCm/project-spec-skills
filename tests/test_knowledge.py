@@ -8,7 +8,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 
-SPEC = importlib.util.spec_from_file_location('knowledge', Path(__file__).with_name('knowledge.py'))
+SPEC = importlib.util.spec_from_file_location('knowledge', Path(__file__).resolve().parent.parent / 'skills/project-knowledge/scripts' / 'knowledge.py')
 k = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(k)
 
@@ -588,6 +588,32 @@ class GapLayerTests(Fixture):
         status, printed, err = self.run_cli('build', '--out', str(out), *args)
         data = json.loads(re.search(r'<script id="knowledge-data" type="application/json">\s*(.*?)\s*</script>', out.read_text(encoding='utf-8'), re.S).group(1)) if out.is_file() else None
         return status, printed, err, data
+
+    def test_a_skill_copy_without_the_viewer_says_where_it_is(self):
+        original = k.__file__
+        lean = self.root / 'lean/project-knowledge/scripts/knowledge.py'
+        lean.parent.mkdir(parents=True)
+        out = self.root / 'page.html'
+        k.__file__ = str(lean)
+        try:
+            for command in (['serve'], ['build', '--out', str(out)]):
+                said = self.refused(*command)
+                self.assertIn('the viewer is not part of this copy of the skill', said)
+                self.assertIn('npx project-spec serve', said)
+            self.assertFalse(out.exists())
+            self.assertEqual(self.run_cli('check')[0], 0, 'everything that writes or checks the spec works without the viewer')
+            # a page of your own is shown instead, when it has the one placeholder
+            mine = self.root / 'mine.html'
+            mine.write_text('<pre id="data">__KNOWLEDGE_DATA__</pre>', encoding='utf-8')
+            self.assertEqual(self.run_cli('build', '--out', str(out), '--viewer', str(mine))[0], 0)
+            self.assertTrue(out.read_text(encoding='utf-8').startswith('<pre id="data">{"'))
+            mine.write_text('no placeholder', encoding='utf-8')
+            self.assertIn('must contain the placeholder __KNOWLEDGE_DATA__ exactly once', self.refused('build', '--out', str(out), '--viewer', str(mine)))
+            self.assertIn('is not a file', self.refused('serve', '--viewer', str(self.root / 'absent.html')))
+            self.assertIn('--viewer is only for serve and build', self.refused('check', '--viewer', str(mine)))
+        finally:
+            k.__file__ = original
+            k.VIEWER = None
 
     def refused(self, *args):
         """What a command that stops with a usage error says."""

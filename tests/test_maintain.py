@@ -10,10 +10,10 @@ import unittest
 from unittest import mock
 
 sys.dont_write_bytecode = True
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'skills/project-knowledge/scripts'))
 import maintain  # noqa: E402
 
-SCRIPT = Path(__file__).with_name('maintain.py')
+SCRIPT = Path(__file__).resolve().parent.parent / 'skills/project-knowledge/scripts' / 'maintain.py'
 
 
 class MaintainTests(unittest.TestCase):

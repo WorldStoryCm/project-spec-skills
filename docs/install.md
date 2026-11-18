@@ -30,6 +30,8 @@ npx project-spec update    # refresh every copy that status lists
 
 `status` and `update` look in `~/.claude/skills`, `~/.codex/skills` and the usual folders of the current project (`knowledge/tooling`, `.claude/skills`, `.codex/skills`, `.agents/skills`). `update` refreshes what is there and adds nothing new; `install` adds. A copy you edited by hand is not replaced unless you pass `--force`, and the old files are kept under `~/.project-spec/backups` first. `--skills project-knowledge` limits an install to the skills you name.
 
+A copy of a skill holds its instructions and, for `project-knowledge`, four helper scripts: about 2,900 lines, nothing else. The viewer page stays in the package and is opened with `npx project-spec serve`. `install --with-viewer` adds the page to a copy, for a place where the helpers run without Node (a Python-only build step, for example); `install --no-viewer` takes it out again. `update` keeps a copy as it is: with the viewer if it has one, without if not. Copies made by versions before 0.10.0 have the viewer and keep it until you run `install` with `--no-viewer` for their folder.
+
 To run the unreleased version from this repository, use `npx github:WorldStoryCm/project-spec-skills status` in place of `npx project-spec status`.
 
 ## Claude Code plugin
@@ -41,7 +43,7 @@ The repository is also a plugin marketplace for Claude Code. Inside Claude Code:
 /plugin install project-spec@project-spec-skills
 ```
 
-The two skills then appear as `/project-spec:project-knowledge` and `/project-spec:spec-change`, and Claude Code updates them with the plugin. The plugin does not add the `project-spec` command; ask the agent to open the viewer, or use `npx project-spec serve`.
+The two skills then appear as `/project-spec:project-knowledge` and `/project-spec:spec-change`, and Claude Code updates them with the plugin. The plugin does not add the `project-spec` command; ask the agent to open the viewer (the plugin carries the page), or use `npx project-spec serve`.
 
 ## Codex
 
@@ -57,7 +59,7 @@ If you already have a skill with the same name, compare versions before replacin
 
 ## Claude Code, by hand
 
-Copy the whole skill folder (it contains the references and helper scripts) to one of:
+Copy the whole skill folder (it contains the references and helper scripts, and no viewer: use `npx project-spec serve` for that) to one of:
 
 - `~/.claude/skills/<name>/` to use it in all your projects, or
 - `.claude/skills/<name>/` inside one project.

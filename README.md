@@ -59,7 +59,7 @@ A rule keeps its number for good, so a reviewer, a tester or a support person ca
 
 ## The viewer
 
-One local page, read from the files on disk. Nothing is built or uploaded.
+One local page, read from the files on disk. Nothing is built or uploaded. It comes with the npm package and is not copied into your project; the vault also opens in Obsidian, so the viewer is optional.
 
 1. **Read** a feature page: its purpose, its flow, its rules.
 2. **Find** anything with search, including a rule number.

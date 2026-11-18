@@ -129,7 +129,7 @@ def node_check():
     if not node:
         print('NOT RUN: viewer syntax, inline rendering and the package command (optional; Node not installed)', flush=True)
         return True
-    html = (KNOWLEDGE / 'assets/viewer.html').read_text(encoding='utf-8')
+    html = (ROOT / 'viewer/viewer.html').read_text(encoding='utf-8')
     scripts = re.findall(r'<script>\s*(.*?)\s*</script>', html, re.S)
     if len(scripts) != 1:
         print('FAIL: viewer JavaScript syntax (expected one executable script)', flush=True)
@@ -145,7 +145,7 @@ def node_check():
 
 def main():
     results = [stage('skill frontmatter', frontmatter), stage('local Markdown links', links)]
-    results.append(run('knowledge helper tests', [sys.executable, '-m', 'unittest', 'discover', '-s', str(KNOWLEDGE / 'scripts'), '-p', 'test_*.py']))
+    results.append(run('knowledge helper tests', [sys.executable, '-m', 'unittest', 'discover', '-s', str(ROOT / 'tests'), '-p', 'test_*.py']))
     results.append(run('fictional fixture tests', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'], cwd=EXAMPLE))
     results.append(run('strict vault check', [sys.executable, str(KNOWLEDGE / 'scripts/knowledge.py'), 'check', '--strict', '--repo', str(EXAMPLE), '--vault', str(VAULT)]))
     results.append(stage('no generated files in the example', check_generated))

@@ -683,10 +683,28 @@ def graph_of(notes, edges, warnings):
             'edges': [{'source': a, 'target': b} for a, b in edges], 'warnings': warnings}
 
 
-def viewer_html(payload):
-    template = (Path(__file__).resolve().parent.parent / 'assets/viewer.html').read_text(encoding='utf-8')
+VIEWER = None  # --viewer FILE: a page of your own to show the vault with
+
+
+def viewer_template():
+    """The text of the viewer page. The page is not part of the skill, which holds only what writing a spec needs:
+    it comes with the project-spec package, with a copy made by `install --with-viewer`, or from --viewer."""
+    here = Path(__file__).resolve().parent
+    places = [Path(VIEWER)] if VIEWER else [here.parent / 'assets/viewer.html', *([here.parents[2] / 'viewer/viewer.html'] if len(here.parents) > 2 else [])]
+    found = next((place for place in places if place.is_file()), None)
+    if not found:
+        raise ValueError(f'--viewer {VIEWER} is not a file' if VIEWER else
+                         'the viewer is not part of this copy of the skill. Run `npx project-spec serve` in the repository (the viewer comes '
+                         'with the npm package), add it to this copy with `npx project-spec install --dir <folder of the skill copies> --with-viewer`, '
+                         'or open the vault folder in Obsidian')
+    template = found.read_text(encoding='utf-8')
     if template.count('__KNOWLEDGE_DATA__') != 1:
-        raise ValueError('viewer template must contain exactly one placeholder')
+        raise ValueError(f'{found} must contain the placeholder __KNOWLEDGE_DATA__ exactly once')
+    return template
+
+
+def viewer_html(payload):
+    template = viewer_template()
     serialized = json.dumps(payload, ensure_ascii=False).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
     return template.replace('__KNOWLEDGE_DATA__', serialized)
 
@@ -903,6 +921,8 @@ def main(argv=None):
     parser.add_argument('--port', type=int, default=8757, help='serve: port on 127.0.0.1 (another free port is used if it is taken)')
     parser.add_argument('--open', action='store_true', help='serve: open the page in the default browser')
     parser.add_argument('--out', type=Path, help='build: the HTML file to write, outside the vault')
+    parser.add_argument('--viewer', type=Path, metavar='FILE',
+                        help='serve, build: a page of your own instead of the viewer; it gets the data where it says __KNOWLEDGE_DATA__')
     parser.add_argument('--with-sources', action='store_true', help='build: include the text of the repository files the pages cite')
     parser.add_argument('--source-url', default='', help='build: where a cited file can be read, e.g. https://github.com/OWNER/REPO/blob/{commit}')
     parser.add_argument('--allow-missing-sources', action='store_true',
@@ -933,6 +953,15 @@ def main(argv=None):
     vault = args.vault.resolve() if args.vault else find_vault(repo)
     if not vault.is_dir():
         parser.error('repo and vault must be existing directories')
+    if args.viewer and args.command not in ('serve', 'build'):
+        parser.error('--viewer is only for serve and build')
+    if args.command in ('serve', 'build'):
+        global VIEWER
+        VIEWER = args.viewer.resolve() if args.viewer else None
+        try:
+            viewer_template()
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
     if args.command == 'serve':
         try:
             server = make_server(repo, vault, args.port)

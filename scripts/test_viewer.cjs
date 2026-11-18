@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const template = fs.readFileSync(path.join(__dirname, '../skills/project-knowledge/assets/viewer.html'), 'utf8');
+const template = fs.readFileSync(path.join(__dirname, '../viewer/viewer.html'), 'utf8');
 const scriptStart = template.lastIndexOf('<script>');
 const scriptEnd = template.lastIndexOf('</script>');
 assert.ok(scriptStart >= 0 && scriptEnd > scriptStart, 'viewer script must exist');
@@ -193,10 +193,10 @@ const parcel = () => ({
   assert.equal(v.treeRow('Cancelling a pickup').attrs['aria-current'], 'page');
   assert.equal(v.treeRow('Cancelling a pickup').textContent, 'Cancelling a pickup1 open');
   assert.deepEqual(findAll(v.page(), e => cls(e) === 'lead').map(text), ['A customer can cancel a pickup until it is packed.']);
-  assert.deepEqual(v.folds(), ['Source files (1)']);
+  assert.deepEqual(v.folds(), ['Closed questions (1)', 'Source files (1)'], 'a closed question is one fold away, not in the list of open ones');
   assert.deepEqual(v.chips(), [], 'related pages are not a block in the text');
   assert.deepEqual(v.related(), ['Owner check'], 'related pages beside the text, not the own area or a run');
-  assert.deepEqual(v.rowTitles(), ['Packed pickups'], 'open questions only');
+  assert.deepEqual(v.rowTitles(), ['Packed pickups', 'Closed question'], 'the open question, then the closed one inside its fold');
   assert.ok(v.page().textContent.includes('notes/cancel.md'));
   assert.equal(findAll(v.page(), e => e.tag === 'h1').length, 1, 'the duplicate title heading is dropped');
   const rail = findAll(v.page(), e => cls(e) === 'rail')[0];
@@ -316,7 +316,8 @@ const queue = {
   assert.equal(v.h1(), 'Gaps');
   assert.deepEqual(v.crumbs(), ['Sample vault', '/', 'Gaps']);
   const counts = () => findAll(v.page(), e => has(e, 'pill')).map(text);
-  assert.deepEqual(counts(), ['All11', 'Needs recheck3', 'Needs decision3', 'Accepted1', 'Deferred1', 'Rejected1', 'Done1', 'Duplicate1']);
+  assert.deepEqual(counts(), ['Open8', 'Needs recheck3', 'Needs decision3', 'Accepted1', 'Deferred1', 'History3'], 'the queue is the open work; closed gaps are under History');
+  assert.equal(v.rowTitles().length, 8, 'no closed gap in the queue');
   // waiting states come first, each with the most urgent gap first (P1 before low, a gap without a priority last)
   assert.deepEqual(v.rowTitles().slice(0, 6), ['Gap recheck', 'Gap outdated', 'Legacy gap', 'Gap flagged', 'Gap derived', 'Gap decision']);
   v.pill(v.page(), 'Needs decision').click();
@@ -325,11 +326,15 @@ const queue = {
   const flagged = v.rows().find(r => r.textContent.startsWith('Gap flagged'));
   assert.ok(flagged.textContent.includes('Recheck outdated'));
   assert.ok(flagged.textContent.includes('Rechecked by Eve on 2026-10-02'));
-  v.pill(v.page(), 'All').click();
+  // History: what is closed, the most recently closed first
+  v.pill(v.page(), 'History').click();
+  assert.deepEqual(v.rowTitles(), ['Gap rejected', 'Gap done', 'Gap duplicate']);
+  assert.ok(v.page().textContent.includes('kept for the reason behind a rule'));
+  v.pill(v.page(), 'Open').click();
   v.select('Kind').value = 'product-plan';
   v.select('Kind').fire('change');
   assert.deepEqual(v.rowTitles(), ['Gap deferred']);
-  assert.deepEqual(counts(), ['All1', 'Deferred1'], 'counts follow the other filters, and empty states are left out');
+  assert.deepEqual(counts(), ['Open1', 'Deferred1'], 'counts follow the other filters, and empty states are left out');
   v.select('Kind').value = '';
   v.select('Kind').fire('change');
   v.select('Area').value = 'areas/other';
@@ -344,10 +349,10 @@ const queue = {
   v.select('Priority').value = 'low';
   v.select('Priority').fire('change');
   assert.deepEqual(v.rowTitles(), ['Gap outdated'], 'the value is matched whatever its capitals');
-  assert.deepEqual(counts(), ['All1', 'Needs recheck1']);
+  assert.deepEqual(counts(), ['Open1', 'Needs recheck1']);
   v.select('Priority').value = 'none';
   v.select('Priority').fire('change');
-  assert.equal(v.rowTitles().length, 7);
+  assert.equal(v.rowTitles().length, 4, 'the open gaps without a priority; three more are closed');
   assert.ok(!v.rowTitles().includes('Gap recheck'));
   v.select('Priority').value = '';
   v.select('Priority').fire('change');
@@ -958,6 +963,29 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   v.q('#file-close').click();
   v.go('Recent changes');
   assert.ok(v.page().textContent.includes('No Git history was found for this vault.'));
+}
+
+// a long queue comes in portions of 40, and the place is kept until a filter changes
+{
+  const many = Array.from({ length: 95 }, (_, i) => gap('g-many-' + i, 'Many ' + String(i).padStart(2, '0'), { state: 'needs-recheck', kind: 'product-gap' }));
+  const v = load({ ...queue, nodes: [...queue.nodes, ...many] });
+  v.go('Gaps');
+  const more = () => findAll(v.page(), e => has(e, 'more-row'))[0];
+  assert.equal(v.rowTitles().length, 40);
+  assert.deepEqual(more().children.map(text), ['Show 40 more', '40 of 103']);
+  v.btn(more(), 'Show 40 more').click();
+  assert.equal(v.rowTitles().length, 80);
+  assert.deepEqual(more().children.map(text), ['Show 23 more', '80 of 103']);
+  v.go('Overview');
+  v.go('Gaps');
+  assert.equal(v.rowTitles().length, 80, 'coming back to the queue keeps the place');
+  v.btn(more(), 'Show 23 more').click();
+  assert.equal(v.rowTitles().length, 103);
+  assert.deepEqual(more().children.map(text), ['103 of 103']);
+  v.pill(v.page(), 'Needs recheck').click();
+  assert.equal(v.rowTitles().length, 40, 'another filter starts from the first portion');
+  v.pill(v.page(), 'History').click();
+  assert.equal(more().children.length, 0, 'a list that fits in one portion has no count and no button');
 }
 
 console.log('PASS: viewer navigation, pages, gaps, map, search, copy for AI, changes, cited files, parts, overview cards, built page, Markdown');
