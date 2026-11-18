@@ -8,29 +8,57 @@ This is an early project. It has been used on a few real repositories; [VALIDATI
 
 ![A feature page in the viewer: what the feature is for, how it works, and its business rules as numbered rows](docs/images/viewer-page.png)
 
-## Start
+## Setup
 
 You need an agent that can read your repository (Claude Code or Codex), Python 3.10+, Git, and Node 18+ for the `npx` commands.
+
+**1. Install the skills** (once per machine):
 
 ```sh
 npx project-spec install --claude      # or --codex
 ```
 
-Ask your agent:
+**2. Open your agent in the project and paste this:**
 
 ```text
 Use the project-knowledge skill to build a knowledge vault for this repository.
-Describe only what the code does: one page per feature with its business rules,
-and every doubt as its own gap.
+
+First take the inventory: every app and package, every screen, API endpoint,
+job and email. Write it to the inventory file before any page.
+
+Then go one feature at a time and finish each before the next. Describe only
+what the code does: one page per feature with numbered business rules, and
+every doubt as its own gap.
+
+If you run out of time, stop at the end of a feature and tell me how many
+features are finished, in progress and not started.
 ```
 
-Then read what it wrote:
+**3. Read what it wrote:**
 
 ```sh
 npx project-spec serve
 ```
 
-There is also a Claude Code plugin, a manual install and a way to pin one version for a team: see [Install and update](docs/install.md).
+A big repository takes more than one session. To go on where the last one stopped:
+
+```text
+Use the project-knowledge skill and continue the map from the inventory file.
+```
+
+The agent writes only Markdown under `knowledge/<project>/`. It does not change application code, commit or push. There is also a Claude Code plugin, a manual install and a way to pin one version for a team: see [Install and update](docs/install.md).
+
+### What to ask next
+
+| When | Prompt |
+| --- | --- |
+| A page looks thin | `Use project-knowledge to explore <feature> until it is finished.` |
+| You want the gaps checked | `Use project-knowledge in gaps mode: recheck the high-priority gaps against the code.` |
+| The code changed | `Use project-knowledge to sync the vault with the changes since the last review.` |
+| You have one question | `Use project-knowledge to investigate: <question>.` |
+| A document says how it should work | `Use project-knowledge to audit <document> against the code.` |
+
+More in [Working with the skills](docs/workflows.md#example-prompts).
 
 ## What you get
 
