@@ -88,6 +88,57 @@ alias spec='python3 ~/.claude/skills/project-knowledge/scripts/knowledge.py serv
 
 The vault is found by itself when the repository has one under `knowledge/`; otherwise add `--vault PATH`. The page is served on port 8757, or another free port when that one is taken; `--port N` picks one. `project-spec serve` opens the browser unless you add `--no-open`; the helper opens it only with `--open`. If the vault has errors, the page lists them.
 
+### Show it on a server
+
+`serve` is for your own machine. To let the rest of the team read the spec on a development or staging server, write the viewer as one file and let your application return it:
+
+```sh
+project-spec build --out build/spec.html \
+  --source-url 'https://github.com/OWNER/REPO/blob/{commit}'
+```
+
+Without the package the command is `python3 <skill>/scripts/knowledge.py build --repo . --out build/spec.html`. The file is the whole viewer: the pages, the search, the map, the gap queue and the history, with no other files and no network requests. It is a copy of the vault at the moment of the build, so build it again on every deploy.
+
+| Option | What it does |
+| --- | --- |
+| `--out FILE` | Where to write the page. It must be outside the vault: nothing is generated into the vault. |
+| `--source-url URL` | Where a cited file can be read. The file's path in the repository is added to this address, and `{commit}` becomes the commit the page was built from. Without it, cited files are shown as names. |
+| `--with-sources` | Put the text of the cited files into the page, as `serve` does, so they open inside the viewer. Leave it out when people who may not read the repository can open the page. |
+
+The spec describes how the product works inside, and with `--with-sources` it carries source code. So treat the file like the repository:
+
+- Keep it out of folders the web server publishes by itself (`public/`, `static/`). Return it from a route that checks who is asking.
+- Build it only for the environments that should have it, and make the route answer 404 everywhere else.
+- If your application sets a `Content-Security-Policy`, the page needs inline scripts and styles and nothing else.
+
+For example, a route in a Next.js application (a sketch: put your own sign-in check where `signedIn()` is):
+
+```ts
+// src/app/development/spec/route.ts
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  if (process.env.SPEC_PAGE !== "on" || !(await signedIn())) {
+    return new Response("Not found", { status: 404 });
+  }
+  const page = await readFile(path.join(process.cwd(), "build/spec.html"));
+  return new Response(page, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Robots-Tag": "noindex",
+      "Content-Security-Policy":
+        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+    },
+  });
+}
+```
+
+The build needs Python and Git, so run it where the application is built (a CI job or a build stage), not inside a running container that has neither. The **Recent changes** page comes from the Git history: in a shallow clone it starts at the first commit that was fetched in full, and the command says so. In GitHub Actions, `fetch-depth: 0` on the checkout step gives it the whole history.
+
 ## What a feature page says
 
 Every feature, screen or flow has one page, and all of them have the same sections in the same order. A section the feature does not have is left out.
@@ -145,6 +196,7 @@ The package is [`project-spec`](https://www.npmjs.com/package/project-spec) on t
 ```sh
 npx project-spec install --claude      # or --codex, or --dir knowledge/tooling
 npx project-spec serve                 # the viewer for the project in the current folder
+npx project-spec build --out FILE      # the same viewer as one file, to show on a server
 ```
 
 Then ask your agent to use the `project-knowledge` skill ([example prompts](#example-prompts)).

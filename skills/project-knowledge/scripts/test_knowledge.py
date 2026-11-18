@@ -583,6 +583,86 @@ class GapLayerTests(Fixture):
         self.assertEqual(k.vault_pending(inner.resolve(), (inner / 'vault').resolve()), [])
         k._history_cache.clear()
 
+    def built(self, *args):
+        out = self.root / 'site/spec.html'
+        status, printed, err = self.run_cli('build', '--out', str(out), *args)
+        data = json.loads(re.search(r'<script id="knowledge-data" type="application/json">\s*(.*?)\s*</script>', out.read_text(encoding='utf-8'), re.S).group(1)) if out.is_file() else None
+        return status, printed, err, data
+
+    def refused(self, *args):
+        """What a command that stops with a usage error says."""
+        err = StringIO()
+        with self.assertRaises(SystemExit), redirect_stdout(StringIO()), redirect_stderr(err):
+            k.main([*args, '--repo', str(self.repo), '--vault', str(self.vault)])
+        return err.getvalue()
+
+    def test_build_writes_one_page_for_a_server_without_source_text(self):
+        status, printed, err, data = self.built()
+        self.assertEqual((status, err), (0, 'WARNING: notes/n.md: unbaselined source source.txt\n'))
+        self.assertIn('build: wrote ' + str(self.root / 'site/spec.html'), printed)
+        self.assertIn('their text is not included', printed)
+        self.assertEqual((data['built'], data.get('live'), data['files'], data['sourceUrl'], data['commit']), (True, None, {}, '', ''))
+        self.assertEqual({n['id'] for n in data['nodes']}, {'a', 'index', 'n'})
+        self.assertNotIn('evidence', (self.root / 'site/spec.html').read_text(encoding='utf-8'))
+        # nothing appeared in the vault, and no temporary file was left beside the page
+        self.assertFalse((self.vault / '.knowledge').exists())
+        self.assertEqual([f.name for f in (self.root / 'site').iterdir()], ['spec.html'])
+        # the text of cited files only when asked for, with a warning about who may see it
+        status, printed, _, data = self.built('--with-sources')
+        self.assertEqual((status, data['files']['source.txt']['text']), (0, 'evidence'))
+        self.assertIn('the text of 1 cited source files is inside the file', printed)
+
+    def test_build_links_cited_files_to_the_commit_it_was_built_from(self):
+        k._history_cache.clear()
+        self.vault.rename(self.repo / 'vault')
+        self.vault = self.repo / 'vault'
+        out = str(self.root / 'site/spec.html')
+        self.assertIn('--repo is not a Git work tree with a commit', self.refused('build', '--out', out, '--source-url', 'https://github.com/o/r/blob/{commit}'))
+        self.git('init', '-q')
+        self.git('add', '-A')
+        self.git('commit', '-q', '-m', 'First')
+        head = self.git('rev-parse', 'HEAD').strip()
+        status, printed, _, data = self.built('--source-url', 'https://github.com/o/r/blob/{commit}/')
+        self.assertEqual((status, data['commit'], data['sourceUrl']), (0, head, 'https://github.com/o/r/blob/' + head))
+        self.assertIn('commit ' + head[:7], printed)
+        self.assertEqual([c['subject'] for c in data['history']], ['First'])
+        self.assertNotIn('shallow clone', printed)
+        for bad in ('javascript:alert(1)', 'github.com/o/r', 'https://', 'https://x.example/a b'):
+            with self.subTest(url=bad):
+                self.assertIn('--source-url must be an http(s) address', self.refused('build', '--out', out, '--source-url', bad))
+
+    def test_build_refuses_a_broken_vault_and_a_file_inside_the_vault(self):
+        for out in (self.vault / 'spec.html', self.vault / 'notes/deep/spec.html', self.root):
+            with self.subTest(out=out):
+                self.assertIn('--out must be a file outside the vault', self.refused('build', '--out', str(out)))
+            self.assertFalse((self.vault / 'spec.html').exists() or (self.vault / 'notes/deep').exists())
+        for args in (['build'], ['check', '--out', 'x.html'], ['serve', '--with-sources'], ['check', '--source-url', 'https://x.example']):
+            with self.subTest(args=args):
+                self.assertIn('build', self.refused(*args))
+        self.note('notes/bad.md', 'bad', sources=['source.txt'], body='[[<absent>]]')
+        status, _, err, data = self.built()
+        self.assertEqual((status, data), (1, None))
+        self.assertIn('missing wikilink <absent>', err)
+
+    def test_history_of_a_shallow_clone_leaves_out_the_commit_without_parents(self):
+        k._history_cache.clear()
+        self.vault.rename(self.repo / 'vault')
+        self.vault = self.repo / 'vault'
+        self.git('init', '-q')
+        self.git('add', '-A')
+        self.git('commit', '-q', '-m', 'First')
+        self.note('notes/n.md', 'n', sources=['source.txt'], summary='Second line.')
+        self.git('commit', '-q', '-am', 'Second')
+        self.note('notes/n.md', 'n', sources=['source.txt'], summary='Third line.')
+        self.git('commit', '-q', '-am', 'Third')
+        clone = self.root / 'clone'
+        subprocess.run(['git', 'clone', '-q', '--depth', '2', self.repo.resolve().as_uri(), str(clone)], check=True, capture_output=True)
+        history = k.vault_history(clone.resolve(), (clone / 'vault').resolve())
+        self.assertEqual([(c['subject'], [p['status'] for p in c['pages']]) for c in history], [('Third', ['changed'])],
+                         'Second is where the clone stops: Git would show every page as added there')
+        self.repo, self.vault = clone, clone / 'vault'
+        self.assertIn('build: this is a shallow clone', self.built()[1])
+
     def test_serve_finds_the_single_vault_and_asks_when_unsure(self):
         with self.assertRaisesRegex(ValueError, 'no vault found under knowledge/; pass --vault'):
             k.find_vault(self.repo)

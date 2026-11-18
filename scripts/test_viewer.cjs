@@ -790,4 +790,55 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   assert.ok(findAll(hostile, e => e.tag === 'p').some(e => e.textContent === 'not | a table'));
 }
 
-console.log('PASS: viewer navigation, pages, gaps, map, search, copy for AI, changes, cited files, Markdown');
+// --- a built page: a copy for a server, read without the repository -------------------
+{
+  const page = (extra = {}) => load({
+    title: 'Built', built: true, commit: 'abcdef1234567890', generatedAt: '2026-11-17T10:00:00+00:00', vaultPath: 'knowledge/demo',
+    nodes: [
+      spec('a', 'Area', 'area', []),
+      spec('n', 'N', 'note', ['a'], {
+        summary: 'Plain words.', sources: ['src/a.py', 'src/dir with space/b.py'],
+        body: '[code](../../../src/a.py#L2-L3) and [web](https://example.com/x) and [up](../../../../outside.md)',
+      }),
+    ],
+    edges: [{ source: 'a', target: 'n' }],
+    ...extra,
+  });
+  const sourcesOf = v => findAll(v.page(), e => e.tag === 'details').find(d => d.textContent.startsWith('Source files (2)'));
+  // without a code host: file names are text, never links into the site that hosts the page
+  let v = page();
+  assert.equal(v.q('#header-note').textContent, 'Spec · built 2026-11-17');
+  assert.equal(v.q('#header-note').title, 'Built from commit abcdef1234567890');
+  v.open('N');
+  assert.deepEqual(findAll(v.article(), e => e.tag === 'a').map(a => [a.textContent, a.href]),
+    [['web', 'https://example.com/x'], ['up', findAll(v.article(), e => e.tag === 'a')[1].href]], 'only the address and the path outside the repository are links');
+  const named = findAll(v.article(), e => e.tag === 'span' && e.title === 'src/a.py');
+  assert.deepEqual(named.map(text), ['code']);
+  assert.equal(findAll(sourcesOf(v), e => e.tag === 'a' || e.tag === 'button').length, 0);
+  assert.ok(sourcesOf(v).textContent.includes('src/a.py'));
+  // with a code host: cited files open there, at the cited lines, in a new tab
+  v = page({ sourceUrl: 'https://github.com/o/r/blob/abcdef1234567890/' });
+  v.open('N');
+  const code = findAll(v.article(), e => e.tag === 'a').find(a => a.textContent === 'code');
+  assert.equal(code.href, 'https://github.com/o/r/blob/abcdef1234567890/src/a.py#L2-L3');
+  assert.deepEqual([code.target, code.rel], ['_blank', 'noopener noreferrer']);
+  assert.deepEqual(findAll(sourcesOf(v), e => e.tag === 'a').map(a => a.href),
+    ['https://github.com/o/r/blob/abcdef1234567890/src/a.py', 'https://github.com/o/r/blob/abcdef1234567890/src/dir%20with%20space/b.py']);
+  // an address that is not http(s) is ignored, and a page that is not built ignores it too
+  v = page({ sourceUrl: 'javascript:alert(1)' });
+  v.open('N');
+  assert.equal(findAll(sourcesOf(v), e => e.tag === 'a').length, 0);
+  v = page({ built: false, live: true, sourceUrl: 'https://github.com/o/r/blob/main' });
+  v.open('N');
+  assert.equal(findAll(sourcesOf(v), e => e.tag === 'a').length, 0);
+  // text that was included still opens in place
+  v = page({ sourceUrl: 'https://github.com/o/r/blob/main', files: { 'src/a.py': { text: 'one\ntwo\nthree', truncated: false } } });
+  v.open('N');
+  findAll(v.article(), e => e.tag === 'button' && cls(e) === 'wiki').find(e => e.textContent === 'code').click();
+  assert.equal(v.q('#file-note').textContent, 'Lines 2–3 · Copy taken when this page was built');
+  v.q('#file-close').click();
+  v.go('Recent changes');
+  assert.ok(v.page().textContent.includes('No Git history was found for this vault.'));
+}
+
+console.log('PASS: viewer navigation, pages, gaps, map, search, copy for AI, changes, cited files, built page, Markdown');

@@ -689,6 +689,17 @@ def front_value(line):
     return value if isinstance(value, str) else ''
 
 
+def shallow_commits(repo):
+    """Commits whose parents a shallow clone left out. Empty in a full clone and outside Git."""
+    found = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--git-path', 'shallow'], capture_output=True)
+    if found.returncode:
+        return set()
+    try:
+        return set((repo / os.fsdecode(found.stdout).strip()).read_text(encoding='ascii').split())
+    except (OSError, UnicodeDecodeError):
+        return set()
+
+
 def vault_history(repo, vault):
     """Recent commits that touched vault pages, newest first: sha, date, subject and what happened to each page.
 
@@ -717,10 +728,12 @@ def vault_history(repo, vault):
         return []
     if log.returncode:
         return []
-    commits = []
+    commits, boundary = [], shallow_commits(repo)
     for chunk in log.stdout.decode('utf-8', errors='replace').split(marker)[1:]:
         header, _, body = chunk.partition('\n')
         sha, date, subject = (header.split('\x02', 2) + ['', ''])[:3]
+        if sha in boundary:  # its parents were not fetched, so Git would show every page as added
+            continue
         subject = CONTROL.sub('', subject)
         pages, page = [], None
         for line in body.split('\n'):
@@ -772,6 +785,13 @@ def vault_pending(repo, vault):
     return sorted(pending, key=lambda p: p['path'])
 
 
+def page_payload(repo, vault, notes, edges, warnings, sources=True):
+    files = cited_files(repo, vault, notes)[0] if sources else {}
+    return graph_of(notes, edges, warnings) | {
+        'vaultPath': Path(os.path.relpath(vault, repo)).as_posix(), 'files': files,
+        'history': vault_history(repo, vault), 'pending': vault_pending(repo, vault)}
+
+
 def live_page(repo, vault):
     """The viewer for the vault as it is on disk right now, or a page listing what stops it from loading."""
     try:
@@ -785,10 +805,29 @@ def live_page(repo, vault):
                 f'<h1>The spec has {len(errors)} error{"s" if len(errors) != 1 else ""}</h1>'
                 '<p>Fix the pages below (the <code>check</code> command prints the same list), then reload.</p>'
                 f'<ul>{items}</ul></body>')
-    files, _ = cited_files(repo, vault, notes)
-    return viewer_html(graph_of(notes, edges, warnings) | {
-        'live': True, 'vaultPath': Path(os.path.relpath(vault, repo)).as_posix(), 'files': files,
-        'history': vault_history(repo, vault), 'pending': vault_pending(repo, vault)})
+    return viewer_html(page_payload(repo, vault, notes, edges, warnings) | {'live': True})
+
+
+def source_base(value, commit):
+    """The address `--source-url` names, with `{commit}` filled in. Raises ValueError with the reason when it cannot be used."""
+    if CONTROL.search(value) or ' ' in value or not re.match(r'https?://[^/]', value, re.I):
+        raise ValueError('--source-url must be an http(s) address, e.g. https://github.com/OWNER/REPO/blob/{commit}')
+    if '{commit}' in value and not commit:
+        raise ValueError('--source-url names {commit}, but --repo is not a Git work tree with a commit')
+    return value.replace('{commit}', commit).rstrip('/')
+
+
+def built_page(repo, vault, notes, edges, warnings, with_sources=False, source_url=''):
+    """The viewer as one file to put on a server: the vault as it is now, with nothing read later.
+
+    The text of cited repository files is left out unless asked for, because the file may be shown to people
+    who cannot read the repository. Returns (html, payload).
+    """
+    head = subprocess.run(['git', '-C', str(repo), 'rev-parse', 'HEAD'], capture_output=True)
+    commit = '' if head.returncode else head.stdout.decode('ascii', errors='replace').strip()
+    payload = page_payload(repo, vault, notes, edges, warnings, with_sources) | {
+        'built': True, 'commit': commit, 'sourceUrl': source_base(source_url, commit) if source_url else ''}
+    return viewer_html(payload), payload
 
 
 def make_server(repo, vault, port):
@@ -820,12 +859,15 @@ def make_server(repo, vault, port):
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['check', 'snapshot', 'serve'])
+    parser.add_argument('command', choices=['check', 'snapshot', 'serve', 'build'])
     parser.add_argument('--repo', required=True, type=Path)
     parser.add_argument('--vault', type=Path, help='default: the single vault under knowledge/ in the repository')
     parser.add_argument('--strict', action='store_true', help='fail check when freshness warnings exist')
     parser.add_argument('--port', type=int, default=8757, help='serve: port on 127.0.0.1 (another free port is used if it is taken)')
     parser.add_argument('--open', action='store_true', help='serve: open the page in the default browser')
+    parser.add_argument('--out', type=Path, help='build: the HTML file to write, outside the vault')
+    parser.add_argument('--with-sources', action='store_true', help='build: include the text of the repository files the pages cite')
+    parser.add_argument('--source-url', default='', help='build: where a cited file can be read, e.g. https://github.com/OWNER/REPO/blob/{commit}')
     parser.add_argument('--ignore-dirty', action='store_true',
                         help='check: do not count freshness warnings for sources with uncommitted changes (needs a Git work tree)')
     group = parser.add_mutually_exclusive_group()
@@ -838,6 +880,10 @@ def main(argv=None):
         parser.error('--ignore-dirty is only for check')
     if args.open and args.command != 'serve':
         parser.error('--open is only for serve')
+    if args.command == 'build' and not args.out:
+        parser.error('build requires --out FILE')
+    if args.command != 'build' and (args.out or args.with_sources or args.source_url):
+        parser.error('--out, --with-sources and --source-url are only for build')
     if args.command == 'snapshot' and not (args.all or args.notes):
         parser.error('snapshot requires --all or --notes')
     if args.command != 'snapshot' and (args.all or args.notes):
@@ -904,6 +950,23 @@ def main(argv=None):
         return 1
     if ignored:
         print(f'{args.command}: {len(ignored)} errors on {len({error_page(m) for m in ignored if error_page(m)})} other pages do not block this snapshot (run check to see them)', file=sys.stderr)
+    if args.command == 'build':
+        out = Path(os.path.abspath(args.out))
+        if out.is_dir() or out.resolve().is_relative_to(vault):
+            parser.error('--out must be a file outside the vault: nothing is generated into the vault')
+        try:
+            page, payload = built_page(repo, vault, notes, edges, warnings, args.with_sources, args.source_url)
+        except ValueError as exc:
+            parser.error(str(exc))
+        atomic_write(out, page)
+        files = len(payload['files'])
+        print(f'build: wrote {out} ({len(page.encode("utf-8")) // 1024} kB), {len(notes)} notes, {len(warnings)} warnings'
+              + (f', commit {payload["commit"][:7]}' if payload['commit'] else ''))
+        print('build: ' + (f'the text of {files} cited source files is inside the file; show it only to people who may read the repository'
+                           if args.with_sources else 'cited source files are named but their text is not included (--with-sources adds it)'))
+        if shallow_commits(repo):
+            print('build: this is a shallow clone, so the Changes page starts at the first commit that was fetched in full; fetch the whole history to show more')
+        return 0
     if args.command == 'snapshot':
         for note in notes:
             meta = note['meta']

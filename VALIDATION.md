@@ -2,6 +2,12 @@
 
 > The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet; `spec-change` has not been run on a real change.
 
+## 2026-11-17: the viewer as one file for a server
+
+- `build` has automated tests: the page is written without the text of cited files unless asked, `--out` inside the vault and a vault with errors are refused, `{commit}` in `--source-url` is filled in, and a shallow clone's first commit is left out of the history. The viewer tests cover links to the code host and file names without one. `python3 scripts/verify.py` passed.
+- The page was built for the example and for a real vault of 237 pages (about 1 MB without source text, 4.8 MB with the text of 488 files), served by a plain local HTTP server and opened in headless Chrome: a feature page, the links to the code host and the Recent changes page were checked.
+- **NOT RUN:** the page behind a real application route, the Next.js example in the README, a build inside a CI job, and a browser other than Chrome.
+
 ## 2026-11-17: npm package and Claude Code plugin
 
 - The package was packed with `npm pack`, the tarball installed into an empty project, and `project-spec version`, `install --dir`, `status` and `check` were run from it. The packed file list is checked by `scripts/test_cli.cjs` (no compiled Python files, nothing outside the command and the skills).

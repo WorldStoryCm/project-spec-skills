@@ -128,6 +128,7 @@ try {
   const script = path.join(ROOT, 'skills/project-knowledge/scripts');
   assert.equal(run(['serve'], dry).out.trim(), `py ${script}/knowledge.py serve --repo . --open`);
   assert.equal(run(['serve', '--no-open', '--port', '9000', '--repo', 'x'], dry).out.trim(), `py ${script}/knowledge.py serve --port 9000 --repo x`);
+  assert.equal(run(['build', '--out', 'site/spec.html'], dry).out.trim(), `py ${script}/knowledge.py build --out site/spec.html --repo .`);
   assert.equal(run(['check', '--strict'], dry).out.trim(), `py ${script}/knowledge.py check --strict --repo .`);
   assert.equal(run(['scan', '--write-status'], dry).out.trim(), `py ${script}/maintain.py scan --write-status --repo .`);
   r = run(['check'], { cwd: path.join(ROOT, 'examples/parcel-desk') });

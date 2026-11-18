@@ -13,7 +13,7 @@ const SKILLS = path.join(ROOT, 'skills');
 const PACKAGE = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const MARKER = '.project-spec.json'; // written into every copy: which version it is and what its files looked like
 const SKIP = new Set(['__pycache__', '.DS_Store', MARKER]);
-const KNOWLEDGE = new Set(['serve', 'check', 'snapshot']);
+const KNOWLEDGE = new Set(['serve', 'build', 'check', 'snapshot']);
 const MAINTAIN = new Set(['scan', 'receipt', 'finish']);
 // Skills earlier versions shipped; project-knowledge and spec-change took over what they did.
 const RETIRED = ['spec-audit', 'spec-investigation', 'spec-plan'];
@@ -25,6 +25,8 @@ const USAGE = `project-spec ${PACKAGE.version}
 Read the spec
   project-spec serve [--repo DIR] [--vault DIR] [--port N] [--no-open]
       Open the viewer for the repository (default: the current folder).
+  project-spec build --out FILE [--source-url URL] [--with-sources] [--repo DIR] [--vault DIR]
+      Write the viewer as one HTML file, to show the spec on a server.
   project-spec check | snapshot [options]
       The knowledge helper; --repo defaults to the current folder.
   project-spec scan | receipt | finish [options]

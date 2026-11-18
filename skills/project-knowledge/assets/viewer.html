@@ -1558,8 +1558,9 @@
             (n) => n && typeof n === "object",
           ),
           edges = Array.isArray(data.edges) ? data.edges : [];
-        // Sent by `knowledge.py serve` only: the text of cited repository files, the vault's place in the
-        // repository, its Git history and its uncommitted pages. A page without them still works.
+        // Sent by `knowledge.py serve` and `build`: the text of cited repository files (build leaves it out
+        // unless asked), the vault's place in the repository, its Git history and its uncommitted pages.
+        // A page without them still works.
         const files =
             data.files && typeof data.files === "object" ? data.files : {},
           vaultPath = typeof data.vaultPath === "string" ? data.vaultPath : "",
@@ -1570,6 +1571,15 @@
             (p) => p && typeof p === "object",
           );
         const live = data.live === true;
+        // A page written by `knowledge.py build` to be put on a server: a copy of one moment, read by people
+        // who may not have the repository. `sourceUrl` is where a cited file can be read instead.
+        const built = data.built === true,
+          builtCommit = typeof data.commit === "string" ? data.commit : "",
+          builtOn = typeof data.generatedAt === "string" ? data.generatedAt.slice(0, 10) : "",
+          sourceUrl =
+            built && typeof data.sourceUrl === "string" && /^https?:\/\/[^\s/]/i.test(data.sourceUrl)
+              ? data.sourceUrl.replace(/\/+$/, "")
+              : "";
         const byId = new Map(nodes.map((n) => [n.id, n])),
           byPath = new Map(
             nodes.map((n) => [String(n.path || "").replace(/\.md$/i, ""), n]),
@@ -1694,7 +1704,13 @@
         const areas = nodes.filter((n) => n.type === "area").sort(byTitle);
         $("#project-title").textContent = projectTitle;
         $("#project-title").title = projectTitle;
-        $("#header-note").textContent = live ? "Spec · live from disk" : "Spec";
+        $("#header-note").textContent = live
+          ? "Spec · live from disk"
+          : built
+            ? "Spec" + (builtOn ? " · built " + builtOn : "")
+            : "Spec";
+        // The line is too narrow for the commit as well, so it is in the tooltip.
+        if (built && builtCommit) $("#header-note").title = "Built from commit " + builtCommit;
         // Small things kept in this browser only: where you were, what you picked. Never required.
         const store = {
           key: (name) => "spec-viewer:" + projectTitle + ":" + name,
@@ -1834,8 +1850,9 @@
           return out.join("/");
         }
         const hasFile = (key) => Object.prototype.hasOwnProperty.call(files, key);
-        // A relative Markdown link to a cited repository file: where it is in `files` and which lines it names.
-        function fileRef(raw, n) {
+        // A relative Markdown link read as a place in the repository: the file and which lines it names.
+        // Null for an address, an anchor or a path that leaves the repository.
+        function repoTarget(raw, n) {
           let t = String(raw).trim();
           if (t.startsWith("<") && t.endsWith(">")) t = t.slice(1, -1);
           if (!t || t[0] === "#" || t[0] === "/" || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(t))
@@ -1849,9 +1866,26 @@
           const dir = String(n.path || "").split("/").slice(0, -1).join("/");
           // Vault pages link relative to themselves inside the vault; a cited document links relative to itself in the repository.
           const key = normPath(n.repoFile ? [dir, t] : [vaultPath, dir, t]);
-          if (!hasFile(key)) return null;
+          if (!key || key.split("/")[0] === "..") return null;
           const m = hash.match(/^L(\d+)(?:-L?(\d+))?$/i);
           return { key, from: m ? +m[1] : 0, to: m ? +(m[2] || m[1]) : 0 };
+        }
+        // The same link when the text of that file came with the page, so it can be opened in place.
+        function fileRef(raw, n) {
+          const ref = repoTarget(raw, n);
+          return ref && hasFile(ref.key) ? ref : null;
+        }
+        // A cited file on the code host a built page was given: a new tab, since the reader leaves the spec.
+        function sourceLink(ref, text) {
+          const a = el("a", text);
+          a.href =
+            sourceUrl +
+            "/" +
+            ref.key.split("/").map(encodeURIComponent).join("/") +
+            (ref.from ? "#L" + ref.from + (ref.to > ref.from ? "-L" + ref.to : "") : "");
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          return a;
         }
         const isMarkdownFile = (key) => /\.(md|markdown)$/i.test(key);
         let fileState = null;
@@ -1888,7 +1922,7 @@
                   ? "Lines " + ref.from + "–" + ref.to
                   : "Line " + ref.from) + " · "
               : "") +
-            (live ? "Read from disk when this page loaded" : "Copy taken when this map was built") +
+            (live ? "Read from disk when this page loaded" : "Copy taken when this page was built") +
             (file.truncated ? " · only the beginning of the file is shown" : "");
           actions.replaceChildren();
           if (isMarkdownFile(ref.key))
@@ -1957,9 +1991,16 @@
             else {
               const parts = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/),
                 ref = parts && fileRef(parts[2], n),
-                href = parts && !ref && !n.repoFile && safeHref(parts[2], n);
+                // On a built page a relative link would lead into the site that hosts it, not to the file.
+                away = parts && !ref && built && !n.repoFile ? repoTarget(parts[2], n) : null,
+                href = parts && !ref && !away && !n.repoFile && safeHref(parts[2], n);
               if (ref) parent.append(fileButton(ref, parts[1]));
-              else if (href) {
+              else if (away && sourceUrl) parent.append(sourceLink(away, parts[1]));
+              else if (away) {
+                const name = el("span", parts[1]);
+                name.title = away.key;
+                parent.append(name);
+              } else if (href) {
                 const a = el("a", parts[1]);
                 a.href = href;
                 parent.append(a);
@@ -2464,7 +2505,8 @@
         };
         const sourceLine = (src) => {
           const key = normPath([src]);
-          return hasFile(key) ? fileButton({ key, from: 0, to: 0 }, src) : el("span", src);
+          const ref = { key, from: 0, to: 0 };
+          return hasFile(key) ? fileButton(ref, src) : sourceUrl && key ? sourceLink(ref, src) : el("span", src);
         };
 
         // --- Views ---------------------------------------------------------------------------------------
@@ -2891,7 +2933,7 @@
                 "p",
                 historyLog.length
                   ? "Nothing in the history matches this filter."
-                  : live
+                  : live || built
                     ? "No Git history was found for this vault."
                     : "History is shown when the spec is opened with the serve command.",
                 "empty",
