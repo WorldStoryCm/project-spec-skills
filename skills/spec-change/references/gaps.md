@@ -27,7 +27,7 @@ A gap must not have `status`; its progress is carried by `recheck` and `decision
 | `decided_by` | when `decision` is `accepted`, `rejected` or `deferred` | a person's name; the value `agent` is an error |
 | `decided_on` | when `decision` is `accepted`, `rejected` or `deferred` | `YYYY-MM-DD` |
 | `duplicate_of` | when `decision` is `duplicate` | id of another existing gap (not itself) |
-| `priority`, `confidence` | optional, gap and plan pages only | short strings, e.g. `"high"` |
+| `priority`, `confidence` | optional, gap and plan pages only | short strings, e.g. `"high"`. Use `high`, `medium` or `low` for `priority` (or `P0` to `P4`): the viewer lists the most urgent gap of each state first and can show one priority only. |
 
 `decided_by` and `decided_on` are also allowed on `done` and `duplicate` but not required. With `outdated`, `rechecked_by` and `rechecked_on` stay in place as the record of the last recheck actually done. A fresh recheck replaces all three fields and adds a new dated entry to the `Recheck` section; keep the older entries.
 

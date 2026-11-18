@@ -54,8 +54,8 @@ Required on every page: `id`, `title`, `type`, `areas`, `sources`, `updated`. `s
 
 - `id`: unique stable ASCII slug (`[a-z0-9-]+`).
 - `status` on `area` and `note`: `current`, `partial`, `stale`, `superseded`. On `index`, `run` and `plan` additionally `planned`.
-  - `current`: checked against the current sources. This is not a runtime test or a deployment claim; say in prose which version and environment you checked.
-  - `partial`: sampled; some of the area or behavior was not read.
+  - `current`: the whole feature was read and the page checked against the current sources. This is not a runtime test or a deployment claim; say in prose which version and environment you checked.
+  - `partial`: some of the feature or area was not read. The page ends with a line saying what is left, and stays `partial` until the feature is finished.
   - `stale`: its sources changed or disappeared and it has not been re-read.
   - `superseded`: replaced by another page, kept as a pointer.
   - `planned` (index, run, plan): describes intent not yet carried out.
@@ -63,6 +63,7 @@ Required on every page: `id`, `title`, `type`, `areas`, `sources`, `updated`. `s
 - `areas`: existing **area IDs**. Each `note`, `gap` and `plan` needs at least one. Area pages may list themselves or leave empty; index and run pages may be empty.
 - `sources`: existing files read as evidence, repository-relative; no directories, credentials, absolute paths or paths escaping the repo. A `current` note needs evidence; gaps, plans and maps may have none.
 - `updated`: last substantive review date (`YYYY-MM-DD`).
+- Optional `parent`, on a `note` only: the `id` of the feature note this note is a part of. The vault has three levels: area, feature, part. The parent is a note of the same first area that has no `parent` itself, and its body links to each of its parts; `check` rejects anything else. The viewer lists a part under its feature.
 - Optional `tags`, `aliases`, `task_ids`: string arrays. Optional `summary` and `verification`: strings. An area's `summary` introduces it in the viewer; a note's `summary` is its plain-language statement of what the product does, shown first in the viewer's Read view (write one for every note; `check` does not require it, so older vaults still open).
 
 Gap-only properties are errors on any other page type, `gap` is an error on a page that is not a plan, and `priority` and `confidence` are allowed only on gap and plan pages. String properties (and strings inside arrays) may not contain control characters, including line separators. Gap-only properties (`kind`, `recheck`, `rechecked_by`, `rechecked_on`, `decision`, `decided_by`, `decided_on`, `duplicate_of`, optional `priority`, `confidence`) and the plan-only `gap` property are defined in [gaps.md](gaps.md), with the rules for who may set each. Gap state (`needs-recheck`, `needs-decision`, or the decision value) is derived from them and never written into Markdown. A recheck has one meaning for every gap kind: does the `Current behavior` section still describe the code? `confirmed` means it does (confirmed, still holds; for a proposal, the capability is still absent) and `not-reproduced` means it no longer does; neither judges whether a proposal is worth doing, which is a person's decision (see [what a recheck means](gaps.md#what-a-recheck-means)). `recheck: "outdated"` means the cited sources changed after the last recorded recheck; `rechecked_by` and `rechecked_on` stay, the `Recheck` section must have text, and an open gap with it is `needs-recheck`.
@@ -81,8 +82,10 @@ A **feature note** is the one page for one screen, feature, flow or rule, and al
 | Flow | `## How it works` | What a person does and what happens, in order. Left out when there is no flow. |
 | Fields | `## Fields` | One row per field of the feature's form: `Field`, `Required`, `Rule`, `Message when refused`. |
 | Rules | `## Business rules` | One numbered rule per row: `ID`, `Rule`. Who may do it, when an action is available, limits, defaults, what is kept, sent or deleted, and when. |
+| Clients | `## Where the apps differ` | Only when the product has several clients: one row per difference, `What` and a column per client (`Web`, `Mobile`). One sentence instead when they were compared and do not differ. |
+| Parts | `## Parts` | Only on a feature that has parts: a link to each part and one line saying what it covers. |
 
-The headings are written exactly so and come in this order; a section the feature does not have is left out. A field's rule is in `Fields` and is not repeated in `Business rules`. Usually 150-400 words; when its rules need more, split the note by feature or flow, never by kind of fact, so that everything about one feature stays on one page.
+The headings are written exactly so and come in this order; a section the feature does not have is left out. A field's rule is in `Fields` and is not repeated in `Business rules`. Usually 150-400 words and up to about twenty rules. A feature that needs more gets parts: notes with `parent` set to the feature note, each about one flow or one kind of use, never one kind of fact, and each written in this same shape. The feature note then holds what the feature is for, how the parts fit, the rules that hold in every part, and `## Parts`.
 
 A rule is numbered `BR-<FEATURE>-<NN>` (`BR-INVITE-03`): `BR`, a short upper-case word for the feature that is the same in all rules of the note and used by no other note, and a number from 01. The number is the rule's name, quoted in tickets, tests and gaps. A rule keeps it when its text changes; a new rule takes the next free number; the number of a removed rule is not used again; rules are never renumbered. One rule per row, one or two sentences, with the value.
 
@@ -164,7 +167,9 @@ The validator enforces these body rules:
 
 ## Helper
 
-Three scripts in `$SKILL_DIR/scripts/`; see [SKILL.md](../SKILL.md) for the variables.
+Four scripts in `$SKILL_DIR/scripts/`; see [SKILL.md](../SKILL.md) for the variables.
+
+`coverage.py --repo PATH [--vault PATH] [--path FOLDER]... [--all]` reads the repository's code files and the spec pages (`area` and `note`) and prints what the code has that no page mentions. It writes nothing and always exits 0. Code files are the tracked and the untracked-but-not-ignored files with a source-code extension, outside the vault, without tests, fixtures, stories, mocks, migrations, dependencies and build output. For each folder it prints the number of files and lines, how many of the files a page cites in `sources`, how many **sentences a person can see** the folder has and how many are on no page, and the same for **named numbers**. A sentence is a string or text between tags of 12 to 200 characters that starts with a capital letter and has at least three words, outside log calls; it is on a page when a page contains it, ignoring case, curly quotes and spacing. A named number is an upper-case constant set to a number (`MAX_FILES = 10`); it is on a page when a page contains its name. A file with 40 or more sentences is an article or a template and counts as a file only. A folder in which no page cites any file is one line however deep it goes; folders are ordered by how much they have that no page mentions. With `--path` only those folders are read and every unmentioned sentence and number is listed with its file, then the largest files no page cites. The first 40 folders and 60 items are printed unless `--all` is given. The report finds places to read; it cannot find a rule that has neither a message nor a named number.
 
 `knowledge.py {check,snapshot,serve,build} --repo PATH [--vault PATH]`
 

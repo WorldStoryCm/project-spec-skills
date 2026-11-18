@@ -37,7 +37,7 @@ RULE_ROW = re.compile(r'^ {0,3}\|[ \t]*(BR-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d{2,4})[ \t
 MD_REF = re.compile(r'^ {0,3}\[[^\]\n]+\]:\s*(<[^>]*>|\S+)', re.M)
 GAP_PAGE_ONLY = ('priority', 'confidence')
 ARRAYS = {'areas', 'sources', 'tags', 'aliases', 'task_ids'}
-STRINGS = {'id', 'title', 'type', 'status', 'updated', 'summary', 'verification', 'priority', 'confidence', 'gap',
+STRINGS = {'id', 'title', 'type', 'status', 'updated', 'summary', 'verification', 'priority', 'confidence', 'gap', 'parent',
            *GAP_ONLY}
 REQUIRED = {'id', 'title', 'type', 'areas', 'sources', 'updated'}
 LINK = re.compile(r'(!?)\[\[([^\[\]\n]+)\]\]')  # no brackets inside, so a run of '[[' cannot backtrack
@@ -215,6 +215,8 @@ def validate_meta(meta):
             raise ValueError(f"status must be one of {', '.join(sorted(allowed))}{hint}")
         if kind == 'note' and meta['status'] == 'current' and not meta['sources']:
             raise ValueError('current note requires sources')
+    if 'parent' in meta and (kind != 'note' or not meta['parent'].strip()):
+        raise ValueError('parent is only valid on note pages and names the feature note this one is a part of')
     if kind == 'plan':
         if not meta.get('gap', '').strip():
             raise ValueError('plan requires gap: the id of the accepted gap it implements')
@@ -427,10 +429,26 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None, absent=None
         paths[stem] = note
         basenames.setdefault(PurePosixPath(stem).name, []).append(note)
     area_ids = {n['meta']['id'] for n in notes if n['meta']['type'] == 'area'}
-    edges, attachments, rule_pages = set(), {}, {}
+    edges, attachments, rule_pages, linked, parts = set(), {}, {}, set(), []
     for note in notes:
         meta, rel = note['meta'], note['path']
         note['stale'] = False
+        if meta.get('parent'):
+            # Three levels and no more: an area, its features, and the parts of a feature that is too big for one page.
+            other, name = ids.get(meta['parent']), meta['parent']
+            if other is None and name in failed_ids and failed_id_kinds[name] & {None, 'note'}:
+                cascade.append(f'{rel}: parent {name} names a page that failed validation')
+            elif other is None or other['meta']['type'] != 'note':
+                errors.append(f'{rel}: parent {name} is not the id of an existing note')
+            elif other is note:
+                errors.append(f'{rel}: parent must name a different note')
+            elif other['meta'].get('parent'):
+                errors.append(f"{rel}: parent {name} is itself a part of {other['meta']['parent']}; a part belongs to a feature, not to another part")
+            elif other['meta']['areas'][:1] != meta['areas'][:1]:
+                errors.append(f"{rel}: parent {name} is in another area; a part has the same first area as its feature")
+            else:
+                edges.add((other['meta']['id'], meta['id']))
+                parts.append((other, note))
         if meta['type'] == 'gap':
             note['state'] = gap_state(meta)
         if meta['type'] == 'gap' and meta.get('duplicate_of'):
@@ -507,6 +525,7 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None, absent=None
                               "if that part needs its own link, make it its own note and list it here")
             else:
                 edges.add((meta['id'], choices[0]['meta']['id']))
+                linked.add((meta['id'], choices[0]['meta']['id']))
         if meta['type'] == 'area':
             # An area page is a map of its notes. A table on it is behavior written in the wrong place.
             tables = sum(1 for line in text.split('\n') if TABLE_RULE.match(line))
@@ -579,6 +598,10 @@ def load_vault(repo, vault, freshness=True, dirty=None, report=None, absent=None
                         note['stale'] = True
             except (OSError, ValueError) as exc:
                 errors.append(f'{rel}: {source}: {exc}')
+    for feature, part in parts:
+        # The viewer nests a part under its feature from `parent`; a plain Markdown reader has only the link.
+        if (feature['meta']['id'], part['meta']['id']) not in linked:
+            errors.append(f"{part['path']}: its feature {feature['path']} does not link to it; list every part on the feature's page")
     if report is not None:
         report['failed'] = failed
         report['cascade'] = cascade
@@ -649,7 +672,7 @@ def node_of(note):
         'kind': m.get('kind', ''), 'recheck': m.get('recheck', ''), 'recheckedBy': m.get('rechecked_by', ''),
         'recheckedOn': m.get('rechecked_on', ''), 'decision': m.get('decision', ''), 'decidedBy': m.get('decided_by', ''),
         'decidedOn': m.get('decided_on', ''), 'priority': m.get('priority', ''), 'confidence': m.get('confidence', ''),
-        'duplicateOf': m.get('duplicate_of', ''), 'recheckOutdated': gap and (m['recheck'] == 'outdated' or recheck_marker(note)), 'state': note.get('state', ''), 'gap': m.get('gap', ''),
+        'parent': m.get('parent', ''), 'duplicateOf': m.get('duplicate_of', ''), 'recheckOutdated': gap and (m['recheck'] == 'outdated' or recheck_marker(note)), 'state': note.get('state', ''), 'gap': m.get('gap', ''),
         'layer': LAYERS[m['type']]}
 
 

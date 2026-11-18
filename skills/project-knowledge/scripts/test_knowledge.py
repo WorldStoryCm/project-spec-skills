@@ -725,6 +725,39 @@ class GapLayerTests(Fixture):
             self.assertEqual(k.main(['check', '--repo', str(self.repo)]), 0)
         self.assertIn('check: 1 notes', out.getvalue())
 
+    def test_a_feature_too_big_for_one_page_has_parts(self):
+        self.note('notes/chats.md', 'chats', sources=['source.txt'], body='Parts: [[notes/group-chats|group chats]].')
+        self.note('notes/group-chats.md', 'group-chats', sources=['source.txt'], parent='chats')
+        status, out, err = self.run_cli('check')
+        self.assertEqual(status, 0, err)
+        notes, edges, errors, _, _ = k.load_vault(self.repo.resolve(), self.vault.resolve())
+        self.assertIn(('chats', 'group-chats'), edges)
+        self.assertEqual(k.node_of(next(n for n in notes if n['meta']['id'] == 'group-chats'))['parent'], 'chats')
+        cases = (
+            (dict(parent='chats'), 'Parts: none listed.', 'notes/group-chats.md: its feature notes/chats.md does not link to it'),
+            (dict(parent='nobody'), None, 'parent nobody is not the id of an existing note'),
+            (dict(parent='a'), None, 'parent a is not the id of an existing note'),
+            (dict(parent='group-chats'), None, 'parent must name a different note'),
+            (dict(parent=''), None, 'parent is only valid on note pages and names the feature note'),
+        )
+        for extra, parent_body, message in cases:
+            with self.subTest(message=message):
+                self.note('notes/chats.md', 'chats', sources=['source.txt'], body=parent_body or 'Parts: [[notes/group-chats|group chats]].')
+                self.note('notes/group-chats.md', 'group-chats', sources=['source.txt'], **extra)
+                status, _, err = self.run_cli('check')
+                self.assertEqual(status, 1)
+                self.assertIn(message, err)
+        # three levels and no more, and a part stays in its feature's area
+        self.note('notes/chats.md', 'chats', sources=['source.txt'], body='[[notes/group-chats|group chats]] [[notes/renaming|renaming]]')
+        self.note('notes/group-chats.md', 'group-chats', sources=['source.txt'], parent='chats', body='[[notes/renaming|renaming]]')
+        self.note('notes/renaming.md', 'renaming', sources=['source.txt'], parent='group-chats')
+        self.assertIn('parent group-chats is itself a part of chats; a part belongs to a feature, not to another part', self.run_cli('check')[2])
+        self.note('areas/b.md', 'b', 'area', areas=[])
+        self.note('notes/renaming.md', 'renaming', sources=['source.txt'], parent='chats', areas=['b'])
+        self.assertIn('parent chats is in another area', self.run_cli('check')[2])
+        self.note('areas/a.md', 'a', 'area', areas=[], parent='chats')
+        self.assertIn('parent is only valid on note pages', self.run_cli('check')[2])
+
     def test_area_pages_are_maps_without_tables_or_links_into_notes(self):
         table = '| Screen | What it does |\n| --- | --- |\n| Profile | Edits the name. [[notes/n|Profile]] |\n'
         for body in (table, '| a | b |\n|:-|-:|\n| 1 | 2 |', 'a | b\n--- | ---\n1 | 2', '| one column |\n| --- |\n| x |'):

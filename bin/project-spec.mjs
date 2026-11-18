@@ -15,6 +15,7 @@ const MARKER = '.project-spec.json'; // written into every copy: which version i
 const SKIP = new Set(['__pycache__', '.DS_Store', MARKER]);
 const KNOWLEDGE = new Set(['serve', 'build', 'check', 'snapshot']);
 const MAINTAIN = new Set(['scan', 'receipt', 'finish']);
+const COVERAGE = 'coverage'; // its own helper, which takes no command word
 // Skills earlier versions shipped; project-knowledge and spec-change took over what they did.
 const RETIRED = ['spec-audit', 'spec-investigation', 'spec-plan'];
 // Folders inside a project where a copy of the skills may live.
@@ -29,6 +30,8 @@ Read the spec
       Write the viewer as one HTML file, to show the spec on a server.
   project-spec check | snapshot [options]
       The knowledge helper; --repo defaults to the current folder.
+  project-spec coverage [--path FOLDER]... [--all]
+      What the code has that no spec page mentions yet: folders, messages and limits.
   project-spec scan | receipt | finish [options]
       The sync helper; --repo defaults to the current folder.
 
@@ -253,7 +256,7 @@ function python(script, command, args) {
     if (!flag(args, '--no-open') && !args.includes('--open')) args.push('--open');
   }
   const exe = process.env.PROJECT_SPEC_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
-  const full = [path.join(SKILLS, 'project-knowledge', 'scripts', script), command, ...args];
+  const full = [path.join(SKILLS, 'project-knowledge', 'scripts', script), ...(command === COVERAGE ? [] : [command]), ...args];
   if (process.env.PROJECT_SPEC_DRY_RUN) return console.log([exe, ...full].join(' ')), 0;
   const run = spawnSync(exe, full, { stdio: 'inherit' });
   if (run.error) throw new Problem(`could not start ${exe}: ${run.error.message}. The helpers need Python 3.10 or newer; set PROJECT_SPEC_PYTHON to its path.`);
@@ -269,6 +272,7 @@ function main(argv) {
   if (command === 'update') return update(args);
   if (KNOWLEDGE.has(command)) return python('knowledge.py', command, args);
   if (MAINTAIN.has(command)) return python('maintain.py', command, args);
+  if (command === COVERAGE) return python('coverage.py', command, args);
   throw new Problem(`unknown command: ${command}\n\n${USAGE}`);
 }
 

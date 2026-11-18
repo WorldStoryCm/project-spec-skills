@@ -2,6 +2,16 @@
 
 > The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet; `spec-change` has not been run on a real change.
 
+## 2026-11-18: depth of a first map
+
+Observed on a second real project, a monorepo with a web app and a mobile app (about 5,400 code files, 600,000 lines without migrations):
+
+- A first map made with 0.7.0 in one session produced 71 notes. The chat feature has 160 code files and 25,000 lines across the two apps and 25 server procedures; its single page had 13 rules and cited 5 files. The page said both apps "offer the same actions", from a comparison of which server procedures each app calls. The reader called the spec full of holes.
+- The instructions then told the agent to follow representative paths and to finish a broad map before deepening, and gave no way to tell a finished feature from a sampled one. 0.9.0 replaces that with an inventory, one feature finished before the next, parts for a feature too big for one page (`parent`), a section for where clients differ, and `coverage.py`.
+- `coverage.py` was run on that project. For the chat folders it listed 98 sentences and numbers no page mentions, among them refusals the page lacks ("You cannot remove yourself", "Ask an Expert chats can't be renamed", "Only a group chat can be the Moderators chat") and whole folders no page cites (49 files of the chat window, 39 files of the mobile chat). Whole-repository run: about 8 seconds.
+- `parent`, the order and filter of the gap queue by priority, and `coverage.py` have automated tests; `python3 scripts/verify.py` passed.
+- **NOT RUN:** no agent has yet made or deepened a map with the new instructions, so whether they produce deeper pages is not observed. The size limits in them (about twenty rules a page, eight entry points, 2,000 lines) are a first guess. The report's idea of a sentence fits TypeScript, JSX and Python strings; it found none in that project's mobile screens, and other languages are untried.
+
 ## 2026-11-17: the viewer as one file for a server
 
 - `build` has automated tests: the page is written without the text of cited files unless asked, `--out` inside the vault and a vault with errors are refused, `{commit}` in `--source-url` is filled in, and a shallow clone's first commit is left out of the history. The viewer tests cover links to the code host and file names without one. `python3 scripts/verify.py` passed.

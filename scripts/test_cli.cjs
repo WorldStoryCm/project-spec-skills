@@ -131,6 +131,7 @@ try {
   assert.equal(run(['build', '--out', 'site/spec.html'], dry).out.trim(), `py ${script}/knowledge.py build --out site/spec.html --repo .`);
   assert.equal(run(['check', '--strict'], dry).out.trim(), `py ${script}/knowledge.py check --strict --repo .`);
   assert.equal(run(['scan', '--write-status'], dry).out.trim(), `py ${script}/maintain.py scan --write-status --repo .`);
+  assert.equal(run(['coverage', '--path', 'src/chat'], dry).out.trim(), `py ${script}/coverage.py --path src/chat --repo .`);
   r = run(['check'], { cwd: path.join(ROOT, 'examples/parcel-desk') });
   assert.equal(r.code, 0, r.err);
   assert.ok(/check: \d+ notes/.test(r.out), r.out);

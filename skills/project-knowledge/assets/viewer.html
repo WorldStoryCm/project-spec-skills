@@ -228,6 +228,10 @@
         padding-left: 40px;
         color: var(--muted);
       }
+      .tree-row.part {
+        padding-left: 58px;
+        font-size: 0.94em;
+      }
 
       /* Top bar: where you are, and what you can do with the page. */
       .topbar {
@@ -1675,6 +1679,20 @@
           const i = STATES.indexOf(stateOf(n));
           return i < 0 ? STATES.length : i;
         };
+        // Priority is free text. The usual words and P0-P4 sort from most to least urgent, any other
+        // value after them, and a gap without a priority last.
+        const PRIORITY_RANKS = { critical: 0, urgent: 0, highest: 0, high: 1, medium: 2, normal: 2, low: 3, lowest: 4 };
+        const priorityOf = (n) => str(n.priority).trim().toLowerCase();
+        const priorityRank = (n) => {
+          const p = priorityOf(n),
+            digit = /^p?([0-4])$/.exec(p);
+          if (!p) return 6;
+          if (digit) return +digit[1];
+          return Object.prototype.hasOwnProperty.call(PRIORITY_RANKS, p) ? PRIORITY_RANKS[p] : 5;
+        };
+        // The order of every list of gaps: by state, then the most urgent first, then by title.
+        const byGapOrder = (a, b) =>
+          stateRank(a) - stateRank(b) || priorityRank(a) - priorityRank(b) || byTitle(a, b);
         const stateClass = (n) =>
           isGap(n)
             ? "st-" + stateOf(n)
@@ -2181,7 +2199,7 @@
             if (g && isGap(g)) out.set(g.id, g);
           });
           return [...out.values()].sort(
-            (a, b) => stateRank(a) - stateRank(b) || byTitle(a, b),
+            byGapOrder,
           );
         }
         const planOf = (g) => nodes.find((p) => isPlan(p) && p.gap === g.id);
@@ -2256,11 +2274,18 @@
         }
         const primaryArea = (n) => (n.areas || [])[0] || "";
         const isFeature = (n) => n.type === "note" && n.status !== "superseded";
+        // A part of a feature: a note whose `parent` names another note. One level only, so the tree is
+        // area, feature, part; a parent that is missing or is itself a part is ignored.
+        const parentOf = (n) => {
+          const p = n.type === "note" && str(n.parent) ? byId.get(n.parent) : null;
+          return p && p !== n && isFeature(p) && !str(p.parent) ? p : null;
+        };
+        const partsOf = (n) => nodes.filter((p) => isFeature(p) && parentOf(p) === n).sort(byTitle);
         const featuresOf = (area) =>
-          nodes.filter((n) => isFeature(n) && primaryArea(n) === area.id).sort(byTitle);
+          nodes.filter((n) => isFeature(n) && primaryArea(n) === area.id && !parentOf(n)).sort(byTitle);
         const looseFeatures = () =>
           nodes
-            .filter((n) => isFeature(n) && byId.get(primaryArea(n))?.type !== "area")
+            .filter((n) => isFeature(n) && byId.get(primaryArea(n))?.type !== "area" && !parentOf(n))
             .sort(byTitle);
         const waiting = (n) =>
           gapsAbout(n).filter((g) =>
@@ -2374,14 +2399,22 @@
           });
           const tree = $("#tree");
           tree.replaceChildren();
-          const noteRow = (f) => {
-            const b = button(null, "tree-row note", () => openNode(f)),
-              open = waiting(f).length;
+          const noteRow = (f, cls, folded) => {
+            const b = button(null, "tree-row note" + (cls ? " " + cls : ""), () => openNode(f)),
+              open = waiting(f).length,
+              meta = [open && open + " open", folded && plural(folded, "part")].filter(Boolean).join(" · ");
             b.append(el("span", f.title, "label"));
             b.title = f.title; // the row shows one line; the full name is a hover away
-            if (open) b.append(el("span", open + " open", "meta"));
+            if (meta) b.append(el("span", meta, "meta"));
             b.setAttribute("aria-current", selected === f ? "page" : "false");
             return b;
+          };
+          // A feature's parts are listed under it while the reader is on the feature or on one of them.
+          const featureRows = (f) => {
+            const parts = partsOf(f),
+              unfolded = parts.length && (selected === f || parts.includes(selected));
+            tree.append(noteRow(f, "", unfolded ? 0 : parts.length));
+            if (unfolded) parts.forEach((p) => tree.append(noteRow(p, "part")));
           };
           areas.forEach((a) => {
             const open = openAreas.has(a.id),
@@ -2403,12 +2436,12 @@
             name.setAttribute("aria-current", selected === a ? "page" : "false");
             line.append(twist, name);
             tree.append(line);
-            if (open) featuresOf(a).forEach((f) => tree.append(noteRow(f)));
+            if (open) featuresOf(a).forEach(featureRows);
           });
           const loose = looseFeatures();
           if (loose.length) {
             tree.append(el("div", "Other", "eyebrow"));
-            loose.forEach((f) => tree.append(noteRow(f)));
+            loose.forEach(featureRows);
           }
           if (!areas.length && !loose.length) tree.append(el("p", "No pages yet.", "empty"));
         }
@@ -2424,6 +2457,7 @@
           if (n) {
             const parent = n.type === "note" ? byId.get(primaryArea(n)) : null;
             if (parent && parent.type === "area") parts.push([parent.title, { name: "page", id: parent.id }]);
+            if (parentOf(n)) parts.push([parentOf(n).title, { name: "page", id: parentOf(n).id }]);
             if (isGap(n) || isPlan(n)) parts.push(["Gaps", { name: "gaps", id: "" }]);
             if (isPlan(n) && byId.get(n.gap)) parts.push([byId.get(n.gap).title, { name: "page", id: n.gap }]);
             parts.push([n.title, null]);
@@ -2478,6 +2512,16 @@
               open = waiting(f).length;
             item.append(button(f.title, "rowlink", () => openNode(f)));
             if (str(f.summary).trim()) item.append(el("p", f.summary, "muted"));
+            const parts = partsOf(f);
+            if (parts.length) {
+              const line = el("p", null, "muted small parts");
+              line.append(el("span", plural(parts.length, "part") + ": "));
+              parts.forEach((part, i) => {
+                if (i) line.append(document.createTextNode(", "));
+                line.append(button(part.title, "wiki", () => openNode(part)));
+              });
+              item.append(line);
+            }
             if (open) item.append(el("span", plural(open, "open question"), "muted small"));
             box.append(item);
           });
@@ -2541,6 +2585,8 @@
           path.append(button(projectTitle, null, () => go({ name: "home", id: "" })));
           const parent = n.type === "note" ? byId.get(primaryArea(n)) : null;
           if (parent && parent.type === "area") path.append(button(parent.title, null, () => openNode(parent)));
+          const feature = parentOf(n);
+          if (feature) path.append(button(feature.title, null, () => openNode(feature)));
           if (isGap(n) || isPlan(n)) path.append(button("Gaps", null, () => go({ name: "gaps", id: "" })));
           path.append(el("span", n.title, "now"));
           card.append(path);
@@ -2551,7 +2597,7 @@
           // Pages this one links to or is linked from: a short list beside the text, not a block inside it.
           if (layerOf(n) === "spec") {
             const related = neighbours(n, "spec").filter(
-              (r) => r.id !== parent?.id && !(n.type === "area" && primaryArea(r) === n.id),
+              (r) => r.id !== parent?.id && r !== feature && !(n.type === "area" && primaryArea(r) === n.id),
             );
             if (related.length) {
               const list = el("div", null, "recent"),
@@ -2686,7 +2732,8 @@
 
         let gapState = "all",
           gapArea = "",
-          gapKind = "";
+          gapKind = "",
+          gapPriority = ""; // "" for all, "none" for gaps without one, otherwise the value
         const selectOf = (label, options, value, pick) => {
           const s = el("select");
           s.setAttribute("aria-label", label);
@@ -2708,7 +2755,11 @@
           head.title = "Questions about what is missing, unverified or could be added. Each one is rechecked and then decided by a person.";
           box.append(head);
           const pool = nodes.filter(
-              (n) => isGap(n) && inArea(n, gapArea) && (!gapKind || n.kind === gapKind),
+              (n) =>
+                isGap(n) &&
+                inArea(n, gapArea) &&
+                (!gapKind || n.kind === gapKind) &&
+                (!gapPriority || (priorityOf(n) || "none") === gapPriority),
             ),
             again = () => show();
           head.append(
@@ -2743,9 +2794,29 @@
               again();
             }),
           );
+          // Only the priorities the queue has, most urgent first; nothing to pick when no gap has one.
+          const priorities = [...new Set(nodes.filter(isGap).map(priorityOf).filter(Boolean))].sort(
+            (a, b) => priorityRank({ priority: a }) - priorityRank({ priority: b }) || a.localeCompare(b),
+          );
+          if (priorities.length || gapPriority)
+            head.append(
+              selectOf(
+                "Priority",
+                [
+                  ["", "All priorities"],
+                  ...priorities.map((p) => [p, p[0].toUpperCase() + p.slice(1) + " priority"]),
+                  ["none", "No priority"],
+                ],
+                gapPriority,
+                (v) => {
+                  gapPriority = v;
+                  again();
+                },
+              ),
+            );
           const shown = pool
             .filter((g) => gapState === "all" || stateOf(g) === gapState)
-            .sort((a, b) => stateRank(a) - stateRank(b) || byTitle(a, b));
+            .sort(byGapOrder);
           if (shown.length) {
             const card = el("section", null, "card");
             card.id = "gap-list";
@@ -2777,7 +2848,7 @@
             }),
           );
           const shown = gaps
-            ? nodes.filter((n) => isGap(n) && inArea(n, mapArea)).sort((a, b) => stateRank(a) - stateRank(b) || byTitle(a, b))
+            ? nodes.filter((n) => isGap(n) && inArea(n, mapArea)).sort(byGapOrder)
             : nodes.filter((n) => layerOf(n) === "spec" && inArea(n, mapArea));
           draw(graphModel(shown), false);
         }
@@ -3411,7 +3482,7 @@
                     ? model.context.has(x.id)
                       ? 1
                       : -1
-                    : stateRank(x) - stateRank(y) || byTitle(x, y),
+                    : byGapOrder(x, y),
                 );
               const cols = Math.max(
                 1,

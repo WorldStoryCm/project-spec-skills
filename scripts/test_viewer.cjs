@@ -291,10 +291,10 @@ const queue = {
     gap('g-done', 'Gap done', { state: 'done', decision: 'done', kind: 'conflict' }),
     gap('g-dup', 'Gap duplicate', { state: 'duplicate', decision: 'duplicate' }),
     // state missing: must be derived from decision and recheck
-    gap('g-derive', 'Gap derived', { state: '', recheck: 'not-reproduced', recheckedBy: 'Cy', recheckedOn: '2026-11-09' }),
+    gap('g-derive', 'Gap derived', { state: '', priority: 'medium', recheck: 'not-reproduced', recheckedBy: 'Cy', recheckedOn: '2026-11-09' }),
     // recheck outdated (explicit value) and a rechecked gap whose sources changed (flag only)
-    gap('g-outdated', 'Gap outdated', { state: '', recheck: 'outdated', recheckedBy: 'Dee', recheckedOn: '2026-10-01', recheckOutdated: true }),
-    gap('g-outflag', 'Gap flagged', { state: 'needs-decision', recheck: 'confirmed', recheckedBy: 'Eve', recheckedOn: '2026-10-02', recheckOutdated: true }),
+    gap('g-outdated', 'Gap outdated', { state: '', priority: 'Low', recheck: 'outdated', recheckedBy: 'Dee', recheckedOn: '2026-10-01', recheckOutdated: true }),
+    gap('g-outflag', 'Gap flagged', { state: 'needs-decision', priority: 'high', recheck: 'confirmed', recheckedBy: 'Eve', recheckedOn: '2026-10-02', recheckOutdated: true }),
     // legacy gap: none of the new fields, status still set
     { id: 'g-legacy', path: 'gaps/legacy.md', title: 'Legacy gap', type: 'gap', status: 'unverified', areas: ['areas/a'], body: 'old', tags: ['product-gap'] },
     node({ id: 'plan-1', title: 'Plan A', type: 'plan', layer: 'gap', status: 'planned', path: 'plans/p.md', gap: 'g-accepted' }),
@@ -313,10 +313,10 @@ const queue = {
   assert.deepEqual(v.crumbs(), ['Sample vault', '/', 'Gaps']);
   const counts = () => findAll(v.page(), e => has(e, 'pill')).map(text);
   assert.deepEqual(counts(), ['All11', 'Needs recheck3', 'Needs decision3', 'Accepted1', 'Deferred1', 'Rejected1', 'Done1', 'Duplicate1']);
-  // waiting states come first, each sorted by title
-  assert.deepEqual(v.rowTitles().slice(0, 6), ['Gap outdated', 'Gap recheck', 'Legacy gap', 'Gap decision', 'Gap derived', 'Gap flagged']);
+  // waiting states come first, each with the most urgent gap first (P1 before low, a gap without a priority last)
+  assert.deepEqual(v.rowTitles().slice(0, 6), ['Gap recheck', 'Gap outdated', 'Legacy gap', 'Gap flagged', 'Gap derived', 'Gap decision']);
   v.pill(v.page(), 'Needs decision').click();
-  assert.deepEqual(v.rowTitles(), ['Gap decision', 'Gap derived', 'Gap flagged']);
+  assert.deepEqual(v.rowTitles(), ['Gap flagged', 'Gap derived', 'Gap decision']);
   assert.ok(v.page().textContent.includes('waiting for a person to accept, reject or defer'));
   const flagged = v.rows().find(r => r.textContent.startsWith('Gap flagged'));
   assert.ok(flagged.textContent.includes('Recheck outdated'));
@@ -334,6 +334,19 @@ const queue = {
   assert.ok(v.page().textContent.includes('No gaps match'));
   v.select('Area').value = '';
   v.select('Area').fire('change');
+  // the priorities the queue has, most urgent first, and the gaps that have none
+  assert.deepEqual(findAll(v.select('Priority'), e => e.tag === 'option').map(o => [o.value, o.textContent]),
+    [['', 'All priorities'], ['high', 'High priority'], ['p1', 'P1 priority'], ['medium', 'Medium priority'], ['low', 'Low priority'], ['none', 'No priority']]);
+  v.select('Priority').value = 'low';
+  v.select('Priority').fire('change');
+  assert.deepEqual(v.rowTitles(), ['Gap outdated'], 'the value is matched whatever its capitals');
+  assert.deepEqual(counts(), ['All1', 'Needs recheck1']);
+  v.select('Priority').value = 'none';
+  v.select('Priority').fire('change');
+  assert.equal(v.rowTitles().length, 7);
+  assert.ok(!v.rowTitles().includes('Gap recheck'));
+  v.select('Priority').value = '';
+  v.select('Priority').fire('change');
 
   // a gap page: who rechecked and decided, in words
   v.btn(v.page(), 'Gap derived').click();
@@ -790,6 +803,46 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   assert.ok(findAll(hostile, e => e.tag === 'p').some(e => e.textContent === 'not | a table'));
 }
 
+// --- a feature with parts: area, feature, part -----------------------------------------
+{
+  const v = load({
+    title: 'Parts',
+    nodes: [
+      spec('community', 'Community', 'area', []),
+      spec('chats', 'Chats', 'note', ['community'], { summary: 'Members talk.', body: 'Parts: [[notes/group-chats|group chats]] and [[notes/direct-chats|direct chats]].' }),
+      spec('group-chats', 'Group chats', 'note', ['community'], { parent: 'chats', summary: 'Staff-run rooms.' }),
+      spec('direct-chats', 'Direct chats', 'note', ['community'], { parent: 'chats' }),
+      spec('follows', 'Follows', 'note', ['community']),
+      // not nested: its parent is itself a part, and one names a page that is not there
+      spec('deep', 'Deep', 'note', ['community'], { parent: 'group-chats' }),
+      spec('lost', 'Lost', 'note', ['community'], { parent: 'nobody' }),
+    ],
+    edges: [{ source: 'community', target: 'chats' }, { source: 'chats', target: 'group-chats' }, { source: 'chats', target: 'direct-chats' }, { source: 'community', target: 'follows' }],
+  });
+  v.twist('Community').click();
+  assert.deepEqual(v.tree(), ['Community', 'Chats', 'Deep', 'Follows', 'Lost'], 'parts are folded under their feature');
+  assert.equal(v.treeRow('Chats').textContent, 'Chats2 parts');
+  v.treeRow('Chats').click();
+  assert.deepEqual(v.tree(), ['Community', 'Chats', 'Direct chats', 'Group chats', 'Deep', 'Follows', 'Lost']);
+  assert.ok(has(v.treeRow('Group chats'), 'part') && !has(v.treeRow('Follows'), 'part'));
+  assert.equal(v.treeRow('Chats').textContent, 'Chats', 'the count is gone once the parts are shown');
+  v.treeRow('Group chats').click();
+  assert.deepEqual(v.crumbs(), ['Parts', '/', 'Community', '/', 'Chats', '/', 'Group chats']);
+  assert.deepEqual(v.tree().slice(1, 4), ['Chats', 'Direct chats', 'Group chats'], 'the parts stay open while reading one of them');
+  const here = findAll(v.page(), e => cls(e) === 'here-path')[0];
+  assert.deepEqual(here.children.map(text), ['Parts', 'Community', 'Chats', 'Group chats']);
+  assert.deepEqual(v.related(), [], 'the feature is in the path, not repeated under Related');
+  v.treeRow('Follows').click();
+  assert.deepEqual(v.tree(), ['Community', 'Chats', 'Deep', 'Follows', 'Lost'], 'and fold again elsewhere');
+  // the area page names the parts under their feature
+  v.treeRow('Community').click();
+  const chats = findAll(v.page(), e => has(e, 'feature')).find(f => f.children[0].textContent === 'Chats');
+  assert.ok(chats.textContent.includes('2 parts: Direct chats, Group chats'));
+  assert.equal(findAll(v.page(), e => has(e, 'feature')).length, 4, 'a part has no row of its own on the area page');
+  v.btn(chats, 'Group chats').click();
+  assert.equal(v.h1(), 'Group chats');
+}
+
 // --- a built page: a copy for a server, read without the repository -------------------
 {
   const page = (extra = {}) => load({
@@ -841,4 +894,4 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   assert.ok(v.page().textContent.includes('No Git history was found for this vault.'));
 }
 
-console.log('PASS: viewer navigation, pages, gaps, map, search, copy for AI, changes, cited files, built page, Markdown');
+console.log('PASS: viewer navigation, pages, gaps, map, search, copy for AI, changes, cited files, parts, built page, Markdown');

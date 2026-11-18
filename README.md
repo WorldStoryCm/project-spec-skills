@@ -51,7 +51,7 @@ It is made for one loop:
 | --- | --- |
 | ![Search results grouped into features, gaps and files](docs/images/viewer-search.png) | ![The Copy for AI dialog with the exact text that will be copied](docs/images/viewer-copy.png) |
 | **Recent changes** | **Gap queue** |
-| ![The vault's Git history, one line per commit](docs/images/viewer-changes.png) | ![The gap queue filtered by state, kind and area](docs/images/viewer-gaps.png) |
+| ![The vault's Git history, one line per commit](docs/images/viewer-changes.png) | ![The gap queue filtered by state, kind and area, the most urgent first](docs/images/viewer-gaps.png) |
 
 ![The map of pages, one frame per area](docs/images/viewer-map.png)
 
@@ -176,6 +176,25 @@ A rule's number is its name. It stays the same when the rule's text changes, a n
 
 Things the code registers in one place and no single feature owns (background jobs, emails, routes, roles, plan limits) are listed in reference pages: one table with every item. A page cites the one to five files that decide its behavior. When one of them changes, the page is marked "Code changed since the last check" until someone re-reads it.
 
+### Big features and several apps
+
+A feature that is too big for one page (more than about twenty rules, or several kinds of use, such as direct, group and support chats) has **parts**. The vault then has three levels: the area, the feature, and its parts. The feature's page says what it is for and lists its parts; each part is a page of the same shape with its own rules. The viewer shows the parts under their feature.
+
+When the product has several clients, such as a web app and a mobile app, a feature page has one more section, `## Where the apps differ`: a table with what each client does, one row per difference.
+
+### How deep the first map goes
+
+The first map starts with an inventory: every page or screen, every server procedure, every job and email, counted from the place that registers them. The agent then takes one feature at a time and finishes it before starting the next. A page whose feature was not read to the end is marked **Partial** and says what is left. A first map of a large project is therefore a number of finished features and a list of the ones not started, not a thin page about everything.
+
+One command shows what is still missing, by reading the code and the pages:
+
+```sh
+project-spec coverage                          # every folder, the least covered first
+project-spec coverage --path src/features/chat # one feature: each message and limit no page mentions
+```
+
+Without the package: `python3 <skill>/scripts/coverage.py --repo .`. For each folder it prints how many files a page cites, and how many messages a person can see and how many named limits are on no page. It is a list of places to read, not a score: some of what it lists is left out of the spec on purpose.
+
 ## Why use this?
 
 - **Onboarding:** follow a workflow across UI, API, policy, persistence and tests without rediscovering the same paths every session.
@@ -198,6 +217,7 @@ The package is [`project-spec`](https://www.npmjs.com/package/project-spec) on t
 npx project-spec install --claude      # or --codex, or --dir knowledge/tooling
 npx project-spec serve                 # the viewer for the project in the current folder
 npx project-spec build --out FILE      # the same viewer as one file, to show on a server
+npx project-spec coverage              # what the code has that no spec page mentions yet
 ```
 
 Then ask your agent to use the `project-knowledge` skill ([example prompts](#example-prompts)).
