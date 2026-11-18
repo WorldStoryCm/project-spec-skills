@@ -247,8 +247,8 @@
         background: var(--paper);
       }
       .icon-btn {
-        width: 44px;
-        height: 44px;
+        width: 36px;
+        height: 36px;
         display: grid;
         place-items: center;
         border: 1px solid var(--line-strong);
@@ -310,11 +310,11 @@
         font-weight: 600;
       }
       .btn {
-        height: 44px;
+        height: 36px;
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 0 18px;
+        padding: 0 14px;
         border: 1px solid var(--line-strong);
         border-radius: 999px;
         background: var(--paper);
@@ -330,9 +330,8 @@
         background: var(--accent);
       }
       .btn.large {
-        height: 50px;
-        padding: 0 24px;
-        font-size: 15px;
+        height: 40px;
+        padding: 0 18px;
       }
       .pillrow {
         display: flex;
@@ -340,15 +339,15 @@
         gap: 8px;
       }
       .pill {
-        height: 44px;
+        height: 34px;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 0 16px;
+        gap: 7px;
+        padding: 0 13px;
         border: 1px solid var(--line-strong);
         border-radius: 999px;
         background: var(--paper);
-        font: 600 14px/1 var(--sans);
+        font: 600 13px/1 var(--sans);
       }
       .pill[aria-pressed="true"] {
         border-color: var(--ink);
@@ -360,12 +359,25 @@
         opacity: 0.75;
       }
       select {
-        height: 44px;
-        padding: 0 14px;
+        height: 34px;
+        padding: 0 12px;
         border: 1px solid var(--line-strong);
         border-radius: 999px;
         background: var(--paper);
-        font-size: 14px;
+        font-size: 13px;
+      }
+      /* A finger needs more room than a mouse pointer. */
+      @media (pointer: coarse) {
+        .btn,
+        .pill,
+        select {
+          height: 44px;
+        }
+        .icon-btn,
+        .xbtn {
+          width: 44px;
+          height: 44px;
+        }
       }
 
       /* Page */
@@ -420,6 +432,48 @@
         flex-direction: column;
         gap: 24px;
         max-width: 860px;
+      }
+      .stack.wide {
+        max-width: 1100px;
+      }
+      .area-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 16px;
+      }
+      .area-card h2 button {
+        border: 0;
+        padding: 0;
+        background: none;
+        font: inherit;
+        text-align: left;
+      }
+      .area-card h2 button:hover {
+        text-decoration: underline;
+      }
+      .area-card .names {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 4px;
+      }
+      .area-card .names button {
+        border: 0;
+        padding: 0;
+        background: none;
+        font-size: 14px;
+        text-align: left;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .area-card .names button:hover {
+        color: var(--accent-ink);
+        text-decoration: underline;
+      }
+      .area-card .names button.more {
+        color: var(--muted);
+        font-size: 13px;
       }
       .page {
         display: flex;
@@ -490,20 +544,20 @@
       .badge {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        min-height: 30px;
-        padding: 0 12px;
+        gap: 6px;
+        min-height: 24px;
+        padding: 0 10px;
         border-radius: 999px;
         background: var(--soft);
         color: var(--ink);
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
         white-space: nowrap;
       }
       .badge::before {
         content: "";
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
         border-radius: 999px;
         background: var(--subtle);
       }
@@ -546,10 +600,10 @@
         gap: 8px;
       }
       .chip {
-        min-height: 44px;
+        min-height: 32px;
         display: inline-flex;
         align-items: center;
-        padding: 6px 16px;
+        padding: 4px 13px;
         border: 1px solid var(--line);
         border-radius: 999px;
         background: var(--paper);
@@ -897,8 +951,8 @@
       }
       .xbtn {
         flex: none;
-        width: 44px;
-        height: 44px;
+        width: 36px;
+        height: 36px;
         display: grid;
         place-items: center;
         border: 0;
@@ -1281,7 +1335,7 @@
         min-height: 32px;
       }
       .copy-card .btn {
-        height: 40px;
+        height: 36px;
       }
       @media (max-width: 820px) {
         .copy-card {
@@ -2554,18 +2608,38 @@
         };
 
         // --- Views ---------------------------------------------------------------------------------------
-        function viewHome(view) {
-          const box = el("div", null, "stack");
-          box.append(header("Overview", projectTitle, "What the product does today, area by area."));
-          areas.forEach((a) => {
-            const section = el("section"),
-              h = el("h2", null, "h2");
-            h.append(button(a.title, null, () => openNode(a)));
-            section.append(h);
-            if (str(a.summary).trim()) section.append(el("p", a.summary, "muted"));
-            section.append(featureList(featuresOf(a)));
-            box.append(section);
+        // The overview is a map of the areas, not every feature of every area: a card says what the area
+        // covers, how much is in it and names a few features; the area's own page has the full list.
+        const HOME_NAMES = 5;
+        function areaCard(a) {
+          const card = el("section", null, "card pad area-card"),
+            h = el("h2", null, "h2"),
+            features = featuresOf(a),
+            count = nodes.filter((n) => isFeature(n) && primaryArea(n) === a.id).length,
+            open = nodes.filter((g) => isGap(g) && inArea(g, a.id) && ["needs-recheck", "needs-decision"].includes(stateOf(g))).length;
+          h.append(button(a.title, null, () => openNode(a)));
+          card.append(h);
+          if (str(a.summary).trim()) card.append(el("p", a.summary, "muted"));
+          card.append(el("p", [plural(count, "page"), open && plural(open, "open question")].filter(Boolean).join(" · "), "muted small"));
+          const names = el("div", null, "names");
+          features.slice(0, HOME_NAMES).forEach((f) => {
+            const b = button(f.title, null, () => openNode(f));
+            b.title = f.title;
+            names.append(b);
           });
+          if (features.length > HOME_NAMES)
+            names.append(button("All " + features.length + " features", "more", () => openNode(a)));
+          if (features.length) card.append(names);
+          return card;
+        }
+        function viewHome(view) {
+          const box = el("div", null, "stack wide");
+          box.append(header("Overview", projectTitle, "What the product does today, area by area."));
+          if (areas.length) {
+            const grid = el("div", null, "area-grid");
+            areas.forEach((a) => grid.append(areaCard(a)));
+            box.append(grid);
+          }
           const loose = looseFeatures();
           if (loose.length) {
             const section = el("section");
@@ -2618,6 +2692,22 @@
               box.append(list);
             }
           }
+          // A gap is a question about something: the features it links to, then its areas.
+          if (isGap(n)) {
+            const about = neighbours(n, "spec"),
+              own = (n.areas || []).map((id) => byId.get(id)).filter((a) => a && a.type === "area"),
+              pages = [...new Set([...about.filter((r) => r.type === "note"), ...about.filter((r) => r.type !== "note"), ...own])];
+            if (pages.length) {
+              const list = el("div", null, "recent");
+              list.append(el("div", "This gap is about", "mono-label"));
+              pages.forEach((r) => {
+                const b = button(r.title, null, () => openNode(r));
+                if (r.type !== "note") b.append(el("span", " · area", "muted"));
+                list.append(b);
+              });
+              box.append(list);
+            }
+          }
           const others = recent.filter((id) => id !== n.id).slice(0, 5);
           if (others.length) {
             const list = el("div", null, "recent");
@@ -2660,13 +2750,8 @@
 
           if (isGap(n)) {
             main.append(gapHeader(n));
-            const refs = neighbours(n, "spec"),
-              plan = planOf(n);
-            if (refs.length) {
-              const chips = el("div", null, "chips");
-              refs.forEach((r) => chips.append(button(r.title, "chip", () => openNode(r))));
-              main.append(el("div", "Refers to", "mono-label"), chips);
-            }
+            // The pages the gap is about are listed beside the text ("This gap is about"), as on spec pages.
+            const plan = planOf(n);
             if (plan)
               main.append(
                 linkBlock("Plan", [
@@ -3647,15 +3732,33 @@
         function applyBox() {
           graph.setAttribute("viewBox", `${box.x} ${box.y} ${box.w} ${box.h}`);
         }
-        function zoom(f) {
-          const w = box.w * f,
-            h = box.h * f;
-          box.x += (box.w - w) / 2;
-          box.y += (box.h - h) / 2;
+        // f below 1 zooms in. (cx, cy) is the point of the map that stays where it is, as a share of the
+        // view: the middle for the buttons, the pointer for the wheel. Zoom stops at 8x in and 4x out.
+        function zoom(f, cx = 0.5, cy = 0.5) {
+          const w = Math.min(Math.max(box.w * f, initialBox.w / 8), initialBox.w * 4),
+            k = w / box.w,
+            h = box.h * k;
+          box.x += (box.w - w) * cx;
+          box.y += (box.h - h) * cy;
           box.w = w;
           box.h = h;
           applyBox();
         }
+        graph.addEventListener(
+          "wheel",
+          (e) => {
+            if (!e.deltaY) return;
+            e.preventDefault(); // the map takes the wheel; the page beside it still scrolls
+            const rect = graph.getBoundingClientRect(),
+              share = (v, size) => (size ? Math.min(Math.max(v / size, 0), 1) : 0.5);
+            zoom(
+              Math.exp(Math.max(-60, Math.min(60, e.deltaY)) * 0.004),
+              share(e.clientX - rect.left, rect.width),
+              share(e.clientY - rect.top, rect.height),
+            );
+          },
+          { passive: false },
+        );
         $("#zoom-in").addEventListener("click", () => zoom(0.8));
         $("#zoom-out").addEventListener("click", () => zoom(1.25));
         $("#reset").addEventListener("click", () => {

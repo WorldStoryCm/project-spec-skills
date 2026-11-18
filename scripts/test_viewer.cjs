@@ -171,12 +171,15 @@ const parcel = () => ({
   assert.equal(v.twist('Pickups').attrs['aria-expanded'], 'true');
   v.twist('Pickups').click();
   assert.deepEqual(v.tree(), ['Access', 'Pickups']);
-  // overview: areas with summaries and features with their plain-language line; gaps only as a quiet count
+  // overview: one card per area with its summary, how much is in it and the names of its features;
+  // the features' own lines are on the area page, and gaps are only a quiet count
   const home = v.page().textContent;
-  for (const t of ['Parcel Desk', 'How a pickup is cancelled.', 'A customer can cancel a pickup until it is packed.', '1 open question'])
+  for (const t of ['Parcel Desk', 'How a pickup is cancelled.', 'Cancelling a pickup', '1 open question'])
     assert.ok(home.includes(t), 'overview shows: ' + t);
-  for (const t of ['cancel_pickup', 'src/pickups.py', 'Old rule', 'Run one', 'Index page', 'Packed pickups'])
+  for (const t of ['A customer can cancel a pickup until it is packed.', 'cancel_pickup', 'src/pickups.py', 'Old rule', 'Run one', 'Index page', 'Packed pickups'])
     assert.ok(!home.includes(t), 'overview hides: ' + t);
+  const cards = findAll(v.page(), e => has(e, 'area-card'));
+  assert.deepEqual(cards.map(c => c.children[0].textContent), ['Access', 'Pickups']);
   assert.deepEqual(v.crumbs(), ['Parcel Desk']);
   assert.equal(v.q('#back').disabled, true);
   assert.equal(v.q('#copy-ai').hidden, true, 'nothing to copy on the overview');
@@ -256,7 +259,8 @@ const parcel = () => ({
   v.btn(v.page(), 'Packed pickups').click();
   assert.equal(v.h1(), 'Packed pickups');
   assert.deepEqual(v.crumbs(), ['Parcel Desk', '/', 'Gaps', '/', 'Packed pickups']);
-  assert.deepEqual(v.chips(), ['Cancelling a pickup'], 'the spec pages it refers to');
+  assert.deepEqual(v.chips(), [], 'the pages it is about are beside the text, not a block in it');
+  assert.deepEqual(findAll(v.page(), e => cls(e) === 'recent')[0].children.map(text), ['This gap is about', 'Cancelling a pickup', 'Pickups · area']);
   assert.ok(findAll(v.page(), e => has(e, 'gap-facts'))[0].textContent.includes('Needs decision'));
   assert.ok(v.page().textContent.includes('Refused.'));
   assert.equal(v.document.title, 'Packed pickups · Parcel Desk');
@@ -843,6 +847,68 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   assert.equal(v.h1(), 'Group chats');
 }
 
+// --- overview of a big spec, a gap's pages, and the wheel on the map ---------------------
+{
+  const names = ['Alpha', 'Beta', 'Delta', 'Epsilon', 'Eta', 'Gamma', 'Zeta'];
+  const v = load({
+    title: 'Big',
+    nodes: [
+      spec('shop', 'Shop', 'area', [], { summary: 'Buying things.' }),
+      spec('empty', 'Empty', 'area', []),
+      ...names.map(n => spec(n.toLowerCase(), n, 'note', ['shop'])),
+      spec('alpha-part', 'Alpha part', 'note', ['shop'], { parent: 'alpha' }),
+      gap('g-about', 'Does it ship?', { state: 'needs-recheck', areas: ['shop'] }),
+      gap('g-loose', 'Nobody knows', { state: 'needs-decision', areas: [] }),
+    ],
+    edges: [{ source: 'shop', target: 'g-about' }, { source: 'g-about', target: 'beta' }, { source: 'g-about', target: 'alpha' }],
+  });
+  const cards = findAll(v.page(), e => has(e, 'area-card'));
+  assert.deepEqual(cards.map(c => c.children[0].textContent), ['Empty', 'Shop']);
+  const shop = cards[1];
+  assert.ok(shop.textContent.includes('Buying things.') && shop.textContent.includes('8 pages · 1 open question'));
+  const listed = findAll(shop, e => has(e, 'names'))[0].children.map(text);
+  assert.deepEqual(listed, ['Alpha', 'Beta', 'Delta', 'Epsilon', 'Eta', 'All 7 features'], 'five names, then the way to the rest; parts are not named');
+  assert.equal(findAll(cards[0], e => has(e, 'names')).length, 0);
+  assert.ok(cards[0].textContent.includes('0 pages'));
+  v.btn(shop, 'All 7 features').click();
+  assert.equal(v.h1(), 'Shop');
+  assert.equal(findAll(v.page(), e => has(e, 'feature')).length, 7, 'the area page still lists every feature');
+
+  // a gap names the features it is about, then its area
+  v.go('Gaps');
+  v.btn(v.page(), 'Does it ship?').click();
+  const lists = () => findAll(v.page(), e => cls(e) === 'recent').map(l => l.children.map(text));
+  assert.deepEqual(lists()[0], ['This gap is about', 'Alpha', 'Beta', 'Shop · area']);
+  assert.equal(lists()[1][0], 'Recently viewed');
+  v.btn(findAll(v.page(), e => cls(e) === 'recent')[0], 'Beta').click();
+  assert.equal(v.h1(), 'Beta');
+  v.go('Gaps');
+  v.btn(v.page(), 'Nobody knows').click();
+  assert.ok(!v.page().textContent.includes('This gap is about'), 'nothing to name when the gap links to no page');
+
+  // the wheel zooms the map about the pointer, within limits
+  v.go('Map');
+  const graph = v.q('#graph');
+  graph.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 500 });
+  const box = () => graph.attrs.viewBox.split(' ').map(Number);
+  const [x0, y0, w0, h0] = box();
+  let stopped = 0;
+  const wheel = (deltaY, clientX, clientY) => graph.fire('wheel', { deltaY, clientX, clientY, preventDefault: () => stopped++ });
+  wheel(-50, 1000, 500);
+  let [x, y, w, h] = box();
+  assert.ok(w < w0 && h < h0, 'scrolling up zooms in');
+  assert.ok(Math.abs(x + w - (x0 + w0)) < 1e-6 && Math.abs(y + h - (y0 + h0)) < 1e-6, 'the point under the pointer stays put');
+  assert.equal(stopped, 1, 'the page does not scroll while the map zooms');
+  wheel(50, 1000, 500);
+  assert.ok(box().every((n, i) => Math.abs(n - [x0, y0, w0, h0][i]) < 1e-6), 'and back out again');
+  for (let i = 0; i < 40; i++) wheel(-60, 500, 250);
+  assert.ok(Math.abs(box()[2] - w0 / 8) < 1e-6, 'zooming in stops at 8x');
+  for (let i = 0; i < 80; i++) wheel(60, 500, 250);
+  assert.ok(Math.abs(box()[2] - w0 * 4) < 1e-6, 'zooming out stops at 4x');
+  wheel(0, 0, 0);
+  assert.equal(stopped, 122, 'a sideways scroll is left alone');
+}
+
 // --- a built page: a copy for a server, read without the repository -------------------
 {
   const page = (extra = {}) => load({
@@ -894,4 +960,4 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   assert.ok(v.page().textContent.includes('No Git history was found for this vault.'));
 }
 
-console.log('PASS: viewer navigation, pages, gaps, map, search, copy for AI, changes, cited files, parts, built page, Markdown');
+console.log('PASS: viewer navigation, pages, gaps, map, search, copy for AI, changes, cited files, parts, overview cards, built page, Markdown');
