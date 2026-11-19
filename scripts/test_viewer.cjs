@@ -59,9 +59,10 @@ function memory() {
 }
 
 // Loads the viewer with a payload. `hash` plays the address bar; `storage` plays this browser's localStorage.
-function load(payload, { hash, storage = memory() } = {}) {
+function load(payload, { hash, storage = memory(), timers = false } = {}) {
   const registry = new Map();
   const copied = [];
+  const waiting = [];
   const document = {
     baseURI: 'http://127.0.0.1:8757/',
     title: '',
@@ -80,12 +81,15 @@ function load(payload, { hash, storage = memory() } = {}) {
     localStorage: storage,
     navigator: { clipboard: { writeText: value => { copied.push(value); return { then: ok => ok() }; } } },
     location: hash == null ? undefined : { hash, href: 'http://127.0.0.1:8757/' + hash },
+    // `timers` gives the page a clock that only moves when the test says so
+    ...(timers ? { setTimeout: fn => waiting.push(fn), clearTimeout: id => { waiting[id - 1] = null; } } : {}),
   });
   vm.runInContext(script, ctx);
   const q = sel => document.querySelector(sel);
   const buttons = (root, pred = () => true) => findAll(root, e => e.tag === 'button' && pred(e));
   const v = {
     q, copied, storage, document,
+    tick: () => waiting.splice(0).forEach(fn => fn && fn()),
     page: () => q('#view'),
     h1: () => (findAll(q('#view'), e => e.tag === 'h1')[0] || {}).textContent,
     nav: () => buttons(q('#nav-links')).map(b => b.children.map(text)),
@@ -1013,6 +1017,24 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   v.tab(v.page(), 'Open').click();
   v.btn(v.page(), 'Gap recheck').click();
   assert.ok(v.page().textContent.includes('Added2026-11-03'), 'the gap page says when it appeared');
+}
+
+// a button that copies says so on itself for a moment; the message is kept for screen readers
+{
+  const v = load(parcel(), { hash: '#/page/notes/owner', timers: true });
+  const link = v.q('#copy-link');
+  link.textContent = 'Copy link';
+  link.className = 'btn';
+  link.click();
+  assert.equal(link.textContent, 'Link copied');
+  assert.ok(has(link, 'said'));
+  assert.deepEqual([v.q('#toast').textContent, v.q('#toast').className], ['Link copied', 'toast quiet']);
+  link.click();
+  assert.equal(link.textContent, 'Link copied', 'pressing again while it says so keeps the real label for later');
+  v.tick();
+  assert.equal(link.textContent, 'Copy link');
+  assert.ok(!has(link, 'said'));
+  assert.equal(v.q('#toast').textContent, '');
 }
 
 console.log('PASS: viewer navigation, pages, gaps, map, search, copy for AI, changes, cited files, parts, overview cards, built page, Markdown');

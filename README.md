@@ -2,11 +2,11 @@
 
 **Turn a repository into a spec people can read: one page per feature, every business rule numbered.**
 
-Agent skills for the moment after you built fast with AI and now need to know what the product really does. The agent reads the code you already have and writes down how it works. You read the result in a local viewer, question it, and change the product starting from it.
+Agent skills for the moment after you built fast with AI and now need to know what the product really does. The agent reads the code you already have and writes down how it works. Every doubt it has about the product becomes a gap: one question on its own page, rechecked against the code and decided by a person. You read the result in a local viewer, question it, and change the product starting from it.
 
 This is an early project. It has been used on a few real repositories; [VALIDATION.md](VALIDATION.md) says what was checked and what was not.
 
-![A feature page in the viewer: what the feature is for, how it works, and its business rules as numbered rows](docs/images/viewer-page.png)
+![A gap in the viewer: one question about the product, with who rechecked it, who decided it, its plan and the features it is about](docs/images/viewer-gap-page.png)
 
 ## Setup
 
@@ -97,6 +97,8 @@ One local page, read from the files on disk. Nothing is built or uploaded. It co
 2. **Find** anything with search, including a rule number.
 3. **Ask**: "Copy for AI" turns the page and your own words into a request for your agent.
 4. **See what moved**: the pages whose code changed since they were last checked.
+
+![A feature page in the viewer: what the feature is for, how it works, and its business rules as numbered rows](docs/images/viewer-page.png)
 
 | Search | Copy for AI |
 | --- | --- |

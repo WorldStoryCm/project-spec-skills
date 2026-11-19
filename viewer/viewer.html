@@ -309,6 +309,26 @@
         color: var(--success);
         font-weight: 600;
       }
+      /* When the button that was pressed says so itself, the message is kept for screen readers only. */
+      .toast.quiet {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .btn.said {
+        justify-content: center;
+      }
+      .btn.said:not(.accent) {
+        color: var(--success);
+      }
+      /* Wide enough for "Link copied", so the button does not change size when it says so. */
+      #copy-link {
+        min-width: 112px;
+        justify-content: center;
+      }
       .btn {
         height: 36px;
         display: inline-flex;
@@ -724,15 +744,21 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
+      /* What happened to a page: a small label of one width, so the names after it line up. */
       .tag {
         flex: none;
-        width: 64px;
-        font: 500 11px/1.4 var(--mono);
+        width: 74px;
+        padding: 3px 0;
+        border-radius: 999px;
+        background: var(--soft);
+        font: 500 10.5px/1.4 var(--mono);
         letter-spacing: 0.06em;
         text-transform: uppercase;
+        text-align: center;
         color: var(--muted);
       }
       .tag.added {
+        background: var(--success-soft);
         color: var(--success);
       }
       .tag.removed {
@@ -755,6 +781,35 @@
       }
       .group {
         padding: 12px 20px 4px;
+      }
+      /* Inside a commit the page list is a quiet block under the commit's line: one tint, no rule between the
+         rows, names in a lighter weight than the commit's own title, and the file path small at the end. */
+      .commit details > .row.slim,
+      .commit details > .group {
+        background: var(--raised);
+      }
+      .commit details > .row.slim {
+        min-height: 36px;
+        padding: 5px 20px;
+        border-bottom: 0;
+      }
+      .commit details > .group {
+        padding: 16px 20px 6px;
+      }
+      .commit details > .row.slim:last-child {
+        padding-bottom: 16px;
+      }
+      .commit details > summary + .row.slim {
+        padding-top: 12px;
+      }
+      .commit .row.slim .rowlink,
+      .commit .row.slim .grow > span {
+        font-size: 14.5px;
+        font-weight: 500;
+      }
+      .commit .row.slim .path {
+        font-size: 12px;
+        color: var(--subtle);
       }
       .commit summary.card-head {
         cursor: pointer;
@@ -1378,8 +1433,18 @@
       .copy-controls {
         overflow-y: auto;
       }
+      /* A column that scrolls cuts off whatever is drawn outside it, a focus ring included: give the ring room
+         and pull the column back by the same amount, so its content still lines up with the rest. */
+      .copy-menu,
       .copy-controls {
-        padding: 0 2px 2px;
+        padding: 6px;
+        margin: -6px;
+      }
+      /* A text field shows focus on its own border, which is calmer than a ring around a large box. */
+      .copy-card textarea:focus-visible,
+      .copy-card input[type="text"]:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -1px;
       }
       /* The requests are a list to pick from, one under another. */
       .copy-card .menu {
@@ -1941,16 +2006,36 @@
         const repoPath = (n) =>
           (vaultPath && vaultPath !== "." ? vaultPath.replace(/\/+$/, "") + "/" : "") + String(n.path || "");
         let toastTimer = null;
-        function toast(message) {
+        function toast(message, quiet) {
           $("#toast").textContent = message;
+          $("#toast").className = quiet ? "toast quiet" : "toast";
           if (typeof setTimeout !== "function") return;
           if (toastTimer) clearTimeout(toastTimer);
           toastTimer = setTimeout(() => {
             $("#toast").textContent = "";
           }, 2600);
         }
-        function copyText(text, message) {
-          const ok = () => toast(message || "Copied");
+        // A pressed button answers on itself for a moment: its label becomes `label`, then comes back.
+        function say(b, label) {
+          if (typeof setTimeout !== "function") return false;
+          if (b.said) clearTimeout(b.said.timer);
+          else {
+            b.said = { kept: Array.from(b.childNodes || b.children) };
+            if (b.offsetWidth) b.style.minWidth = b.offsetWidth + "px";
+          }
+          b.replaceChildren(document.createTextNode(label));
+          b.className += b.className.split(" ").includes("said") ? "" : " said";
+          b.said.timer = setTimeout(() => {
+            b.replaceChildren(...b.said.kept);
+            b.className = b.className.split(" ").filter((c) => c !== "said").join(" ");
+            b.said = null;
+          }, 1600);
+          return true;
+        }
+        // `from` is the button that asked for the copy; it gets `label` for a moment and the message goes to
+        // screen readers only. Without it, or when copying fails, the message is shown.
+        function copyText(text, message, from, label) {
+          const ok = () => toast(message || "Copied", !!from && say(from, label || "Copied"));
           const byHand = () => {
             try {
               const t = document.createElement("textarea");
@@ -2666,7 +2751,7 @@
         $("#forward").addEventListener("click", () => step(1));
         $("#copy-ai").addEventListener("click", () => selected && openCopy(selected));
         $("#copy-link").addEventListener("click", () => {
-          if (typeof location !== "undefined") copyText(String(location.href), "Link copied");
+          if (typeof location !== "undefined") copyText(String(location.href), "Link copied", $("#copy-link"), "Link copied");
         });
         $("#open-search").addEventListener("click", () => openPalette());
 
@@ -3511,7 +3596,7 @@
           check("Full text of the page", "text");
 
           const actions = el("div", null, "actions"),
-            copy = button(null, "btn accent", () => copyText(pageBrief(n, copyState), "Copied. Paste it into your agent."));
+            copy = button(null, "btn accent", () => copyText(pageBrief(n, copyState), "Copied. Paste it into your agent.", copy, "Copied"));
           copy.id = "copy-do";
           copy.append(icon(ICON.copy), document.createTextNode("Copy"));
           actions.append(copy, button("Close", "btn", closeCopy), el("span", "Nothing is sent. It goes to your clipboard.", "muted small"));
