@@ -200,7 +200,7 @@ Folders: web-app/src/features/reviews
 ```
 
 - A feature's heading is its name and one of three states: `not started`, `in progress`, `finished`. A feature with parts is still one heading; its parts are among its pages.
-- One checkbox per entry point: the client or kind (`web`, `mobile`, `admin`, `api`, `job`, `email`) and the name the code registers it under. A box is ticked when the entry point was followed to the code that decides its behavior, not when it was seen.
+- One checkbox per entry point: the client or kind and the name the code registers it under. Use the product's own kinds; `web`, `mobile`, `admin`, `api`, `job`, `email`, `webhook` and `command` are common ones, not a fixed list. A box is ticked when the entry point was followed to the code that decides its behavior, not when it was seen.
 - `Pages` names the feature's pages by path. `Left` says in words what is not read yet, and is the same thing the `partial` page says in its last line. A `finished` feature has every box ticked and no `Left` line.
 - "Left out" holds what was looked at and is not part of the product, each with its reason.
 

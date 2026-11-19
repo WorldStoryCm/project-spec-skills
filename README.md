@@ -23,8 +23,9 @@ npx project-spec install --claude      # or --codex
 ```text
 Use the project-knowledge skill to build a knowledge vault for this repository.
 
-First take the inventory: every app and package, every screen, API endpoint,
-job and email. Write it to the inventory file before any page.
+First take the inventory: every app and package, and every way into each one:
+what a person can open, what another system can call, what runs on its own and
+what the product sends out. Write it to the inventory file before any page.
 
 Then go one feature at a time and finish each before the next. Describe only
 what the code does: one page per feature with numbered business rules, and
