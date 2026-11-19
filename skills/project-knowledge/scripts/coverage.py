@@ -146,7 +146,7 @@ def folders(files, prefixes=()):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--repo', required=True, type=Path)
-    parser.add_argument('--vault', type=Path, help='default: the single vault under knowledge/ in the repository')
+    parser.add_argument('--vault', type=Path, help='default: the single vault in the repository, a folder with 00-index.md')
     parser.add_argument('--path', action='append', default=[], metavar='FOLDER',
                         help='only this folder or file of the repository, and list each sentence and limit no page mentions; repeatable')
     parser.add_argument('--all', action='store_true', help='print every line instead of the first 40 folders or 60 items')

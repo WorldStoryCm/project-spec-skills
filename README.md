@@ -22,6 +22,7 @@ npx project-spec install --claude      # or --codex
 
 ```text
 Use the project-knowledge skill to build a knowledge vault for this repository.
+Put it in project-spec/.
 
 First take the inventory: every app and package, and every way into each one:
 what a person can open, what another system can call, what runs on its own and
@@ -47,7 +48,7 @@ A big repository takes more than one session. To go on where the last one stoppe
 Use the project-knowledge skill and continue the map from the inventory file.
 ```
 
-The agent writes only Markdown under `knowledge/<project>/`. It does not change application code, commit or push. There is also a Claude Code plugin, a manual install and a way to pin one version for a team: see [Install and update](docs/install.md).
+The agent writes only Markdown in that folder. Name any other folder in the prompt (`docs/spec`, `knowledge/shop`): the commands find the spec wherever it is, and `npx project-spec move --to DIR` moves it later without breaking its links. It does not change application code, commit or push. There is also a Claude Code plugin, a manual install and a way to pin one version for a team: see [Install and update](docs/install.md).
 
 ### What to ask next
 
@@ -135,6 +136,7 @@ npx project-spec serve                 # read the spec in the browser
 npx project-spec coverage              # what the code has that no page mentions yet
 npx project-spec build --out FILE      # the viewer as one file, to show on a server
 npx project-spec instructions          # the block that asks agents to keep the spec current
+npx project-spec move --to DIR         # move the spec to another folder of the repository
 npx project-spec status                # where the skill is installed and whether it is current
 npx project-spec update                # refresh the installed copies
 ```

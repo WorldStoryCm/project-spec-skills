@@ -763,9 +763,60 @@ class GapLayerTests(Fixture):
         self.repo, self.vault = clone, clone / 'vault'
         self.assertIn('build: this is a shallow clone', self.built()[1])
 
+    def test_move_keeps_the_vault_true_in_its_new_folder(self):
+        k._added_cache.clear()
+        repo = self.repo.resolve()
+        (self.repo / 'knowledge').mkdir()
+        self.vault.rename(self.repo / 'knowledge/demo')
+        self.vault = self.repo / 'knowledge/demo'
+        (self.repo / 'my file.txt').write_text('x', encoding='utf-8')
+        body = '\n'.join([
+            'The [code](../../../source.txt#L2) stays reachable, [spaced](<../../../my file.txt>) and [encoded](../../../my%20file.txt) too.',
+            'A page of the vault is [here](../00-index.md), the web is [there](https://example.com/a/../b) and `[this](../../../source.txt)` is code.',
+            '', '```', '[fenced](../../../source.txt)', '```', '', '[ref]: ../../../source.txt'])
+        self.note('notes/n.md', 'n', sources=['source.txt'], body=body)
+        self.note('gaps/g.md', 'g', 'gap', sources=[], kind='product-gap', recheck='not-checked', decision='open', status=None, body=GAP_BODY)
+        self.assertEqual(self.run_cli('snapshot', '--all')[0], 0)
+        self.git('init', '-q')
+        self.git('add', '-A')
+        self.git('commit', '-q', '-m', 'First', '--date', '2026-03-01T12:00:00')
+        for to, why in (('knowledge/demo/inner', 'must not be inside the vault'), ('../elsewhere', 'inside the repository'), ('knowledge/demo', 'already there')):
+            self.assertIn(why, self.refused('move', '--to', to))
+        (self.repo / 'taken').mkdir()
+        (self.repo / 'taken/file').write_text('x', encoding='utf-8')
+        self.assertIn('taken already exists and is not empty', self.refused('move', '--to', 'taken'))
+        self.assertIn('move requires --to DIR', self.refused('move'))
+        self.assertIn('--to is only for move', self.refused('check', '--to', 'x'))
+        status, out, _ = self.run_cli('move', '--to', 'project-spec')
+        self.assertEqual(status, 0)
+        self.assertIn('move: knowledge/demo -> project-spec; 4 links to repository files repointed on 1 pages; 1 gaps given the day they first appeared', out)
+        self.assertIn('check finds 0 errors and 0 warnings', out)
+        self.assertFalse((self.repo / 'knowledge').exists(), 'the folder it left is removed when nothing else is in it')
+        moved = (self.repo / 'project-spec/notes/n.md').read_text(encoding='utf-8')
+        self.assertIn('[code](../../source.txt#L2) stays reachable, [spaced](<../../my file.txt>) and [encoded](../../my%20file.txt) too.', moved)
+        self.assertIn('[here](../00-index.md), the web is [there](https://example.com/a/../b) and `[this](../../../source.txt)` is code.', moved)
+        self.assertIn('[fenced](../../../source.txt)', moved, 'code is left as written')
+        self.assertIn('[ref]: ../../source.txt', moved)
+        self.assertIn('created: "2026-03-01"', (self.repo / 'project-spec/gaps/g.md').read_text(encoding='utf-8'))
+        self.vault = self.repo / 'project-spec'
+        self.assertEqual(self.run_cli('check', '--strict')[0], 0, 'the reviewed fingerprints came along')
+        self.assertEqual(k.find_vault(repo), self.vault.resolve())
+
     def test_serve_finds_the_single_vault_and_asks_when_unsure(self):
-        with self.assertRaisesRegex(ValueError, 'no vault found under knowledge/; pass --vault'):
+        with self.assertRaisesRegex(ValueError, 'no vault found: no folder with 00-index.md up to three folders deep; pass --vault'):
             k.find_vault(self.repo)
+        # the vault is wherever the person put it, up to three folders deep; hidden folders, dependencies and
+        # anything nested deeper (an example project with a vault of its own) are not the repository's vault
+        for place in ('.hidden/spec', 'node_modules/pkg/spec', 'examples/demo/knowledge/demo'):
+            (self.repo / place).mkdir(parents=True)
+            (self.repo / place / '00-index.md').write_text('x', encoding='utf-8')
+        with self.assertRaisesRegex(ValueError, 'no vault found'):
+            k.find_vault(self.repo)
+        for place in ('project-spec', 'docs/product/spec'):
+            (self.repo / place).mkdir(parents=True)
+            (self.repo / place / '00-index.md').write_text('x', encoding='utf-8')
+            self.assertEqual(k.find_vault(self.repo), self.repo / place)
+            (self.repo / place / '00-index.md').unlink()
         (self.repo / 'knowledge/one').mkdir(parents=True)
         (self.repo / 'knowledge/one/00-index.md').write_text('x', encoding='utf-8')
         self.assertEqual(k.find_vault(self.repo), self.repo / 'knowledge/one')

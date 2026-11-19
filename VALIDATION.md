@@ -2,6 +2,15 @@
 
 > The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet. `spec-change` was never run on a real change and was removed in 0.11.0.
 
+## 2026-11-19: the spec in a folder of your choice
+
+- A new vault went to `knowledge/<project>/` whatever the person wanted, which gives `ProjectA/knowledge/ProjectA`, and the helpers looked only under `knowledge/`: a real vault kept in `project-spec/` needed `--vault` on every command.
+- 0.12.0: the person names the folder and the default is `project-spec/`. The helpers and the command find the one folder with `00-index.md` up to three folders deep, outside hidden folders, dependencies and build output. Tried on three repositories: a vault in `project-spec/` and one in `knowledge/<project>/` were found without `--vault` (14 and 35 ms), and this repository, whose only vault belongs to an example four folders deep, reported none.
+- `move --to` moves a vault and repoints the links from its pages to repository files. On a copy of the example it moved the vault to `project-spec/` and then to `docs/product/spec/`, repointing 33 links on 10 pages each time, and `check --strict` passed after each. Automated tests cover links with fragments, spaces and percent-encoding, links in code (left alone), links inside the vault (left alone), a gap's date carried into `created`, and the refusals.
+- The sync helper finds the vault the same way and no longer queues a copy of the skill kept in `.claude/skills`, `.codex/skills` or `.agents/skills` as a change of the application.
+- `python3 scripts/verify.py` passed.
+- **NOT RUN:** `move` on a large real vault, on Windows paths, and with pages that link to repository files by reference definitions in unusual forms. No agent has yet created a vault under the new default.
+
 ## 2026-11-19: one skill, a small update after a change, and the queue by date
 
 - `spec-change` is removed: the product has no way to edit a spec and have it built, and the skill was never run on a real change. Its planning guide moved into `project-knowledge` (`plan <gap>`). `update` removes old copies of the skill and keeps their files in the backup folder; this has an automated test.

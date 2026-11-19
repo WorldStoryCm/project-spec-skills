@@ -198,7 +198,15 @@ try {
   assert.ok(!fs.existsSync(path.join(project, 'CLAUDE.md')) && !fs.existsSync(path.join(project, 'README.md')));
   assert.equal(run(['instructions', '--remove']).code, 2);
   assert.equal(run(['instructions', '--vault', 'knowledge/tooling']).code, 2, 'a folder without 00-index.md is not a vault');
-  fs.rmSync(path.join(project, 'knowledge/demo'), { recursive: true });
+  // the vault is found wherever the person put it, without naming it
+  fs.renameSync(path.join(project, 'knowledge/demo'), path.join(project, 'project-spec'));
+  assert.ok(run(['instructions']).out.includes('`project-spec/` is this project\'s as-built spec'));
+  fs.mkdirSync(path.join(project, 'docs/spec'), { recursive: true });
+  fs.writeFileSync(path.join(project, 'docs/spec/00-index.md'), '# Other\n');
+  r = run(['instructions']);
+  assert.ok(r.code === 2 && r.err.includes('several vaults found (docs/spec, project-spec)'), r.err);
+  fs.rmSync(path.join(project, 'docs'), { recursive: true });
+  fs.rmSync(path.join(project, 'project-spec'), { recursive: true });
   fs.rmSync(path.join(project, '.cursor'), { recursive: true });
 
   // the helpers are started from the package, in the current folder by default
@@ -208,6 +216,7 @@ try {
   assert.equal(run(['serve', '--no-open', '--port', '9000', '--repo', 'x'], dry).out.trim(), `py ${script}/knowledge.py serve --port 9000 --repo x`);
   assert.equal(run(['build', '--out', 'site/spec.html'], dry).out.trim(), `py ${script}/knowledge.py build --out site/spec.html --repo .`);
   assert.equal(run(['check', '--strict'], dry).out.trim(), `py ${script}/knowledge.py check --strict --repo .`);
+  assert.equal(run(['move', '--to', 'project-spec'], dry).out.trim(), `py ${script}/knowledge.py move --to project-spec --repo .`);
   assert.equal(run(['scan', '--write-status'], dry).out.trim(), `py ${script}/maintain.py scan --write-status --repo .`);
   assert.equal(run(['coverage', '--path', 'src/chat'], dry).out.trim(), `py ${script}/coverage.py --path src/chat --repo .`);
   r = run(['check'], { cwd: path.join(ROOT, 'examples/parcel-desk') });

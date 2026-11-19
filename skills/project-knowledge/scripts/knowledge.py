@@ -12,7 +12,7 @@ import sys
 import subprocess
 import tempfile
 import unicodedata
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from pathlib import Path, PurePosixPath
 
 TYPES = {'index', 'area', 'note', 'gap', 'plan', 'run'}
@@ -711,15 +711,136 @@ def viewer_html(payload):
     return template.replace('__KNOWLEDGE_DATA__', serialized)
 
 
+VAULT_DEPTH = 3  # project-spec/, knowledge/<product>/ and docs/<product>/spec/ are all within reach
+NOT_A_VAULT_PLACE = {'node_modules', 'vendor', 'dist', 'build', 'out', 'target', 'coverage', '__pycache__', 'venv', 'Pods'}
+
+
 def find_vault(repo):
-    """The vault of a repository when there is exactly one in the usual place."""
-    found = sorted(p.parent for p in repo.glob('knowledge/*/00-index.md'))
-    if (repo / 'knowledge/00-index.md').is_file():
-        found.append(repo / 'knowledge')
+    """The repository's vault when it has exactly one: a folder that holds `00-index.md`, wherever the person put it.
+
+    Looks at most three folders deep and not inside hidden folders, dependencies or build output, so a vault that
+    belongs to something nested deeper (an example project, a package's own docs) is not taken for the repository's.
+    """
+    found = []
+
+    def look(folder, depth):
+        try:
+            entries = sorted(e for e in folder.iterdir()
+                             if e.is_dir() and not e.is_symlink() and not e.name.startswith('.') and e.name not in NOT_A_VAULT_PLACE)
+        except OSError:
+            return
+        for entry in entries:
+            if (entry / '00-index.md').is_file():
+                found.append(entry)  # nothing inside a vault is another vault
+            elif depth < VAULT_DEPTH:
+                look(entry, depth + 1)
+
+    look(repo, 1)
     if len(found) != 1:
-        raise ValueError(('no vault found under knowledge/' if not found else
+        raise ValueError(('no vault found: no folder with 00-index.md up to three folders deep' if not found else
                           'several vaults found (' + ', '.join(p.relative_to(repo).as_posix() for p in found) + ')') + '; pass --vault')
     return found[0]
+
+
+def repoint(text, old_dir, new_dir, old_vault):
+    """`text` of a page that sat in `old_dir` and now sits in `new_dir`, with the links that leave the vault repointed.
+
+    All three are absolute POSIX paths. A link to another page of the vault is relative to something that moved with
+    it, so it stays as written; a link to a file of the repository is rewritten so it names the same file from the
+    new place. Links in code are left alone. Returns (text, how many links changed).
+    """
+    changed = 0
+
+    def target(match):
+        nonlocal changed
+        raw = match.group(1)
+        angle = raw.startswith('<')
+        inner = raw[1:-1] if angle else raw
+        cut = re.search(r'[?#]', inner)
+        path, tail = (inner[:cut.start()], inner[cut.start():]) if cut else (inner, '')
+        where = unquote(path)
+        if not where or where.startswith('/') or SCHEME.match(where):
+            return match.group(0)
+        absolute = posixpath.normpath(posixpath.join(old_dir, where))
+        if absolute == old_vault or absolute.startswith(old_vault + '/'):
+            return match.group(0)
+        fresh = posixpath.relpath(absolute, new_dir)
+        fresh = fresh if angle else quote(fresh, safe="/-._~!$&'()*+,;=:@")
+        if fresh == path:
+            return match.group(0)
+        changed += 1
+        return match.group(0)[:match.start(1) - match.start(0)] + (f'<{fresh}{tail}>' if angle else fresh + tail)
+
+    lines = []
+    for line, in_code in lines_with_code(text):
+        if not in_code:
+            # an inline code span is not a link either
+            pieces = re.split(r'(`+.*?`+)', line)
+            line = ''.join(piece if i % 2 else MD_REF.sub(target, MD_LINK.sub(target, piece)) for i, piece in enumerate(pieces))
+        lines.append(line)
+    return '\n'.join(lines), changed
+
+
+def move_vault(repo, vault, dest):
+    """Move the vault to `dest`, another folder of the same repository, and keep it true: links from pages to files
+    of the repository are repointed, and each gap keeps the day it appeared. Returns a list of lines to print.
+
+    Page ids, wikilinks, `sources` and the reviewed fingerprints do not depend on where the vault is, so nothing
+    else changes. Raises ValueError with the reason when the move cannot be made; nothing is touched then.
+    """
+    import shutil
+    dest = Path(os.path.abspath(dest))
+    if dest == vault:
+        raise ValueError('the vault is already there')
+    if not dest.is_relative_to(repo) or dest == repo:
+        raise ValueError('--to must be a folder inside the repository')
+    if dest.is_relative_to(vault):
+        raise ValueError('--to must not be inside the vault it moves')
+    if dest.exists() and (not dest.is_dir() or any(dest.iterdir())):
+        raise ValueError(f'{dest.relative_to(repo).as_posix()} already exists and is not empty')
+    first = added_dates(repo, vault)
+    edits, links, pages, dated = {}, 0, 0, 0
+    for file in sorted(vault.rglob('*.md')):
+        rel = file.relative_to(vault)
+        if any(part in {'.obsidian', '.trash'} for part in rel.parts) or file.is_symlink():
+            continue
+        try:
+            before = file.read_bytes().decode('utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        after, count = repoint(before.replace('\r\n', '\n'), (vault / rel).parent.as_posix(), (dest / rel).parent.as_posix(), vault.as_posix())
+        # Git will show the page as new in its new place, so a gap that has no `created` gets the day it first appeared.
+        head = re.match(r'---\n(.*?)\n---\n', after, re.S)
+        day = first.get(rel.as_posix())
+        if head and day and re.search(r'^type:\s*"gap"\s*$', head.group(1), re.M) and not re.search(r'^created:', head.group(1), re.M):
+            after = re.sub(r'^(type:\s*"gap"\s*)$', lambda m: m.group(1) + f'\ncreated: "{day}"', after, count=1, flags=re.M)
+            dated += 1
+        if count:
+            links, pages = links + count, pages + 1
+        if after != before.replace('\r\n', '\n'):
+            edits[rel] = after
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists():
+        dest.rmdir()
+    shutil.move(str(vault), str(dest))
+    for rel, text in edits.items():
+        atomic_write(dest / rel, text)
+    old, new = vault.relative_to(repo).as_posix(), dest.relative_to(repo).as_posix()
+    lines = [f'move: {old} -> {new}; {links} links to repository files repointed on {pages} pages'
+             + (f'; {dated} gaps given the day they first appeared' if dated else '')]
+    _, _, errors, warnings, _ = load_vault(repo, dest)
+    lines.append(f'move: check finds {len(errors)} errors and {len(warnings)} warnings in the new place')
+    lines += [f'  {error}' for error in errors[:20]]
+    left = vault.parent
+    if left != repo and left.is_dir() and left != dest.parent:
+        rest = sorted(p.name for p in left.iterdir())
+        if rest:
+            lines.append(f'move: {left.relative_to(repo).as_posix()}/ still holds {", ".join(rest)}')
+        else:
+            left.rmdir()  # nothing of anyone's is left in it
+    lines.append(f'move: now update what names the old folder: a `--vault {old}` in your scripts, and the block in AGENTS.md or CLAUDE.md '
+                 '(`project-spec instructions --file ...` writes it again)')
+    return lines
 
 
 HISTORY_COMMITS = 30  # commits shown under Recent changes
@@ -954,13 +1075,14 @@ def make_server(repo, vault, port):
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['check', 'snapshot', 'serve', 'build'])
+    parser.add_argument('command', choices=['check', 'snapshot', 'serve', 'build', 'move'])
     parser.add_argument('--repo', required=True, type=Path)
-    parser.add_argument('--vault', type=Path, help='default: the single vault under knowledge/ in the repository')
+    parser.add_argument('--vault', type=Path, help='default: the single vault in the repository, a folder with 00-index.md')
     parser.add_argument('--strict', action='store_true', help='fail check when freshness warnings exist')
     parser.add_argument('--port', type=int, default=8757, help='serve: port on 127.0.0.1 (another free port is used if it is taken)')
     parser.add_argument('--open', action='store_true', help='serve: open the page in the default browser')
     parser.add_argument('--out', type=Path, help='build: the HTML file to write, outside the vault')
+    parser.add_argument('--to', type=Path, metavar='DIR', help='move: the folder of the repository the vault moves to')
     parser.add_argument('--viewer', type=Path, metavar='FILE',
                         help='serve, build: a page of your own instead of the viewer; it gets the data where it says __KNOWLEDGE_DATA__')
     parser.add_argument('--with-sources', action='store_true', help='build: include the text of the repository files the pages cite')
@@ -995,6 +1117,14 @@ def main(argv=None):
         parser.error('repo and vault must be existing directories')
     if args.viewer and args.command not in ('serve', 'build'):
         parser.error('--viewer is only for serve and build')
+    if (args.command == 'move') != bool(args.to):
+        parser.error('move requires --to DIR' if args.command == 'move' else '--to is only for move')
+    if args.command == 'move':
+        try:
+            print('\n'.join(move_vault(repo, vault, args.to if args.to.is_absolute() else repo / args.to)))
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+        return 0
     if args.command in ('serve', 'build'):
         global VIEWER
         VIEWER = args.viewer.resolve() if args.viewer else None

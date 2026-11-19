@@ -18,7 +18,7 @@ const VIEWER_REL = 'assets/viewer.html';
 const PACKAGE = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const MARKER = '.project-spec.json'; // written into every copy: which version it is and what its files looked like
 const SKIP = new Set(['__pycache__', '.DS_Store', MARKER]);
-const KNOWLEDGE = new Set(['serve', 'build', 'check', 'snapshot']);
+const KNOWLEDGE = new Set(['serve', 'build', 'check', 'snapshot', 'move']);
 const MAINTAIN = new Set(['scan', 'receipt', 'finish']);
 const COVERAGE = 'coverage'; // its own helper, which takes no command word
 // Skills earlier versions shipped; project-knowledge took over what they did. spec-change (changing the product from
@@ -37,6 +37,8 @@ Read the spec
       Write the viewer as one HTML file, to show the spec on a server.
   project-spec check | snapshot [options]
       The knowledge helper; --repo defaults to the current folder.
+  project-spec move --to DIR
+      Move the spec to another folder of the repository; links from its pages to your files are repointed.
   project-spec coverage [--path FOLDER]... [--all]
       What the code has that no spec page mentions yet: folders, messages and limits.
   project-spec scan | receipt | finish [options]
@@ -292,17 +294,28 @@ const BLOCK_FILE = path.join(SKILLS, 'project-knowledge', 'references', 'agents.
 const BLOCK_START = '<!-- project-spec:start -->';
 const BLOCK_END = '<!-- project-spec:end -->';
 
-// As the helpers do: the single vault under knowledge/.
+// As the helpers do: the one folder that holds 00-index.md, at most three folders deep, outside hidden folders,
+// dependencies and build output.
+const NOT_A_VAULT_PLACE = new Set(['node_modules', 'vendor', 'dist', 'build', 'out', 'target', 'coverage', '__pycache__', 'venv', 'Pods']);
 function findVault(repo) {
-  const base = path.join(repo, 'knowledge');
   const found = [];
-  if (fs.existsSync(path.join(base, '00-index.md'))) found.push(base);
-  else if (fs.existsSync(base)) {
-    for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
-      if (entry.isDirectory() && fs.existsSync(path.join(base, entry.name, '00-index.md'))) found.push(path.join(base, entry.name));
+  const look = (folder, depth) => {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(folder, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.') && !NOT_A_VAULT_PLACE.has(e.name));
+    } catch {
+      return;
     }
+    for (const entry of entries.sort((x, y) => (x.name < y.name ? -1 : 1))) {
+      const dir = path.join(folder, entry.name);
+      if (fs.existsSync(path.join(dir, '00-index.md'))) found.push(dir);
+      else if (depth < 3) look(dir, depth + 1);
+    }
+  };
+  look(repo, 1);
+  if (found.length !== 1) {
+    throw new Problem(`${found.length ? 'several vaults found (' + found.map(f => path.relative(repo, f)).join(', ') + ')' : 'no vault found: no folder with 00-index.md up to three folders deep'}; name the vault with --vault DIR`);
   }
-  if (found.length !== 1) throw new Problem(`${found.length ? 'several vaults' : 'no vault'} found under knowledge/; name the vault with --vault DIR`);
   return found[0];
 }
 

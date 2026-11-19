@@ -53,18 +53,23 @@ def jsonbytes(value):
     return (json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + '\n').encode()
 
 
-def relevant(path, vault_rel):
-    p = Path(path)
-    parts = p.parts
-    bundle_metadata = vault_rel.startswith('knowledge/') and path in {'knowledge/README.md', 'knowledge/.gitignore'}
-    return bool(parts) and not bundle_metadata and not knowledge.credential_path(path) and not (path == vault_rel or path.startswith(vault_rel + '/')) and not (path == 'knowledge/tooling/project-knowledge' or path.startswith('knowledge/tooling/project-knowledge/')) and not any(knowledge.fold(x) in {'.git', 'node_modules', '.next', 'dist', 'build', 'coverage', '__pycache__'} for x in parts)
+# Where a copy of this skill may sit inside the repository: updating it is not a change of the application.
+SKILL_COPIES = tuple(base + '/project-knowledge' for base in ('knowledge/tooling', '.claude/skills', '.codex/skills', '.agents/skills'))
 
 
 def housekeeping(path, vault_rel):
-    """Paths a sync never queues because they are the vault, the portable skill copy or their wrapper files."""
+    """Paths a sync never queues because they are the vault, a copy of the skill or their wrapper files."""
     if vault_rel.startswith('knowledge/') and path in {'knowledge/README.md', 'knowledge/.gitignore'}:
         return True
-    return any(path == base or path.startswith(base + '/') for base in (vault_rel, 'knowledge/tooling/project-knowledge'))
+    return any(path == base or path.startswith(base + '/') for base in (vault_rel, *SKILL_COPIES))
+
+
+def relevant(path, vault_rel):
+    parts = Path(path).parts
+    return (bool(parts) and not knowledge.credential_path(path) and not housekeeping(path, vault_rel)
+            and not any(knowledge.fold(x) in {'.git', 'node_modules', '.next', 'dist', 'build', 'coverage', '__pycache__'} for x in parts))
+
+
 
 
 def retarget_hint(repo, vault, target):
@@ -512,16 +517,20 @@ def main():
     parser = argparse.ArgumentParser()
     subs = parser.add_subparsers(dest='command', required=True)
     rp = subs.add_parser('receipt')
-    rp.add_argument('--repo', required=True, type=Path); rp.add_argument('--vault', required=True, type=Path)
+    rp.add_argument('--repo', required=True, type=Path); rp.add_argument('--vault', type=Path)
     rp.add_argument('--plan', required=True, type=Path); rp.add_argument('--out', required=True, type=Path)
     rp.add_argument('--run', type=Path)
     for name in ('scan', 'finish'):
-        p = subs.add_parser(name); p.add_argument('--repo', required=True, type=Path); p.add_argument('--vault', required=True, type=Path)
+        p = subs.add_parser(name); p.add_argument('--repo', required=True, type=Path); p.add_argument('--vault', type=Path)
         if name == 'scan':
             p.add_argument('--target'); p.add_argument('--write-status', action='store_true'); p.add_argument('--json', action='store_true')
         else:
             p.add_argument('--plan', required=True, type=Path); p.add_argument('--review', required=True, type=Path)
-    args = parser.parse_args(); repo = args.repo.resolve(); vault = args.vault.resolve()
+    args = parser.parse_args(); repo = args.repo.resolve()
+    try:
+        vault = args.vault.resolve() if args.vault else knowledge.find_vault(repo)
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.command == 'receipt':
         print(receipt(repo, vault, args.plan, args.out, args.run))
     elif args.command == 'scan':

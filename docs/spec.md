@@ -62,7 +62,7 @@ Without the package: `python3 <skill>/scripts/coverage.py --repo .`. For each fo
 ## What the files mean
 
 ```text
-knowledge/<project>/
+project-spec/            or the folder you chose
   00-index.md           start here
   areas/                maps of related capabilities (spec)
   notes/                one page per feature, plus reference lists (spec)

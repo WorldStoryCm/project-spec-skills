@@ -650,6 +650,10 @@ class MaintainTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertFalse(maintain.relevant(path, 'vault'))
         self.assertTrue(maintain.relevant('src/app.py', 'vault'))
+        # a copy of the skill inside the repository is not the application, wherever the vault is
+        for path in ('.claude/skills/project-knowledge/SKILL.md', '.agents/skills/project-knowledge/scripts/knowledge.py', 'knowledge/tooling/project-knowledge/SKILL.md', 'project-spec/notes/a.md'):
+            self.assertFalse(maintain.relevant(path, 'project-spec'), path)
+        self.assertTrue(maintain.relevant('.claude/skills/other-skill/SKILL.md', 'project-spec'))
 
 
     # partial finish, retargeting and receipt reporting

@@ -52,7 +52,7 @@ spec:
 alias spec='python3 ~/.claude/skills/project-knowledge/scripts/knowledge.py serve --open --repo'
 ```
 
-The vault is found by itself when the repository has one under `knowledge/`; otherwise add `--vault PATH`. The page is served on port 8757, or another free port when that one is taken; `--port N` picks one. `project-spec serve` opens the browser unless you add `--no-open`; the helper opens it only with `--open`. If the vault has errors, the page lists them.
+The spec is found by itself when the repository has one (a folder with `00-index.md`, up to three folders deep); with several, add `--vault PATH`. The page is served on port 8757, or another free port when that one is taken; `--port N` picks one. `project-spec serve` opens the browser unless you add `--no-open`; the helper opens it only with `--open`. If the vault has errors, the page lists them.
 
 ## Without the viewer
 
