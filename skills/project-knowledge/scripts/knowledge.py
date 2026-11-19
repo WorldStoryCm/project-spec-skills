@@ -23,7 +23,7 @@ RECHECKS = ('not-checked', 'confirmed', 'not-reproduced', 'outdated')
 DECISIONS = ('open', 'accepted', 'rejected', 'deferred', 'done', 'duplicate')
 DECIDED = ('accepted', 'rejected', 'deferred')
 STATE_ORDER = ('needs-recheck', 'needs-decision', 'accepted', 'deferred', 'rejected', 'done', 'duplicate')
-GAP_ONLY = ('kind', 'recheck', 'rechecked_by', 'rechecked_on', 'decision', 'decided_by', 'decided_on', 'duplicate_of')
+GAP_ONLY = ('kind', 'recheck', 'rechecked_by', 'rechecked_on', 'decision', 'decided_by', 'decided_on', 'duplicate_of', 'created')
 GAP_SECTIONS = ('Current behavior', 'Gap', 'Evidence', 'Recheck', 'Discussion', 'Decision')
 LAYERS = {'area': 'spec', 'note': 'spec', 'gap': 'gap', 'plan': 'gap', 'index': 'nav', 'run': 'nav'}
 UNCOUNTED = ' (uncommitted change, not counted)'  # suffix of a freshness warning that --ignore-dirty does not count
@@ -253,6 +253,8 @@ def validate_gap(meta):
         raise ValueError("decided_by must be a person's name: an agent may not decide, only record what a person decided")
     if 'decided_on' in meta:
         check_date('decided_on', meta['decided_on'])
+    if 'created' in meta:
+        check_date('created', meta['created'])
     if meta['decision'] == 'duplicate':
         if not meta.get('duplicate_of', '').strip():
             raise ValueError("duplicate_of is required when decision is 'duplicate': give the id of the other gap")
@@ -819,6 +821,40 @@ def vault_history(repo, vault):
     return commits
 
 
+_added_cache = {}
+
+
+def added_dates(repo, vault):
+    """The day each vault page was first committed, by its path in the vault. Empty outside a Git work tree.
+
+    A gap's own `created` property wins over this; the history only answers for pages written before that property
+    existed. A renamed page counts from the rename. Cached per HEAD, because every page load asks for it.
+    """
+    spec, prefix = page_pathspec(repo, vault)
+    head = run_git(repo, ['rev-parse', 'HEAD']) if spec else None
+    if spec is None or head.returncode:
+        return {}
+    key = (str(repo), str(vault), head.stdout.strip())
+    if key not in _added_cache:
+        top = run_git(repo, ['rev-parse', '--show-prefix']).stdout.decode(errors='replace').strip()
+        try:
+            log = run_git(repo, ['-c', 'core.quotepath=off', 'log', '--date=short', '--no-color', '--no-renames', '--diff-filter=A',
+                                  '--name-only', '--format=%x01%H%x02%ad', '--', *spec], timeout=20)
+        except subprocess.TimeoutExpired:
+            return {}
+        found, boundary = {}, shallow_commits(repo)
+        for chunk in (log.stdout.decode('utf-8', errors='replace').split('\x01')[1:] if not log.returncode else []):
+            header, _, names = chunk.partition('\n')
+            sha, _, date = header.partition('\x02')
+            if sha in boundary:  # its parents were not fetched, so every page looks added there
+                continue
+            for name in names.split('\n'):
+                if name.startswith(top + prefix):
+                    found[name[len(top + prefix):]] = date.strip()  # newest first, so the oldest commit has the last word
+        _added_cache[key] = found
+    return _added_cache[key]
+
+
 def vault_pending(repo, vault):
     """Vault pages with uncommitted changes: [{path, status}], empty outside Git."""
     spec, prefix = page_pathspec(repo, vault)
@@ -842,7 +878,11 @@ def vault_pending(repo, vault):
 
 def page_payload(repo, vault, notes, edges, warnings, sources=True):
     files = cited_files(repo, vault, notes)[0] if sources else {}
-    return graph_of(notes, edges, warnings) | {
+    graph, first = graph_of(notes, edges, warnings), added_dates(repo, vault)
+    for node, note in zip(graph['nodes'], notes):
+        # When a gap appeared: the day its page says, else the day the page was first committed, else unknown (a new page).
+        node['added'] = note['meta'].get('created', '') or first.get(note['path'], '') if note['meta']['type'] == 'gap' else ''
+    return graph | {
         'vaultPath': Path(os.path.relpath(vault, repo)).as_posix(), 'files': files,
         'history': vault_history(repo, vault), 'pending': vault_pending(repo, vault)}
 

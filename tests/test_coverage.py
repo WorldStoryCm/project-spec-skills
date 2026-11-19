@@ -39,7 +39,7 @@ class CoverageTests(unittest.TestCase):
         self.code('src/chat/window/deep/Picker.tsx', 'const label = "Smileys and people";')
         self.code('src/chat/send.test.ts', 'it("says this in a test only", () => {})')
         self.code('src/chat/__tests__/more.ts', 'const s = "Only in a test folder";')
-        self.code('src/orders/pay.py', 'MAX_TOTAL = 5000\nmessage = "The order was already paid"\n')
+        self.code('src/orders/pay.py', '"""Payments for an order, kept small."""\nMAX_TOTAL = 5000\n\ndef pay():\n    \'\'\'Take the money\n    for one order.\'\'\'\n    message = "The order was already paid"\n')
         self.code('database/migrations/001.sql', "INSERT INTO t VALUES ('A sentence in a migration');")
         self.code('node_modules/x/index.js', 'const s = "A sentence in a dependency";')
         self.code('src/help/article.ts', '\n'.join(f'const p{i} = "This is paragraph number {i} of an article";' for i in range(45)))
@@ -86,6 +86,7 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(send['unnamed'], [('COLD_OUTREACH_PER_HOUR', '5'), ('RETRY_MS', '60 * 1000')])
         self.assertEqual(files['src/chat/window/Header.tsx']['unquoted'], ['Back to chat list'], 'text between tags counts; text with a placeholder does not')
         self.assertEqual(files['src/orders/pay.py']['unnamed'], [('MAX_TOTAL', '5000')])
+        self.assertEqual(files['src/orders/pay.py']['unquoted'], ['The order was already paid'], 'a docstring is for the reader of the code, not of the product')
         article = files['src/help/article.ts']
         self.assertEqual((article['content'], article['sentences'], article['unquoted']), (True, 0, []), 'an article counts as a file only')
 

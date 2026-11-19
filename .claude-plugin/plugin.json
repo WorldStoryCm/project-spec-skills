@@ -1,7 +1,7 @@
 {
   "name": "project-spec",
-  "version": "0.10.0",
-  "description": "Keep a spec of a repository that people can read: one page per feature, every business rule numbered, with a local viewer. Includes the project-knowledge and spec-change skills.",
+  "version": "0.11.0",
+  "description": "Keep a spec of a repository that people can read: one page per feature, every business rule numbered, with a local viewer. Includes the project-knowledge skill.",
   "author": {
     "name": "WorldStoryCm",
     "url": "https://github.com/WorldStoryCm"

@@ -1,6 +1,16 @@
 # Release validation
 
-> The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet; `spec-change` has not been run on a real change.
+> The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet. `spec-change` was never run on a real change and was removed in 0.11.0.
+
+## 2026-11-19: one skill, a small update after a change, and the queue by date
+
+- `spec-change` is removed: the product has no way to edit a spec and have it built, and the skill was never run on a real change. Its planning guide moved into `project-knowledge` (`plan <gap>`). `update` removes old copies of the skill and keeps their files in the backup folder; this has an automated test.
+- `project-knowledge` has a mode for the agent that just changed code, "Record a change": only the rules the diff changed, no filling in, no run page, no checkpoint. `project-spec instructions` prints a block of 16 lines that asks any agent for the same, or writes it into `AGENTS.md`, `CLAUDE.md` and the like; writing, replacing and removing the block have automated tests.
+- A gap has a day it appeared: its `created` property, else the day its page was first committed. The queue shows it and can list the newest first; its states are tabs and the filters have a row of their own. Helper and viewer tests cover this, and the queue was opened in headless Chrome on two real vaults (184 and 159 gaps) and on the example.
+- Re-check of the skill text against the helpers and the example found and fixed: two sentences that disagreed about when a feature gets parts; "usually one to five" sources, which an agent had read as a limit of five on every page; `coverage` counting Python docstrings as sentences a person sees; and an example that had no inventory file, no closed gap and a refusal message on no page. The example now passes its own `coverage --path src`. The six screenshots in the README and the docs were retaken.
+- The Copy for AI dialog keeps one size: the requests are a list on the left, the fields for the chosen one are in the middle and the copied text is on the right. Measured in headless Chrome at 1360 by 860, the card had the same position and size (1080 by 640) for three different requests; before, its height followed the text and the centred card moved with every choice.
+- `python3 scripts/verify.py` passed.
+- **NOT RUN:** no agent has recorded a change under the new mode or under the block, so it is not observed that the edit stays small, or what it costs. Whether each named agent really reads the file the docs name for it was not checked in those agents. The claim that a later sync is cheap for recorded changes rests on the instruction in `sync.md`, not on a run.
 
 ## 2026-11-18: a skill copy without the viewer and the tests
 

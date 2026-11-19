@@ -233,14 +233,14 @@ Rules the validator applies beyond the basics: `decided_by: "agent"` is rejected
     "sources": ["src/service.ts"], "summary": "", "updated": "2026-11-14", "stale": false,
     "kind": "", "recheck": "", "recheckedBy": "", "recheckedOn": "",
     "decision": "", "decidedBy": "", "decidedOn": "", "state": "",
-    "gap": "", "layer": "spec", "recheckOutdated": false, "priority": "", "confidence": "", "duplicateOf": ""
+    "gap": "", "layer": "spec", "recheckOutdated": false, "priority": "", "confidence": "", "duplicateOf": "", "added": ""
   }],
   "edges": [{"source": "collections", "target": "collection-periods"}],
   "warnings": []
 }
 ```
 
-The added fields are empty strings when they do not apply. `recheckOutdated` is true when `recheck` is `outdated` or the automatic marker applies. `priority`, `confidence` and `duplicateOf` are gap properties, empty when absent. `layer` is `spec` for areas and notes, `gap` for gaps and plans, `nav` for index and run pages. For a gap node `status` is `""` and `gap` stays empty; for a plan node `gap` holds the gap id. The viewer treats missing fields as empty, so older data still opens.
+The added fields are empty strings when they do not apply. `recheckOutdated` is true when `recheck` is `outdated` or the automatic marker applies. `priority`, `confidence` and `duplicateOf` are gap properties, empty when absent. `added` is the day a gap appeared: its `created` property, else the day its page was first committed, else empty (a page not committed yet, or no Git history); it is empty for every other page. `layer` is `spec` for areas and notes, `gap` for gaps and plans, `nav` for index and run pages. For a gap node `status` is `""` and `gap` stays empty; for a plan node `gap` holds the gap id. The viewer treats missing fields as empty, so older data still opens.
 
 Extract prose wikilinks, excluding inline and fenced code examples. Resolve full vault paths and unique basenames; reject missing or ambiguous notes. Strip aliases and heading or block fragments when checking file existence; headings are not validated. Area membership also adds navigation edges. Label the result as a knowledge and coverage map, not a runtime dependency graph.
 

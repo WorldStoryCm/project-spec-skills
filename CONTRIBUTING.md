@@ -18,9 +18,7 @@ For changes to source tracking, demonstrate that drift is detected without accep
 
 For viewer changes, open a generated example and check search, filters, internal navigation and narrow-screen layout. Use DOM text for note content; do not execute embedded HTML or load remote scripts, fonts or analytics.
 
-## One shared reference
-
-`skills/project-knowledge/references/gaps.md` is copied byte for byte to `spec-change` so that skill is usable on its own. Edit the project-knowledge copy and re-copy it; compare with `cmp` before sending a change. Keep relative links out of it, since they would resolve from only one of the two places.
+## The package
 
 The repository is also the `project-spec` npm package and a Claude Code plugin marketplace (`.claude-plugin/`): `bin/project-spec.mjs` starts the helpers and installs, updates and reports the copies of the skills. It has no dependencies and must keep none. Keep `scripts/test_cli.cjs` passing; `python3 scripts/verify.py` runs it when Node is available.
 

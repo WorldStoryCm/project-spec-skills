@@ -34,6 +34,8 @@ LOG_LINE = re.compile(r'\b(console|logger|log|logging|Sentry|debug)\s*\.\s*\w+\s
 NOT_PROSE = re.compile(r'[{}<>;=\\]|\$\(|^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|WITH)\b|https?://|\w+\.\w+\(|\w/\w+/\w')
 # A named number: MAX_ATTACHMENTS = 10, TTL_MS: number = 60 * 60 * 1000
 LIMIT = re.compile(r'\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\s*(?::[^=\n]{1,40})?=\s*([-+]?\d[\d_.]*(?:\s*[*/+-]\s*\d[\d_.]*)*)\s*[;,]?\s*(?:(?://|#).*)?$', re.M)
+# A docstring describes the code to its reader; nobody using the product sees it.
+DOCSTRING = re.compile(r'''^[ \t]*[rRuU]?("""|\'\'\')[\s\S]*?\1''', re.M)
 PUNCTUATION = str.maketrans({'‘': "'", '’': "'", '“': '"', '”': '"', '–': '-', '—': '-', ' ': ' '})
 
 
@@ -53,7 +55,7 @@ def is_sentence(text):
 
 def sentences_in(text):
     found = []
-    for line in text.split('\n'):
+    for line in DOCSTRING.sub('', text).split('\n'):
         if LOG_LINE.search(line):
             continue
         for _, inner in QUOTED.findall(line):
@@ -184,13 +186,15 @@ def main(argv=None):
     if prefixes:
         items = [(name, 'says', s) for name, f in files.items() for s in f['unquoted']]
         items += [(name, 'sets', f'{n} = {v}') for name, f in files.items() for n, v in f['unnamed']]
-        print(f'\n{len(items)} things under {", ".join(prefixes)} that no page mentions:')
+        print(f'\n{len(items)} things under {", ".join(prefixes)} that no page mentions:' if items
+              else f'\nNothing under {", ".join(prefixes)} is missing from the pages.')
         for name, verb, what in (items if args.all else items[:60]):
             print(f'  {name} {verb}: {what}')
         if not args.all and len(items) > 60:
             print(f'  ... and {len(items) - 60} more (--all prints them)')
         uncited = sorted((f['lines'], name) for name, f in files.items() if not f['cited'])
-        print(f'\n{len(uncited)} of {len(files)} files there are cited by no page; the largest:')
+        print(f'\n{len(uncited)} of {len(files)} files there are cited by no page; the largest:' if uncited
+              else f'\nEvery one of the {len(files)} files there is cited by a page.')
         for lines, name in reversed(uncited[-(len(uncited) if args.all else 15):]):
             print(f'  {name} ({lines} lines)')
     return 0

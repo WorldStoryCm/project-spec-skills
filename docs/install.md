@@ -43,7 +43,7 @@ The repository is also a plugin marketplace for Claude Code. Inside Claude Code:
 /plugin install project-spec@project-spec-skills
 ```
 
-The two skills then appear as `/project-spec:project-knowledge` and `/project-spec:spec-change`, and Claude Code updates them with the plugin. The plugin does not add the `project-spec` command; ask the agent to open the viewer (the plugin carries the page), or use `npx project-spec serve`.
+The skill then appears as `/project-spec:project-knowledge`, and Claude Code updates it with the plugin. The plugin does not add the `project-spec` command; ask the agent to open the viewer (the plugin carries the page), or use `npx project-spec serve`.
 
 ## Codex
 
@@ -52,10 +52,9 @@ Ask the built-in skill installer:
 ```text
 Install these skills from WorldStoryCm/project-spec-skills:
 skills/project-knowledge
-skills/spec-change
 ```
 
-If you already have a skill with the same name, compare versions before replacing it. The installer in Codex handles its own destination. In Codex you can name a skill with `$name`, for example `$spec-change`.
+If you already have a skill with the same name, compare versions before replacing it. The installer in Codex handles its own destination. In Codex you can name a skill with `$name`, for example `$project-knowledge`.
 
 ## Claude Code, by hand
 
@@ -68,10 +67,9 @@ Copy the whole skill folder (it contains the references and helper scripts, and 
 git clone https://github.com/WorldStoryCm/project-spec-skills.git
 mkdir -p ~/.claude/skills
 cp -R project-spec-skills/skills/project-knowledge ~/.claude/skills/
-cp -R project-spec-skills/skills/spec-change ~/.claude/skills/
 ```
 
-Then ask in plain language, or invoke a skill by name with `/<name>`, for example `/spec-change`. Claude Code finds a skill from its description, so an ordinary request often picks the right one.
+Then ask in plain language, or invoke a skill by name with `/<name>`, for example `/project-knowledge`. Claude Code finds a skill from its description, so an ordinary request often picks the right one.
 
 ## Any agent with repository access
 

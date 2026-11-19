@@ -417,6 +417,54 @@
       .map-head .pillrow {
         gap: 6px;
       }
+      /* The queue's states are tabs, plain words with a count, so the row of filters under them stays quiet. */
+      .tabrow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 22px;
+        border-bottom: 1px solid var(--line);
+      }
+      .tab {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        min-height: 36px;
+        padding: 0 1px;
+        margin-bottom: -1px;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: none;
+        color: var(--muted);
+        font: 600 14px/1 var(--sans);
+      }
+      .tab:hover {
+        color: var(--ink);
+      }
+      .tab[aria-pressed="true"] {
+        color: var(--ink);
+        border-bottom-color: var(--ink);
+      }
+      .tab .n {
+        font: 12px var(--mono);
+        opacity: 0.75;
+      }
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .filters select {
+        max-width: 220px;
+      }
+      .filters .push {
+        margin-left: auto;
+      }
+      @media (pointer: coarse) {
+        .tab {
+          min-height: 44px;
+        }
+      }
       .view:has(> .compact) {
         padding-top: 18px;
       }
@@ -1295,14 +1343,17 @@
         padding: 20px;
         overflow: hidden;
       }
+      /* One size whatever is chosen, so picking another request moves nothing: the list of requests, the
+         fields for the chosen one and the text that gets copied each keep their place and scroll by themselves. */
       .copy-card {
-        width: min(1040px, 100%);
-        max-height: calc(100vh - 40px);
+        width: min(1080px, 100%);
+        height: min(640px, calc(100vh - 40px));
         padding: 22px 24px 24px;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 16px 28px;
-        overflow: auto;
+        grid-template-columns: 188px minmax(0, 1fr) minmax(0, 1.15fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 16px 24px;
+        overflow: hidden;
       }
       .copy-card > .stack {
         grid-column: 1 / -1;
@@ -1310,18 +1361,53 @@
       }
       .copy-card > .stack .h2 {
         font-size: 18px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
+      .copy-menu,
       .copy-controls,
       .copy-side {
         display: flex;
         flex-direction: column;
         gap: 14px;
         min-width: 0;
+        min-height: 0;
       }
-      .copy-side {
-        align-self: start;
-        position: sticky;
-        top: 0;
+      .copy-menu,
+      .copy-controls {
+        overflow-y: auto;
+      }
+      .copy-controls {
+        padding: 0 2px 2px;
+      }
+      /* The requests are a list to pick from, one under another. */
+      .copy-card .menu {
+        flex-direction: column;
+        flex-wrap: nowrap;
+        gap: 2px;
+      }
+      .copy-card .menu .pill {
+        width: 100%;
+        height: 36px;
+        justify-content: flex-start;
+        padding: 0 12px;
+        border-color: transparent;
+        border-radius: 12px;
+        background: none;
+        font-size: 14px;
+        text-align: left;
+      }
+      .copy-card .menu .pill:hover {
+        background: var(--soft);
+      }
+      .copy-card .menu .pill[aria-pressed="true"] {
+        background: var(--ink);
+        color: #ffffff;
+      }
+      /* Room for the longest explanation, so a shorter one does not pull the fields up. */
+      #copy-hint {
+        min-height: 5.8em;
       }
       .copy-card .pillrow {
         gap: 6px;
@@ -1346,12 +1432,43 @@
       .copy-card .btn {
         height: 36px;
       }
-      @media (max-width: 820px) {
+      .copy-side .night {
+        flex: 1;
+        min-height: 0;
+      }
+      .copy-side .night pre {
+        flex: 1;
+        min-height: 0;
+        max-height: none;
+      }
+      @media (max-width: 880px) {
         .copy-card {
+          height: auto;
+          max-height: calc(100vh - 40px);
           grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: auto;
+          overflow: auto;
         }
-        .copy-side {
-          position: static;
+        .copy-menu,
+        .copy-controls {
+          overflow: visible;
+        }
+        .copy-card .menu {
+          flex-direction: row;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .copy-card .menu .pill {
+          width: auto;
+          height: 32px;
+          border-color: var(--line-strong);
+          border-radius: 999px;
+        }
+        #copy-hint {
+          min-height: 0;
+        }
+        .copy-side .night pre {
+          max-height: 40vh;
         }
       }
       .copy-card fieldset {
@@ -1389,10 +1506,6 @@
       .copy-card .night {
         padding: 16px 18px;
         border-radius: 16px;
-      }
-      /* Tall enough to read, short enough that the dialog itself never needs a second scrollbar. */
-      .copy-card .night pre {
-        max-height: max(160px, calc(100vh - 380px));
       }
       .check {
         display: flex;
@@ -1745,6 +1858,9 @@
         // The day a gap was closed, as far as the page says: the decision, else the recheck that closed it.
         const closedOn = (n) => str(n.decidedOn) || str(n.recheckedOn) || str(n.updated);
         const byClosed = (a, b) => closedOn(b).localeCompare(closedOn(a)) || byTitle(a, b);
+        // The day a gap appeared. A gap without one is a page not committed yet, so it is the newest.
+        const addedOn = (n) => str(n.added);
+        const byAdded = (a, b) => (addedOn(b) || "9999").localeCompare(addedOn(a) || "9999") || byGapOrder(a, b);
         const recheckOutdated = (n) =>
           isGap(n) && (n.recheckOutdated === true || n.recheck === "outdated");
         const stateRank = (n) => {
@@ -2341,6 +2457,7 @@
           );
           if (str(n.priority)) row("Priority", n.priority);
           if (str(n.confidence)) row("Confidence", n.confidence);
+          if (addedOn(n)) row("Added", addedOn(n));
           box.append(dl);
           return box;
         }
@@ -2577,6 +2694,13 @@
           });
           return row;
         };
+        // The same choice as pills, drawn as tabs: for the one choice a page is organised by.
+        const tabs = (label, options, current, pick) => {
+          const row = pills(label, options, current, pick);
+          row.className = "tabrow";
+          Array.from(row.children).forEach((b) => (b.className = "tab"));
+          return row;
+        };
         function featureList(features) {
           const box = el("div");
           features.forEach((f) => {
@@ -2613,7 +2737,7 @@
           const row = el("div", null, "row"),
             grow = el("div", null, "grow");
           grow.append(button(g.title, "rowlink", () => openNode(g)));
-          const facts = [kindLabels[g.kind] || str(g.kind), factsLine(g)].filter(Boolean).join(" · ");
+          const facts = [kindLabels[g.kind] || str(g.kind), factsLine(g), addedOn(g) && "Added " + addedOn(g)].filter(Boolean).join(" · ");
           if (facts) grow.append(el("span", facts, "muted small"));
           row.append(grow, stateBadge(g));
           if (recheckOutdated(g)) row.append(outdatedBadge());
@@ -2844,6 +2968,7 @@
         const GAP_PORTION = 40;
         let gapState = "open", // "open", one of the open states, or "history"
           gapShown = GAP_PORTION,
+          gapSort = "urgent", // "urgent" (state, then priority) or "newest" (the day the gap appeared)
           gapArea = "",
           gapKind = "",
           gapPriority = ""; // "" for all, "none" for gaps without one, otherwise the value
@@ -2863,7 +2988,8 @@
         // The queue is a work list: one row of title and filters, then the gaps.
         function viewGaps(view) {
           const box = el("div", null, "stack compact"),
-            head = el("div", null, "map-head");
+            head = el("div", null, "map-head"),
+            filters = el("div", null, "filters");
           head.append(el("h1", "Gaps"));
           head.title = "Questions about what is missing, unverified or could be added. Each one is rechecked and then decided by a person.";
           box.append(head);
@@ -2879,8 +3005,8 @@
               show();
             },
             history = pool.filter(isClosed).length;
-          head.append(
-            pills(
+          box.append(
+            tabs(
               "State",
               // The queue is the open work; what is closed is one step away, under History. A state with
               // no gaps under the current filters is left out, unless it is the one selected.
@@ -2896,12 +3022,13 @@
               },
             ),
           );
+          box.append(filters);
           if (stateHints[gapState]) box.append(el("p", stateHints[gapState], "muted small"));
           const kinds = Object.keys(kindLabels);
           nodes.forEach((n) => {
             if (isGap(n) && str(n.kind) && !kinds.includes(n.kind)) kinds.push(n.kind);
           });
-          head.append(
+          filters.append(
             selectOf("Area", areaOptions(), gapArea, (v) => {
               gapArea = v;
               again();
@@ -2916,7 +3043,7 @@
             (a, b) => priorityRank({ priority: a }) - priorityRank({ priority: b }) || a.localeCompare(b),
           );
           if (priorities.length || gapPriority)
-            head.append(
+            filters.append(
               selectOf(
                 "Priority",
                 [
@@ -2931,9 +3058,23 @@
                 },
               ),
             );
+          const order = selectOf(
+            "Order",
+            [
+              ["urgent", gapState === "history" ? "Last closed first" : "Most urgent first"],
+              ["newest", "Newest first"],
+            ],
+            gapSort,
+            (v) => {
+              gapSort = v;
+              again();
+            },
+          );
+          order.className = "push";
+          filters.append(order);
           const shown = pool
             .filter((g) => (gapState === "open" ? !isClosed(g) : gapState === "history" ? isClosed(g) : stateOf(g) === gapState))
-            .sort(gapState === "history" ? byClosed : byGapOrder);
+            .sort(gapSort === "newest" ? byAdded : gapState === "history" ? byClosed : byGapOrder);
           if (shown.length) {
             // A long queue comes in portions: the most urgent are in the first one, the rest one press away.
             const card = el("section", null, "card"),
@@ -3196,15 +3337,15 @@
             hint: "The agent writes a plan for an accepted gap: steps, checks, what must be decided first. No code is changed.",
             ask: "Limits or wishes for the plan (optional)",
             text: (c) =>
-              "Use the spec-change skill to plan this gap. Plan only, do not build it, and only if its decision is accepted; otherwise tell me what is missing." +
+              "Use the project-knowledge skill to plan this gap. Plan only, do not build it, and only if its decision is accepted; otherwise tell me what is missing." +
               (c.note ? "\n\nKeep in mind: " + c.note : ""),
           },
           change: {
             label: "Change the behavior",
-            hint: "You want the product to work differently. The agent asks its questions first, then edits the spec on a branch, builds the change and checks it.",
+            hint: "You want the product to work differently. The agent asks its questions first, changes the code, then corrects this page so it says what the code does now.",
             ask: "What should be different, and for whom",
             text: (c) =>
-              "Use the spec-change skill. I want to change the behavior this page describes. Ask your questions first, then edit the spec on a branch, build it and check every changed statement against the code." +
+              "I want to change the behavior this page describes. Ask your questions first, then change the code and check it. When the code is done, record the change in the spec as the project-knowledge skill describes (Record a change): correct only the rules that changed, and keep their numbers." +
               "\n\nWhat I want: " + (c.note || "[describe the change]"),
           },
           question: {
@@ -3304,17 +3445,19 @@
           meta.append(isGap(n) ? stateBadge(n) : statusBadge(n), el("span", repoPath(n), "path"));
           top.append(el("div", "Copy for AI", "eyebrow"), el("h2", n.title, "h2"), meta);
 
-          const want = el("fieldset");
-          want.append(
-            el("legend", "What should the agent do?"),
-            pills("What should the agent do?", intentsFor(n).map((k) => [k, INTENTS[k].label]), copyState.intent, (v) => {
+          const want = el("fieldset"),
+            menu = pills("What should the agent do?", intentsFor(n).map((k) => [k, INTENTS[k].label]), copyState.intent, (v) => {
               copyState.intent = v;
+              copyState.refocus = true;
               renderCopy();
-            }),
-          );
-          const hint = el("p", intent.hint, "muted small");
+            });
+          menu.className = "pillrow menu";
+          want.append(el("legend", "What should the agent do?"), menu);
+          const hint = el("p", intent.hint, "muted small"),
+            chosen = el("div", null, "stack");
           hint.id = "copy-hint";
-          want.append(hint);
+          chosen.style.gap = "10px";
+          chosen.append(hint);
           if (intent.choices) {
             const [key, options] = intent.choices,
               sub = pills(intent.label, options, copyState[key], (v) => {
@@ -3322,7 +3465,7 @@
                 renderCopy();
               });
             sub.id = "copy-choice";
-            want.append(sub);
+            chosen.append(sub);
           }
 
           // Typing updates the preview in place, so the field keeps the cursor.
@@ -3374,11 +3517,19 @@
           actions.append(copy, button("Close", "btn", closeCopy), el("span", "Nothing is sent. It goes to your clipboard.", "muted small"));
           const preview = el("div", null, "night");
           preview.append(el("div", "What gets copied", "eyebrow"), pre);
-          const controls = el("div", null, "copy-controls"),
+          const list = el("div", null, "copy-menu"),
+            controls = el("div", null, "copy-controls"),
             side = el("div", null, "copy-side");
-          controls.append(want, words, include);
+          list.append(want);
+          controls.append(chosen, words, include);
           side.append(preview, actions);
-          card.append(top, controls, side);
+          card.append(top, list, controls, side);
+          // The card was drawn again, so hand the keyboard back to the request that was picked.
+          if (copyState.refocus) {
+            copyState.refocus = false;
+            const now = Array.from(menu.children).find((b) => b.getAttribute("aria-pressed") === "true");
+            if (now && now.focus) now.focus();
+          }
         }
         $("#copydlg").addEventListener("click", (e) => {
           if (e.target === $("#copydlg")) closeCopy();

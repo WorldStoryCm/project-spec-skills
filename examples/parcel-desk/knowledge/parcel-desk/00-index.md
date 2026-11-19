@@ -29,6 +29,7 @@ One question per page. In this example:
 - [[gaps/packed-cancellation|Packed cancellation]] is accepted, with [[plans/packed-cancellation|a plan]].
 - [[gaps/partner-decision|Partner cancellation]] has been rechecked and awaits a person's decision.
 - [[gaps/deployment-evidence|Deployment evidence]] has not been rechecked yet.
+- [[gaps/state-leak|The refusal and someone else's pickup]] is closed: the code answers it, and the gap names the rule that does.
 
 ## Limits
 

@@ -2,6 +2,7 @@
 id: "packed-cancellation"
 title: "Should a customer be able to cancel their own packed pickup?"
 type: "gap"
+created: "2026-11-14"
 kind: "product-gap"
 areas: ["pickups"]
 sources: ["SPEC.md", "src/pickups.py", "src/routes.py", "tests/test_pickups.py"]

@@ -520,6 +520,38 @@ class GapLayerTests(Fixture):
         return subprocess.run(['git', '-C', str(self.repo), '-c', 'user.name=T', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', *args],
                               check=True, capture_output=True, text=True).stdout
 
+    def test_a_gap_says_when_it_appeared(self):
+        k._added_cache.clear()
+        repo = self.repo.resolve()
+        self.vault.rename(self.repo / 'vault')
+        self.vault = self.repo / 'vault'
+        vault = self.vault.resolve()
+        props = dict(sources=[], kind='product-gap', recheck='not-checked', decision='open', status=None, body=GAP_BODY)
+
+        def added():
+            notes, edges, errors, warnings, _ = k.load_vault(repo, vault, freshness=False)
+            self.assertEqual(errors, [])
+            return {n['id']: n['added'] for n in k.page_payload(repo, vault, notes, edges, warnings, sources=False)['nodes']}
+
+        self.note('gaps/old.md', 'old', 'gap', **props)
+        self.note('gaps/said.md', 'said', 'gap', created='2026-01-05', **props)
+        self.assertEqual((added()['old'], added()['said']), ('', '2026-01-05'), 'without Git only the page itself can say')
+        self.git('init', '-q')
+        self.git('add', '-A')
+        self.git('commit', '-q', '-m', 'First', '--date', '2026-03-01T12:00:00')
+        self.note('gaps/old.md', 'old', 'gap', priority='high', **props)
+        self.note('gaps/fresh.md', 'fresh', 'gap', **props)
+        self.git('add', 'vault/gaps/old.md')
+        self.git('commit', '-q', '-m', 'Second', '--date', '2026-04-02T12:00:00')
+        found = added()
+        self.assertEqual((found['old'], found['said'], found['fresh'], found['n']), ('2026-03-01', '2026-01-05', '', ''),
+                         'the first commit of the page, the page\'s own word before that, nothing for a page not committed, nothing for a spec page')
+        self.note('gaps/said.md', 'said', 'gap', created='5 January', **props)
+        self.assertIn('created must be YYYY-MM-DD', self.run_cli('check')[2])
+        self.note('gaps/said.md', 'said', 'gap', created='2026-01-05', **props)
+        self.note('notes/n.md', 'n', sources=['source.txt'], created='2026-01-05')
+        self.assertIn('created', self.run_cli('check')[2])
+
     def test_history_and_pending_pages_come_from_git(self):
         k._history_cache.clear()
         repo, vault = self.repo.resolve(), self.vault.resolve()

@@ -1,19 +1,18 @@
 # Working with the skills
 
-Each skill is independently usable. A useful sequence is:
+A useful sequence is:
 
 ```mermaid
 flowchart LR
   A[Map the project] --> B[Read it in the viewer]
   B --> C[Audit a spec or re-check a gap]
   C --> D[A person decides, then plan]
-  B --> E[Edit the spec: spec-change]
   D --> F[Implement and verify]
-  E --> F
-  F --> A
+  F --> G[Record the change in the spec]
+  G --> B
 ```
 
-`project-knowledge` never changes application code; `spec-change` is the one that does, and only after it has asked its questions. Reading a test establishes what it expects; only running it produces a test result.
+`project-knowledge` never changes application code. Your coding agent does that, and then records the change in the spec as a small edit ([keeping the spec current](#keeping-the-spec-current)). Reading a test establishes what it expects; only running it produces a test result.
 
 ## What it is good for
 
@@ -47,14 +46,17 @@ section, and leave the decision to me.
 ```
 
 ```text
-Use the spec-change skill to plan the accepted gap "reservation-release".
+Use the project-knowledge skill to plan the accepted gap "reservation-release".
 Include affected modules, concurrency checks and acceptance criteria. Plan only.
 ```
 
 ```text
-Use the spec-change skill. I edited the spec on this branch; the diff against main
-is the change request. Ask your questions first, then implement it and show me
-which statement is covered by which check.
+Use the project-knowledge skill to record this change in the spec:
+only the rules I changed, and keep their numbers.
+```
+
+```text
+Use the project-knowledge skill to record what changed in the last week.
 ```
 
 ## Try the example first
@@ -79,13 +81,39 @@ To use Obsidian, choose **Open folder as vault** and select `examples/parcel-des
 
 Source links point outside the vault into the repository. Some hosts do not open these paths; the note's `sources` property gives the repository-relative path for your editor. All example application data is invented.
 
-## Keep knowledge current
+## Keeping the spec current
+
+There are three ways, from the cheapest to the most thorough. Most projects need the first one day to day and the third now and then.
+
+**1. With every change.** Whoever changes the code corrects the spec in the same task: only the rules that changed, each keeping its number. A changed validation message is one row of one table. To make every agent in the repository do this, add the short block to the file it reads at the start of a session:
+
+```sh
+npx project-spec instructions --file AGENTS.md      # or CLAUDE.md, GEMINI.md, .cursor/rules/project-spec.mdc
+```
+
+Or ask for it once, at the end of a task:
+
+```text
+Use the project-knowledge skill to record this change in the spec.
+```
+
+**2. For a pull request or a period.** When changes came from people or agents that did not touch the spec:
+
+```text
+Use the project-knowledge skill to record what changed in the last week.
+```
+
+The agent reads that diff, not the project, and edits the pages of the features it touched.
+
+**3. A full sync.** Everything since the last reviewed commit, every changed file accounted for, with a receipt:
 
 ```text
 Use the project-knowledge skill to sync: review all integrated changes since the last
 reviewed checkpoint, update the affected spec notes, and revisit gaps whose
 sources changed.
 ```
+
+Pages already corrected by the first two ways cost a sync almost nothing: it sees that their sources were reviewed after the change.
 
 Or narrow the work:
 
@@ -100,7 +128,7 @@ The agent researches and writes the claims. The Python helpers validate structur
 
 If `check` fails on a vault written before the spec/gap split, follow the [migration guide](../skills/project-knowledge/references/migrate.md). The same guide has the regroup pass for a vault whose feature pages lack the sections above, or whose rules were spread over separate table pages per kind.
 
-Everything is manual and nothing is published: the bundle installs no schedule or hooks, and does not commit, push or synchronize other clones. Share the Markdown, reviewed state and chosen skill version through your normal Git workflow. Personal Obsidian settings and local scan reports should stay ignored.
+Everything is manual and nothing is published: the package installs no schedule or hooks, writes the block for agents only when you run the command, and does not commit, push or synchronize other clones. Share the Markdown, reviewed state and chosen skill version through your normal Git workflow. Personal Obsidian settings and local scan reports should stay ignored.
 
 ## Gaps are decided by people
 

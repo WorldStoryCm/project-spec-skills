@@ -96,6 +96,7 @@ function load(payload, { hash, storage = memory() } = {}) {
     crumbs: () => q('#crumbs').children.map(text),
     btn: (root, label) => buttons(root, b => b.textContent === label)[0],
     pill: (root, label) => buttons(root, b => has(b, 'pill') && b.children[0].text === label)[0],
+    tab: (root, label) => buttons(root, b => has(b, 'tab') && b.children[0].text === label)[0],
     select: label => findAll(q('#view'), e => e.tag === 'select' && e.attrs['aria-label'] === label)[0],
     rows: () => findAll(q('#view'), e => has(e, 'row')),
     rowTitles: () => findAll(q('#view'), e => has(e, 'row')).map(r => findAll(r, e => has(e, 'grow'))[0].children[0].textContent),
@@ -315,22 +316,25 @@ const queue = {
   v.go('Gaps');
   assert.equal(v.h1(), 'Gaps');
   assert.deepEqual(v.crumbs(), ['Sample vault', '/', 'Gaps']);
-  const counts = () => findAll(v.page(), e => has(e, 'pill')).map(text);
+  const counts = () => findAll(v.page(), e => has(e, 'tab')).map(text);
   assert.deepEqual(counts(), ['Open8', 'Needs recheck3', 'Needs decision3', 'Accepted1', 'Deferred1', 'History3'], 'the queue is the open work; closed gaps are under History');
   assert.equal(v.rowTitles().length, 8, 'no closed gap in the queue');
   // waiting states come first, each with the most urgent gap first (P1 before low, a gap without a priority last)
   assert.deepEqual(v.rowTitles().slice(0, 6), ['Gap recheck', 'Gap outdated', 'Legacy gap', 'Gap flagged', 'Gap derived', 'Gap decision']);
-  v.pill(v.page(), 'Needs decision').click();
+  v.tab(v.page(), 'Needs decision').click();
   assert.deepEqual(v.rowTitles(), ['Gap flagged', 'Gap derived', 'Gap decision']);
   assert.ok(v.page().textContent.includes('waiting for a person to accept, reject or defer'));
   const flagged = v.rows().find(r => r.textContent.startsWith('Gap flagged'));
   assert.ok(flagged.textContent.includes('Recheck outdated'));
   assert.ok(flagged.textContent.includes('Rechecked by Eve on 2026-10-02'));
+  // the states are tabs; the filters and the order have a row of their own
+  assert.equal(findAll(v.page(), e => has(e, 'pill')).length, 0, 'no pills on the queue');
+  assert.deepEqual(findAll(findAll(v.page(), e => has(e, 'filters'))[0], e => e.tag === 'select').map(s => s.attrs['aria-label']), ['Area', 'Kind', 'Priority', 'Order']);
   // History: what is closed, the most recently closed first
-  v.pill(v.page(), 'History').click();
+  v.tab(v.page(), 'History').click();
   assert.deepEqual(v.rowTitles(), ['Gap rejected', 'Gap done', 'Gap duplicate']);
   assert.ok(v.page().textContent.includes('kept for the reason behind a rule'));
-  v.pill(v.page(), 'Open').click();
+  v.tab(v.page(), 'Open').click();
   v.select('Kind').value = 'product-plan';
   v.select('Kind').fire('change');
   assert.deepEqual(v.rowTitles(), ['Gap deferred']);
@@ -571,7 +575,7 @@ const queue = {
 
   // the other choices, and what to include
   v.pill(card(), 'Plan it').click();
-  assert.ok(preview().startsWith('Use the spec-change skill to plan this gap. Plan only, do not build it,'));
+  assert.ok(preview().startsWith('Use the project-knowledge skill to plan this gap. Plan only, do not build it,'));
   assert.ok(preview().includes('Keep in mind: Not before the partner launch.'));
   v.pill(card(), 'Change the behavior').click();
   type('copy-note', '');
@@ -982,10 +986,33 @@ assert.deepEqual(pres(article('```js\none\n```\n\ntext\n\n```\ntwo\n```').art), 
   v.btn(more(), 'Show 23 more').click();
   assert.equal(v.rowTitles().length, 103);
   assert.deepEqual(more().children.map(text), ['103 of 103']);
-  v.pill(v.page(), 'Needs recheck').click();
+  v.tab(v.page(), 'Needs recheck').click();
   assert.equal(v.rowTitles().length, 40, 'another filter starts from the first portion');
-  v.pill(v.page(), 'History').click();
+  v.tab(v.page(), 'History').click();
   assert.equal(more().children.length, 0, 'a list that fits in one portion has no count and no button');
+}
+
+// when a gap appeared: on its row and its page, and the queue can list the newest first
+{
+  const dated = { 'g-decision': '2026-11-12', 'g-recheck': '2026-11-03', 'g-accepted': '2026-10-20' };
+  const v = load({ ...queue, nodes: queue.nodes.map(n => (dated[n.id] ? { ...n, added: dated[n.id] } : n)) });
+  v.go('Gaps');
+  const row = title => v.rows().find(r => r.textContent.startsWith(title)).textContent;
+  assert.ok(row('Gap recheck').endsWith('Added 2026-11-03Needs recheck'), row('Gap recheck'));
+  assert.ok(!row('Gap derived').includes('Added'), 'no date, no word about it');
+  assert.deepEqual(findAll(v.select('Order'), e => e.tag === 'option').map(text), ['Most urgent first', 'Newest first']);
+  v.select('Order').value = 'newest';
+  v.select('Order').fire('change');
+  const order = v.rowTitles();
+  assert.deepEqual(order.filter(t => ['Gap decision', 'Gap recheck', 'Gap accepted'].includes(t)), ['Gap decision', 'Gap recheck', 'Gap accepted']);
+  assert.ok(order.indexOf('Gap derived') < order.indexOf('Gap decision'), 'a gap with no date is a page not committed yet, so it is the newest');
+  v.tab(v.page(), 'History').click();
+  assert.deepEqual(findAll(v.select('Order'), e => e.tag === 'option').map(text), ['Last closed first', 'Newest first']);
+  v.select('Order').value = 'urgent';
+  v.select('Order').fire('change');
+  v.tab(v.page(), 'Open').click();
+  v.btn(v.page(), 'Gap recheck').click();
+  assert.ok(v.page().textContent.includes('Added2026-11-03'), 'the gap page says when it appeared');
 }
 
 console.log('PASS: viewer navigation, pages, gaps, map, search, copy for AI, changes, cited files, parts, overview cards, built page, Markdown');

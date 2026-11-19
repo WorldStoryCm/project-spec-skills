@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 KNOWLEDGE = ROOT / 'skills/project-knowledge'
 EXAMPLE = ROOT / 'examples/parcel-desk'
 VAULT = EXAMPLE / 'knowledge/parcel-desk'
-SKILLS = ('project-knowledge', 'spec-change')
+SKILLS = ('project-knowledge',)
 ENV = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
 
 
@@ -96,23 +96,6 @@ def check_generated():
             if (VAULT / name).exists()]
 
 
-GAP_RULES = KNOWLEDGE / 'references/gaps.md'
-GAP_RULE_COPIES = tuple(ROOT / 'skills' / name / 'references/gaps.md' for name in ('spec-change',))
-
-
-def check_gap_rules():
-    if not GAP_RULES.is_file():
-        return [f'{GAP_RULES.relative_to(ROOT)} is missing (it is the canonical gap rules file)']
-    canonical = GAP_RULES.read_bytes()
-    errors = []
-    for copy in GAP_RULE_COPIES:
-        if not copy.is_file():
-            errors.append(f'{copy.relative_to(ROOT)} is missing; copy it from {GAP_RULES.relative_to(ROOT)}')
-        elif copy.read_bytes() != canonical:
-            errors.append(f'{copy.relative_to(ROOT)} differs from {GAP_RULES.relative_to(ROOT)}; copy it byte for byte')
-    return errors
-
-
 def stage(label, check):
     try:
         errors = check()
@@ -149,7 +132,6 @@ def main():
     results.append(run('fictional fixture tests', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'], cwd=EXAMPLE))
     results.append(run('strict vault check', [sys.executable, str(KNOWLEDGE / 'scripts/knowledge.py'), 'check', '--strict', '--repo', str(EXAMPLE), '--vault', str(VAULT)]))
     results.append(stage('no generated files in the example', check_generated))
-    results.append(stage('gap rules copies', check_gap_rules))
     try:
         results.append(node_check())
     except OSError as exc:

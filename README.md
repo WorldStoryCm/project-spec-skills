@@ -12,7 +12,7 @@ This is an early project. It has been used on a few real repositories; [VALIDATI
 
 You need an agent that can read your repository (Claude Code or Codex), Python 3.10+, Git, and Node 18+ for the `npx` commands.
 
-**1. Install the skills** (once per machine):
+**1. Install the skill** (once per machine):
 
 ```sh
 npx project-spec install --claude      # or --codex
@@ -54,7 +54,9 @@ The agent writes only Markdown under `knowledge/<project>/`. It does not change 
 | --- | --- |
 | A page looks thin | `Use project-knowledge to explore <feature> until it is finished.` |
 | You want the gaps checked | `Use project-knowledge in gaps mode: recheck the high-priority gaps against the code.` |
-| The code changed | `Use project-knowledge to sync the vault with the changes since the last review.` |
+| You changed the code | `Use project-knowledge to record this change in the spec.` |
+| Others changed the code | `Use project-knowledge to record what changed last week.` or, for everything since the last review, `... to sync the vault.` |
+| A gap is accepted | `Use project-knowledge to plan the gap <name>. Plan only.` |
 | You have one question | `Use project-knowledge to investigate: <question>.` |
 | A document says how it should work | `Use project-knowledge to audit <document> against the code.` |
 
@@ -102,12 +104,19 @@ One local page, read from the files on disk. Nothing is built or uploaded. It co
 
 [The viewer](docs/viewer.md) describes every screen, and how to show the spec on a development server for the rest of the team.
 
-## The two skills
+## The skill
 
-| Skill | What it does |
-| --- | --- |
-| [project-knowledge](skills/project-knowledge/SKILL.md) | Writes and maintains the spec and the gap queue. Audits written requirements against the code, answers one question, re-checks one gap, follows Git history. It never changes application code. |
-| [spec-change](skills/spec-change/SKILL.md) (experimental) | Changes the product starting from the spec: you edit the spec on a branch, the agent asks its questions, then implements the change and checks each changed statement against the code. |
+[project-knowledge](skills/project-knowledge/SKILL.md) writes and maintains the spec and the gap queue. It also audits written requirements against the code, answers one question, re-checks one gap, plans a gap you accepted and follows Git history. It never changes application code.
+
+## Keep it current
+
+A spec is only worth reading while it is true. The cheap way to keep it true is to let whoever changes the code correct the spec in the same task, as an edit the size of the change: a changed validation message is one row of one table, not a new review of the project.
+
+```sh
+npx project-spec instructions --file AGENTS.md      # or CLAUDE.md, GEMINI.md, .cursor/rules/project-spec.mdc
+```
+
+This writes a short block into the file your agent reads at the start of a session (Codex, Cursor, Claude Code, Gemini CLI, GitHub Copilot). It asks the agent to read a feature's page before changing it and to correct the changed rules afterwards. Run it again after an update and it replaces the block and leaves the rest of the file alone.
 
 ## Commands
 
@@ -115,8 +124,9 @@ One local page, read from the files on disk. Nothing is built or uploaded. It co
 npx project-spec serve                 # read the spec in the browser
 npx project-spec coverage              # what the code has that no page mentions yet
 npx project-spec build --out FILE      # the viewer as one file, to show on a server
-npx project-spec status                # where the skills are installed and whether they are current
-npx project-spec update                # refresh the installed skills
+npx project-spec instructions          # the block that asks agents to keep the spec current
+npx project-spec status                # where the skill is installed and whether it is current
+npx project-spec update                # refresh the installed copies
 ```
 
 ## Read more

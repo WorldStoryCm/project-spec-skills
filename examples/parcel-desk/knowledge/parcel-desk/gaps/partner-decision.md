@@ -2,6 +2,7 @@
 id: "partner-decision"
 title: "Should a delivery partner be able to cancel on a customer's behalf?"
 type: "gap"
+created: "2026-11-14"
 kind: "product-plan"
 areas: ["access", "pickups"]
 sources: ["SPEC.md", "src/routes.py"]

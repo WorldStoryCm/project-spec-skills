@@ -1,6 +1,6 @@
 # Plan: allow packed pickups to be cancelled
 
-A worked example of the plan report shape in the `spec-change` skill. It is a plan, not an applied change. In the vault the same plan lives at [plans/packed-cancellation.md](../knowledge/parcel-desk/plans/packed-cancellation.md) because the gap [packed-cancellation](../knowledge/parcel-desk/gaps/packed-cancellation.md) was accepted by a person; a skill asked to plan an undecided gap would stop and ask for that decision first. See also [the audit](audit.md) and [the investigation](investigation.md).
+A worked example of the plan report shape in the `project-knowledge` skill's planning guide. It is a plan, not an applied change. In the vault the same plan lives at [plans/packed-cancellation.md](../knowledge/parcel-desk/plans/packed-cancellation.md) because the gap [packed-cancellation](../knowledge/parcel-desk/gaps/packed-cancellation.md) was accepted by a person; a skill asked to plan an undecided gap would stop and ask for that decision first. See also [the audit](audit.md) and [the investigation](investigation.md).
 
 ## Baseline and goal
 

@@ -22,7 +22,7 @@ A customer can cancel only their own pickups, and they learn nothing about anyon
 
 | ID | Rule |
 | --- | --- |
-| BR-OWNER-01 | Only the customer a pickup belongs to can cancel it. Anyone else is refused and nothing is changed. |
+| BR-OWNER-01 | Only the customer a pickup belongs to can cancel it. For anyone else the service refuses with "Pickup belongs to another customer", the adapter answers 403 `forbidden`, and nothing is changed. |
 | BR-OWNER-02 | The owner check comes first, so the refusal does not depend on the pickup's state. |
 | BR-OWNER-03 | The only caller identity is the customer ID the adapter is given. Its docstring says the caller has already authenticated the customer, and no partner or staff identity exists. |
 

@@ -21,8 +21,10 @@ const SKIP = new Set(['__pycache__', '.DS_Store', MARKER]);
 const KNOWLEDGE = new Set(['serve', 'build', 'check', 'snapshot']);
 const MAINTAIN = new Set(['scan', 'receipt', 'finish']);
 const COVERAGE = 'coverage'; // its own helper, which takes no command word
-// Skills earlier versions shipped; project-knowledge and spec-change took over what they did.
-const RETIRED = ['spec-audit', 'spec-investigation', 'spec-plan'];
+// Skills earlier versions shipped; project-knowledge took over what they did. spec-change (changing the product from
+// an edited spec) was dropped: its planning guide is part of project-knowledge, and the spec is kept current by the
+// agent that changes the code (see `project-spec instructions`).
+const RETIRED = ['spec-audit', 'spec-change', 'spec-investigation', 'spec-plan'];
 // Folders inside a project where a copy of the skills may live.
 const PROJECT_PLACES = ['knowledge/tooling', '.claude/skills', '.codex/skills', '.agents/skills'];
 
@@ -51,7 +53,13 @@ Keep the skills current
       Refresh every copy that status lists and remove retired skills. Nothing new is added.
 
 A copy you edited by hand is never replaced unless you pass --force; the old files
-are kept under ~/.project-spec/backups first.`;
+are kept under ~/.project-spec/backups first.
+
+Keep the spec current
+  project-spec instructions [--file FILE]... [--vault DIR] [--remove]
+      A short block for AGENTS.md, CLAUDE.md and the like. It asks whoever changes the code to
+      correct the spec in the same task, as an edit the size of the change. Printed, or written
+      into each FILE you name; run again, it replaces the block and leaves the rest of the file.`;
 
 class Problem extends Error {}
 
@@ -279,6 +287,82 @@ function update(args) {
   return ok ? 0 : 1;
 }
 
+// The block lives in the skill, so an agent without this command can copy it by hand.
+const BLOCK_FILE = path.join(SKILLS, 'project-knowledge', 'references', 'agents.md');
+const BLOCK_START = '<!-- project-spec:start -->';
+const BLOCK_END = '<!-- project-spec:end -->';
+
+// As the helpers do: the single vault under knowledge/.
+function findVault(repo) {
+  const base = path.join(repo, 'knowledge');
+  const found = [];
+  if (fs.existsSync(path.join(base, '00-index.md'))) found.push(base);
+  else if (fs.existsSync(base)) {
+    for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
+      if (entry.isDirectory() && fs.existsSync(path.join(base, entry.name, '00-index.md'))) found.push(path.join(base, entry.name));
+    }
+  }
+  if (found.length !== 1) throw new Problem(`${found.length ? 'several vaults' : 'no vault'} found under knowledge/; name the vault with --vault DIR`);
+  return found[0];
+}
+
+function instructions(args) {
+  const repo = path.resolve(take(args, '--repo').pop() || '.');
+  const named = take(args, '--vault').pop();
+  const files = take(args, '--file');
+  const remove = flag(args, '--remove');
+  done(args);
+  if (remove && !files.length) throw new Problem('--remove needs --file FILE');
+  let block = '';
+  if (!remove) {
+    const text = fs.readFileSync(BLOCK_FILE, 'utf8');
+    const from = text.indexOf(BLOCK_START);
+    const to = text.indexOf(BLOCK_END);
+    const vault = named ? path.resolve(named) : findVault(repo);
+    if (!fs.existsSync(path.join(vault, '00-index.md'))) throw new Problem(`${vault} is not a vault: it has no 00-index.md`);
+    const rel = path.relative(repo, vault).split(path.sep).join('/');
+    if (!rel || rel.startsWith('..')) throw new Problem('the vault must be a folder inside the repository');
+    block = text.slice(from, to + BLOCK_END.length).replaceAll('{vault}', rel);
+  }
+  if (!files.length) return console.log(block), 0;
+  for (const name of files) {
+    const file = path.resolve(name);
+    const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
+    const from = before === null ? -1 : before.indexOf(BLOCK_START);
+    const to = before === null ? -1 : before.indexOf(BLOCK_END);
+    const has = from >= 0 && to > from;
+    let after = before;
+    let what;
+    if (remove) {
+      if (!has) what = 'no project-spec block there';
+      else {
+        const head = before.slice(0, from).replace(/\s+$/, '');
+        const tail = before.slice(to + BLOCK_END.length).trim();
+        after = [head, tail].filter(Boolean).join('\n\n') + (head || tail ? '\n' : '');
+        what = after ? 'block removed' : 'removed (the file held nothing else)';
+      }
+    } else if (before === null) {
+      // A Cursor rule file needs its own header to be applied in every session.
+      after = (file.endsWith('.mdc') ? '---\ndescription: Keep the project spec current\nalwaysApply: true\n---\n\n' : '') + block + '\n';
+      what = 'written';
+    } else if (has) {
+      after = before.slice(0, from) + block + before.slice(to + BLOCK_END.length);
+      what = after === before ? 'already current' : 'block updated';
+    } else {
+      after = before.replace(/\s*$/, '') + (before.trim() ? '\n\n' : '') + block + '\n';
+      what = 'block added';
+    }
+    if (after !== before) {
+      if (after) {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, after);
+      } else fs.rmSync(file);
+    }
+    console.log(`  ${path.relative(process.cwd(), file) || file}: ${what}`);
+  }
+  return 0;
+}
+
 function python(script, command, args) {
   if (!args.includes('--repo')) args.push('--repo', '.');
   if (command === 'serve') {
@@ -299,6 +383,7 @@ function main(argv) {
   if (command === 'status') return status(args) || 0;
   if (command === 'install') return install(args);
   if (command === 'update') return update(args);
+  if (command === 'instructions') return instructions(args);
   if (KNOWLEDGE.has(command)) return python('knowledge.py', command, args);
   if (MAINTAIN.has(command)) return python('maintain.py', command, args);
   if (command === COVERAGE) return python('coverage.py', command, args);

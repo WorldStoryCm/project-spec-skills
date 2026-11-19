@@ -26,7 +26,7 @@ const tooling = path.join(project, 'knowledge/tooling');
 const read = file => fs.readFileSync(file, 'utf8');
 
 try {
-  assert.deepEqual(skills, ['project-knowledge', 'spec-change']);
+  assert.deepEqual(skills, ['project-knowledge']);
   assert.equal(run(['version']).out.trim(), VERSION);
   assert.ok(run([]).out.includes('project-spec install'));
   assert.equal(run(['nonsense']).code, 2);
@@ -37,50 +37,50 @@ try {
   assert.equal(run(['install']).code, 2, 'install does not guess where');
   assert.ok(run(['install', '--skills', 'nope', '--claude']).err.includes('no such skill: nope'));
 
-  // install everything for one agent, one skill into the project
+  // install for one agent, and into the project
   let r = run(['install', '--claude']);
   assert.equal(r.code, 0, r.err);
-  assert.equal((r.out.match(/installed to/g) || []).length, 2);
+  assert.equal((r.out.match(/installed to/g) || []).length, 1);
   for (const name of skills) assert.ok(fs.existsSync(path.join(claude, name, 'SKILL.md')), name);
   assert.equal(read(path.join(claude, 'project-knowledge/scripts/knowledge.py')), read(path.join(ROOT, 'skills/project-knowledge/scripts/knowledge.py')));
   assert.ok(!fs.existsSync(path.join(claude, 'project-knowledge/scripts/__pycache__')));
   // a copy holds what writing a spec needs: the instructions and the helpers, no viewer page and no tests
   assert.ok(!fs.existsSync(path.join(claude, 'project-knowledge/assets')));
   assert.deepEqual(fs.readdirSync(path.join(claude, 'project-knowledge/scripts')).sort(), ['coverage.py', 'knowledge.py', 'maintain.py', 'merge.py']);
-  const marker = JSON.parse(read(path.join(claude, 'spec-change/.project-spec.json')));
+  const marker = JSON.parse(read(path.join(claude, 'project-knowledge/.project-spec.json')));
   assert.equal(marker.version, VERSION);
-  assert.deepEqual(Object.keys(marker.files).sort(), ['LICENSE', 'SKILL.md', 'agents/openai.yaml', 'references/gaps.md', 'references/plan.md']);
+  assert.ok(['LICENSE', 'SKILL.md', 'agents/openai.yaml', 'references/gaps.md', 'references/plan.md', 'scripts/knowledge.py'].every(f => marker.files[f]), Object.keys(marker.files).join());
   r = run(['install', '--dir', 'knowledge/tooling', '--skills', 'project-knowledge']);
   assert.equal(r.code, 0, r.err);
   assert.deepEqual(fs.readdirSync(tooling), ['project-knowledge']);
 
-  // status sees the home copies and the project copy, and says what is missing
+  // status sees the home copy and the project copy
   r = run(['status']);
   assert.ok(r.out.includes('~/.claude/skills') && r.out.includes(tooling), r.out);
   assert.ok(!r.out.includes('.codex'));
   assert.ok(r.out.includes('Everything installed is current.'));
-  assert.ok(/knowledge\/tooling\n  project-knowledge: current\n  spec-change: not installed/.test(r.out), r.out);
+  assert.ok(/knowledge\/tooling\n  project-knowledge: current\n/.test(r.out), r.out);
   assert.ok(run(['install', '--claude']).out.includes('already current'));
 
   // an older copy is refreshed; a file this version dropped is removed, a file of yours is kept
-  const change = path.join(claude, 'spec-change');
-  const old = JSON.parse(read(path.join(change, '.project-spec.json')));
+  const mine = path.join(claude, 'project-knowledge');
+  const old = JSON.parse(read(path.join(mine, '.project-spec.json')));
   const sha = value => require('node:crypto').createHash('sha256').update(value).digest('hex');
-  fs.writeFileSync(path.join(change, 'retired.md'), 'old');
-  fs.writeFileSync(path.join(change, 'mine.md'), 'keep me');
-  fs.writeFileSync(path.join(change, 'SKILL.md'), 'older text');
+  fs.writeFileSync(path.join(mine, 'retired.md'), 'old');
+  fs.writeFileSync(path.join(mine, 'mine.md'), 'keep me');
+  fs.writeFileSync(path.join(mine, 'SKILL.md'), 'older text');
   old.version = '0.1.0';
   old.files['retired.md'] = sha('old');
   old.files['SKILL.md'] = sha('older text');
-  fs.writeFileSync(path.join(change, '.project-spec.json'), JSON.stringify(old));
-  assert.ok(run(['status']).out.includes('spec-change: older (0.1.0)'));
+  fs.writeFileSync(path.join(mine, '.project-spec.json'), JSON.stringify(old));
+  assert.ok(run(['status']).out.includes('project-knowledge: older (0.1.0)'));
   assert.ok(run(['status']).out.includes('1 to refresh: project-spec update'));
   r = run(['update']);
   assert.equal(r.code, 0, r.out + r.err);
-  assert.ok(r.out.includes(`spec-change: updated to ${VERSION}`));
-  assert.ok(!fs.existsSync(path.join(change, 'retired.md')));
-  assert.equal(read(path.join(change, 'mine.md')), 'keep me');
-  assert.equal(read(path.join(change, 'SKILL.md')), read(path.join(ROOT, 'skills/spec-change/SKILL.md')));
+  assert.ok(r.out.includes(`~/.claude/skills/project-knowledge: updated to ${VERSION}`), r.out);
+  assert.ok(!fs.existsSync(path.join(mine, 'retired.md')));
+  assert.equal(read(path.join(mine, 'mine.md')), 'keep me');
+  assert.equal(read(path.join(mine, 'SKILL.md')), read(path.join(ROOT, 'skills/project-knowledge/SKILL.md')));
   assert.ok(run(['status']).out.includes('Everything installed is current.'));
 
   // a copy edited by hand is not replaced, unless forced, and then the old files are kept
@@ -98,33 +98,35 @@ try {
   assert.equal(read(path.join(tooling, 'project-knowledge/SKILL.md')), read(path.join(ROOT, 'skills/project-knowledge/SKILL.md')));
 
   // copies made by hand before this command existed: adopted when identical, backed up when not;
-  // a skill this version no longer has is removed, with its files kept
-  fs.cpSync(path.join(ROOT, 'skills/spec-change'), path.join(codex, 'spec-change'), { recursive: true });
+  // a skill this version no longer has (spec-change among them) is removed, with its files kept
+  const byHand = path.join(project, '.claude/skills');
   fs.cpSync(path.join(ROOT, 'skills/project-knowledge'), path.join(codex, 'project-knowledge'), { recursive: true });
-  fs.writeFileSync(path.join(codex, 'project-knowledge/SKILL.md'), 'something older');
-  for (const [folder, name] of [['spec-audit', 'spec-audit'], ['spec-plan', 'spec-plan'], ['spec-investigation', 'somebody-elses-skill']]) {
+  fs.cpSync(path.join(ROOT, 'skills/project-knowledge'), path.join(byHand, 'project-knowledge'), { recursive: true });
+  fs.writeFileSync(path.join(byHand, 'project-knowledge/SKILL.md'), 'something older');
+  for (const [folder, name] of [['spec-audit', 'spec-audit'], ['spec-change', 'spec-change'], ['spec-plan', 'spec-plan'], ['spec-investigation', 'somebody-elses-skill']]) {
     fs.mkdirSync(path.join(codex, folder), { recursive: true });
     fs.writeFileSync(path.join(codex, folder, 'SKILL.md'), `---\nname: ${name}\ndescription: old\n---\n\nold skill\n`);
   }
   r = run(['status']);
-  assert.ok(/\.codex\/skills\n  project-knowledge: differs, no version recorded\n  spec-change: current\n  spec-audit: retired, update removes it\n  spec-plan: retired, update removes it\n/.test(r.out), r.out);
-  assert.ok(r.out.includes('3 to refresh: project-spec update'), r.out);
+  assert.ok(/\.codex\/skills\n  project-knowledge: current\n  spec-audit: retired, update removes it\n  spec-change: retired, update removes it\n  spec-plan: retired, update removes it\n/.test(r.out), r.out);
+  assert.ok(/\.claude\/skills\n  project-knowledge: differs, no version recorded\n/.test(r.out), r.out);
+  assert.ok(r.out.includes('4 to refresh: project-spec update'), r.out);
   r = run(['update']);
   assert.equal(r.code, 0, r.out + r.err);
-  assert.ok(r.out.includes('spec-change: recorded as current'));
-  assert.ok(/project-knowledge: updated to .*the old copy is in/.test(r.out), r.out);
-  const gone = /spec-audit: removed, this skill is retired; the old copy is in (~\/\.project-spec\/backups\/\S+)/.exec(r.out);
+  assert.ok(r.out.includes('~/.codex/skills/project-knowledge: recorded as current'), r.out);
+  assert.ok(/\.claude\/skills\/project-knowledge: updated to .*the old copy is in/.test(r.out), r.out);
+  const gone = /spec-change: removed, this skill is retired; the old copy is in (~\/\.project-spec\/backups\/\S+)/.exec(r.out);
   assert.ok(gone, r.out);
   assert.ok(read(path.join(home, gone[1].slice(2), 'SKILL.md')).includes('old skill'));
-  assert.ok(!fs.existsSync(path.join(codex, 'spec-audit')) && !fs.existsSync(path.join(codex, 'spec-plan')));
+  assert.ok(!fs.existsSync(path.join(codex, 'spec-audit')) && !fs.existsSync(path.join(codex, 'spec-plan')) && !fs.existsSync(path.join(codex, 'spec-change')));
   assert.ok(fs.existsSync(path.join(codex, 'spec-investigation/SKILL.md')), 'a folder that only shares the name is somebody else\'s');
-  assert.ok(fs.existsSync(path.join(codex, 'spec-change/.project-spec.json')));
+  assert.ok(fs.existsSync(path.join(codex, 'project-knowledge/.project-spec.json')));
   assert.ok(run(['status']).out.includes('Everything installed is current.'));
-  // update adds nothing new
-  fs.rmSync(path.join(claude, 'spec-change'), { recursive: true });
-  r = run(['update']);
-  assert.ok(r.out.includes('Not installed there, so left out:') && r.out.includes('~/.claude/skills/spec-change'), r.out);
-  assert.ok(!fs.existsSync(path.join(claude, 'spec-change')));
+  fs.rmSync(path.join(project, '.claude'), { recursive: true });
+  // update adds nothing new: a copy that was removed stays removed
+  fs.rmSync(path.join(claude, 'project-knowledge'), { recursive: true });
+  run(['update']);
+  assert.ok(!fs.existsSync(path.join(claude, 'project-knowledge')));
 
   // the viewer goes into a copy only when asked, stays in a copy that has it, and comes out when asked
   const lean = path.join(project, 'lean');
@@ -166,6 +168,38 @@ try {
   assert.ok(!fs.existsSync(path.join(agents, 'assets')));
   assert.ok(run(['status'], inLean).out.includes('Everything installed is current.'));
   fs.rmSync(path.join(project, '.agents'), { recursive: true });
+
+  // the block for the project's agent instruction files: printed, written, replaced, removed
+  const start = '<!-- project-spec:start -->';
+  const end = '<!-- project-spec:end -->';
+  assert.equal(run(['instructions']).code, 2, 'no vault to name in the block');
+  fs.mkdirSync(path.join(project, 'knowledge/demo'), { recursive: true });
+  fs.writeFileSync(path.join(project, 'knowledge/demo/00-index.md'), '# Demo\n');
+  r = run(['instructions']);
+  assert.equal(r.code, 0, r.err);
+  assert.ok(r.out.startsWith(start) && r.out.trim().endsWith(end), r.out);
+  assert.ok(r.out.includes('`knowledge/demo/` is this project\'s as-built spec') && !r.out.includes('{vault}'), r.out);
+  assert.ok(r.out.split('\n').length < 25, 'the block stays short: it is read at the start of every session');
+  fs.writeFileSync(path.join(project, 'AGENTS.md'), '# Rules\n\nUse tabs.\n');
+  r = run(['instructions', '--file', 'AGENTS.md', '--file', 'CLAUDE.md', '--file', '.cursor/rules/project-spec.mdc']);
+  assert.ok(r.out.includes('AGENTS.md: block added') && r.out.includes('CLAUDE.md: written') && r.out.includes('project-spec.mdc: written'), r.out);
+  assert.ok(read(path.join(project, 'AGENTS.md')).startsWith('# Rules\n\nUse tabs.\n\n' + start));
+  assert.ok(read(path.join(project, 'CLAUDE.md')).startsWith(start));
+  assert.ok(read(path.join(project, '.cursor/rules/project-spec.mdc')).startsWith('---\ndescription: Keep the project spec current\nalwaysApply: true\n---\n\n' + start));
+  assert.ok(run(['instructions', '--file', 'AGENTS.md']).out.includes('AGENTS.md: already current'));
+  // an older block is replaced, and what the person wrote around it stays
+  fs.writeFileSync(path.join(project, 'AGENTS.md'), `# Rules\n\n${start}\nold words\n${end}\n\nUse tabs.\n`);
+  assert.ok(run(['instructions', '--file', 'AGENTS.md', '--vault', 'knowledge/demo']).out.includes('AGENTS.md: block updated'));
+  const rules = read(path.join(project, 'AGENTS.md'));
+  assert.ok(rules.startsWith('# Rules\n\n' + start) && rules.endsWith(end + '\n\nUse tabs.\n') && !rules.includes('old words'), rules);
+  r = run(['instructions', '--remove', '--file', 'AGENTS.md', '--file', 'CLAUDE.md', '--file', 'README.md']);
+  assert.ok(r.out.includes('AGENTS.md: block removed') && r.out.includes('CLAUDE.md: removed (the file held nothing else)') && r.out.includes('README.md: no project-spec block there'), r.out);
+  assert.equal(read(path.join(project, 'AGENTS.md')), '# Rules\n\nUse tabs.\n');
+  assert.ok(!fs.existsSync(path.join(project, 'CLAUDE.md')) && !fs.existsSync(path.join(project, 'README.md')));
+  assert.equal(run(['instructions', '--remove']).code, 2);
+  assert.equal(run(['instructions', '--vault', 'knowledge/tooling']).code, 2, 'a folder without 00-index.md is not a vault');
+  fs.rmSync(path.join(project, 'knowledge/demo'), { recursive: true });
+  fs.rmSync(path.join(project, '.cursor'), { recursive: true });
 
   // the helpers are started from the package, in the current folder by default
   const dry = { env: { PROJECT_SPEC_DRY_RUN: '1', PROJECT_SPEC_PYTHON: 'py' } };
