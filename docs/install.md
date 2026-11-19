@@ -34,6 +34,32 @@ A copy of a skill holds its instructions and, for `project-knowledge`, four help
 
 To run the unreleased version from this repository, use `npx github:WorldStoryCm/project-spec-skills status` in place of `npx project-spec status`.
 
+## Upgrading from an earlier version
+
+Two commands bring an installation up to date. `@latest` matters: without it `npx` may run a version it downloaded earlier.
+
+```sh
+npx project-spec@latest update      # refresh every copy that status lists
+npx project-spec@latest check       # run it in a project that has a spec
+```
+
+When the package is a development dependency of the project, move it first with `npm install --save-dev project-spec@latest`, then run `npx project-spec update`. With the Claude Code plugin, Claude Code updates the skill; a copy made by hand is copied again.
+
+**Your spec needs no conversion.** Every release since 0.7.0 only added optional things to the vault, so pages written by an older version still pass `check`. A spec written before the spec and the gap queue were separated is the one exception: follow the [migration guide](../skills/project-knowledge/references/migrate.md).
+
+What each release changed, newest first. Read down to the version you have now.
+
+| You have | What changed | What to do |
+| --- | --- | --- |
+| 0.10.0 | 0.11.0 removed the `spec-change` skill. Planning a gap and recording a code change are now part of `project-knowledge`. | `update` deletes the old `spec-change` copies and keeps them under `~/.project-spec/backups`. In saved prompts, replace "Use the spec-change skill" with "Use the project-knowledge skill to plan the gap ..." or "... to record this change in the spec". |
+| 0.10.0 | 0.11.0 added the block for agent instruction files, and a gap's `created` date. | Optional: `npx project-spec instructions --file AGENTS.md`. Nothing for old gaps: the viewer takes their date from the first commit of the page. |
+| 0.9.x | 0.10.0 moved the viewer out of the skill folder, and the helper tests out of the package. | Open the viewer with `npx project-spec serve`. A copy made before 0.10.0 still has the viewer, and `update` keeps it there; `npx project-spec install --dir <folder> --no-viewer` removes it. If a script of yours runs `python3 <skill>/scripts/knowledge.py serve` or `build` from a copy without the viewer, add `--with-viewer` to the install, or switch the script to `npx project-spec`. |
+| 0.9.0 or 0.9.1 | 0.9.2 added the inventory file, the checklist a map is continued from. | Nothing is required. To get one for an existing spec, ask: "Use project-knowledge to take the inventory for the existing spec; do not rewrite the pages." |
+| 0.8.x | 0.9.0 made a first map deep: one feature at a time, parts for a big feature (`parent`), a section for where the apps differ, and the `coverage` command. | Nothing is required. Pages written before are still valid; a page that is thin gets deeper with "Use project-knowledge to explore <feature> until it is finished." |
+| 0.7.0 | 0.8.0 added `build`, the viewer as one file for a server. | Nothing. |
+
+After any upgrade, `npx project-spec status` shows where the copies are and whether each is current.
+
 ## Claude Code plugin
 
 The repository is also a plugin marketplace for Claude Code. Inside Claude Code:

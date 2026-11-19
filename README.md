@@ -118,6 +118,15 @@ npx project-spec instructions --file AGENTS.md      # or CLAUDE.md, GEMINI.md, .
 
 This writes a short block into the file your agent reads at the start of a session (Codex, Cursor, Claude Code, Gemini CLI, GitHub Copilot). It asks the agent to read a feature's page before changing it and to correct the changed rules afterwards. Run it again after an update and it replaces the block and leaves the rest of the file alone.
 
+## Upgrading
+
+```sh
+npx project-spec@latest update      # refresh every installed copy of the skill
+npx project-spec@latest check       # an older spec still passes; this lists anything to fix
+```
+
+Your spec needs no conversion: every release since 0.7.0 only added optional things to it. Two releases changed what is installed. 0.11.0 removed the `spec-change` skill; `update` deletes its copies and keeps a backup, and a request that named it now names `project-knowledge`. 0.10.0 stopped copying the viewer into your project; open it with `npx project-spec serve`. [Upgrading from an earlier version](docs/install.md#upgrading-from-an-earlier-version) has the steps for each release.
+
 ## Commands
 
 ```sh
