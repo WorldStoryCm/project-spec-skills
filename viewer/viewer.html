@@ -1861,6 +1861,12 @@
           conflict: "Conflict",
           "knowledge-gap": "Knowledge gap",
         };
+        // What a gap is about. `kind` says what sort of doubt it is; the topic is what a reader filters by.
+        const topicLabels = { security: "Security", data: "Data", logic: "Logic", ui: "UI", api: "API", ops: "Operations" };
+        const topicOf = (n) => str(n.topic).trim().toLowerCase();
+        const topicLabel = (t) => topicLabels[t] || (t ? t[0].toUpperCase() + t.slice(1) : "");
+        // Who may use a feature, as its page states it: a list of the product's own role names.
+        const accessOf = (n) => (Array.isArray(n.access) ? n.access.map((a) => str(a).trim()).filter(Boolean) : []);
         const STATES = [
           "needs-recheck",
           "needs-decision",
@@ -2518,6 +2524,7 @@
             dl.append(el("dt", k), dd);
           };
           row("State", stateBadge(n));
+          if (topicOf(n)) row("Topic", topicLabel(topicOf(n)));
           if (str(n.kind)) row("Kind", kindLabels[n.kind] || n.kind);
           const recheck = str(n.recheck) || "not-checked",
             who = byWhom(str(n.recheckedBy), str(n.recheckedOn)),
@@ -2822,7 +2829,9 @@
           const row = el("div", null, "row"),
             grow = el("div", null, "grow");
           grow.append(button(g.title, "rowlink", () => openNode(g)));
-          const facts = [kindLabels[g.kind] || str(g.kind), factsLine(g), addedOn(g) && "Added " + addedOn(g)].filter(Boolean).join(" · ");
+          const facts = [topicLabel(topicOf(g)), kindLabels[g.kind] || str(g.kind), factsLine(g), addedOn(g) && "Added " + addedOn(g)]
+            .filter(Boolean)
+            .join(" · ");
           if (facts) grow.append(el("span", facts, "muted small"));
           row.append(grow, stateBadge(g));
           if (recheckOutdated(g)) row.append(outdatedBadge());
@@ -2971,6 +2980,11 @@
           else if (!(changed && n.status === "current")) meta.append(statusBadge(n));
           if (recheckOutdated(n)) meta.append(outdatedBadge());
           if (changed) meta.append(el("span", "Code changed since the last check", "badge stale"));
+          if (n.type === "note" && accessOf(n).length) {
+            const access = el("span", "Access: " + accessOf(n).join(", "), "badge plain");
+            access.title = "Who may use this feature, as the code enforces it. The rule that says so is on the page.";
+            meta.append(access);
+          }
           // The file path of a spec page is for the person who edits it, so it sits at the foot of the page.
           if (layer !== "spec") meta.append(el("span", repoPath(n), "path"));
           main.append(meta);
@@ -3056,6 +3070,7 @@
           gapSort = "urgent", // "urgent" (state, then priority) or "newest" (the day the gap appeared)
           gapArea = "",
           gapKind = "",
+          gapTopic = "", // "" for all, "none" for gaps without one, otherwise the value
           gapPriority = ""; // "" for all, "none" for gaps without one, otherwise the value
         const selectOf = (label, options, value, pick) => {
           const s = el("select");
@@ -3083,6 +3098,7 @@
                 isGap(n) &&
                 inArea(n, gapArea) &&
                 (!gapKind || n.kind === gapKind) &&
+                (!gapTopic || (topicOf(n) || "none") === gapTopic) &&
                 (!gapPriority || (priorityOf(n) || "none") === gapPriority),
             ),
             again = () => {
@@ -3123,6 +3139,19 @@
               again();
             }),
           );
+          // Only the topics the queue has, in the order the format lists them; nothing to pick when no gap has one.
+          const topics = [...new Set(nodes.filter(isGap).map(topicOf).filter(Boolean))].sort((a, b) => {
+            const order = Object.keys(topicLabels),
+              at = (t) => (order.includes(t) ? order.indexOf(t) : order.length);
+            return at(a) - at(b) || a.localeCompare(b);
+          });
+          if (topics.length || gapTopic)
+            filters.append(
+              selectOf("Topic", [["", "All topics"], ...topics.map((t) => [t, topicLabel(t)]), ["none", "No topic"]], gapTopic, (v) => {
+                gapTopic = v;
+                again();
+              }),
+            );
           // Only the priorities the queue has, most urgent first; nothing to pick when no gap has one.
           const priorities = [...new Set(nodes.filter(isGap).map(priorityOf).filter(Boolean))].sort(
             (a, b) => priorityRank({ priority: a }) - priorityRank({ priority: b }) || a.localeCompare(b),
@@ -3433,6 +3462,17 @@
               "I want to change the behavior this page describes. Ask your questions first, then change the code and check it. When the code is done, record the change in the spec as the project-knowledge skill describes (Record a change): correct only the rules that changed, and keep their numbers." +
               "\n\nWhat I want: " + (c.note || "[describe the change]"),
           },
+          review: {
+            label: "Review one topic",
+            hint: "The agent goes through this page's code with a fixed list of questions about one topic. What the code answers becomes a rule on the page; each doubt becomes a gap. No code is changed.",
+            ask: "Anything it should look at (optional)",
+            choices: ["topic", [["security", "Security"], ["api", "API"], ["ui", "UI"]]],
+            text: (c) =>
+              "Use the project-knowledge skill in review mode: review what this page covers for " +
+              ({ security: "security", api: "its API", ui: "its UI" }[c.topic] || c.topic) +
+              ". Follow the skill's review guide and its questions for this topic, read the code and run nothing. Write each doubt as its own gap with that topic, and do not decide any." +
+              (c.note ? "\n\nLook at: " + c.note : ""),
+          },
           question: {
             label: "Ask a question",
             hint: "The agent investigates and answers from the code, saying what it actually checked.",
@@ -3460,7 +3500,7 @@
           isGap(n)
             ? ["recheck", "checked", "decide", "options", "plan", "change", "remove"]
             : layerOf(n) === "spec"
-              ? ["change", "question", "reread", "remove"]
+              ? ["change", "question", "review", "reread", "remove"]
               : n.type === "index"
                 ? ["question"]
                 : ["question", "remove"];
@@ -3479,7 +3519,7 @@
           if (isGap(n))
             lines.push(
               "State: " +
-                [stateLabels[stateOf(n)].toLowerCase(), (kindLabels[n.kind] || str(n.kind)).toLowerCase(), str(n.priority)]
+                [stateLabels[stateOf(n)].toLowerCase(), topicOf(n), (kindLabels[n.kind] || str(n.kind)).toLowerCase(), str(n.priority)]
                   .filter(Boolean)
                   .join(" · "),
             );
@@ -3498,6 +3538,7 @@
             node: n,
             intent: intentsFor(n)[0],
             outcome: "gone",
+            topic: "security",
             decision: "accepted",
             note: "",
             me: str(store.get("me", "")),

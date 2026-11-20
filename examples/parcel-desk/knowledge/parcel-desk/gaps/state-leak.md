@@ -4,6 +4,7 @@ title: "Can a customer learn the state of someone else's pickup from a refusal?"
 type: "gap"
 created: "2026-11-14"
 kind: "verification-gap"
+topic: "security"
 areas: ["access"]
 sources: ["src/pickups.py", "src/routes.py"]
 recheck: "not-reproduced"

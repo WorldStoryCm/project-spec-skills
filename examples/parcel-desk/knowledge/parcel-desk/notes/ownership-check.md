@@ -4,6 +4,7 @@ title: "The owner check runs before the state check"
 type: "note"
 status: "current"
 areas: ["access", "pickups"]
+access: ["customer"]
 sources: ["src/pickups.py", "src/routes.py", "tests/test_pickups.py"]
 tags: ["knowledge", "rule"]
 summary: "Only the customer who owns a pickup can cancel it. Anyone else is refused before the state of the pickup is looked at, and nothing changes."

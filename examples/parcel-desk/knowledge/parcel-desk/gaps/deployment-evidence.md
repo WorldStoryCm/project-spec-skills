@@ -4,6 +4,7 @@ title: "What do an allowed and a denied cancellation return through a real entry
 type: "gap"
 created: "2026-11-14"
 kind: "verification-gap"
+topic: "api"
 areas: ["access", "pickups"]
 sources: ["SPEC.md", "src/routes.py"]
 recheck: "not-checked"

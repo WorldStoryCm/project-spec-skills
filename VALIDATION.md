@@ -2,6 +2,13 @@
 
 > The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet. `spec-change` was never run on a real change and was removed in 0.11.0.
 
+## 2026-11-20: a topic on every gap, who may use a feature, and a review of one topic (not released)
+
+- A gap has an optional `topic` from a closed list (`security`, `data`, `logic`, `ui`, `api`, `ops`); `check` refuses any other value, and a gap without one still passes. The queue has a Topic filter when at least one gap has a topic, and the topic leads the line under a gap's title. A feature page may state who may use it (`access`, a list of roles); the viewer shows it under the title. Helper and viewer tests cover both, and the queue and a page were opened in headless Chrome on the example.
+- `project-knowledge` has a `review <topic>` mode with a guide of fixed questions for security, the API and the UI, a run page to continue from, and the rule that what the code answers becomes a rule on the page and each doubt a gap. The viewer's Copy for AI offers it on a feature or an area. The README describes three kinds of run: the first map, the small update after a change, and a review of one topic.
+- `python3 scripts/verify.py` passed (124 helper tests, the viewer tests, the command tests).
+- **NOT RUN:** no agent has run a review. It is not observed how long one takes, how many of its gaps are real, whether it asks every question of every entry point, or whether it keeps to reading. The time stated in the README for the first map (one to a few hours) is one user's experience on two products, not a measurement. No existing vault has had topics added to its gaps.
+
 ## 2026-11-19: the spec in a folder of your choice
 
 - A new vault went to `knowledge/<project>/` whatever the person wanted, which gives `ProjectA/knowledge/ProjectA`, and the helpers looked only under `knowledge/`: a real vault kept in `project-spec/` needed `--vault` on every command.

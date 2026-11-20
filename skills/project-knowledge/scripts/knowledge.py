@@ -19,11 +19,12 @@ TYPES = {'index', 'area', 'note', 'gap', 'plan', 'run'}
 SPEC_STATUSES = {'current', 'partial', 'stale', 'superseded'}
 NAV_STATUSES = SPEC_STATUSES | {'planned'}
 KINDS = ('product-gap', 'verification-gap', 'product-plan', 'conflict', 'knowledge-gap')
+TOPICS = ('security', 'data', 'logic', 'ui', 'api', 'ops')  # what a gap is about; one value, optional
 RECHECKS = ('not-checked', 'confirmed', 'not-reproduced', 'outdated')
 DECISIONS = ('open', 'accepted', 'rejected', 'deferred', 'done', 'duplicate')
 DECIDED = ('accepted', 'rejected', 'deferred')
 STATE_ORDER = ('needs-recheck', 'needs-decision', 'accepted', 'deferred', 'rejected', 'done', 'duplicate')
-GAP_ONLY = ('kind', 'recheck', 'rechecked_by', 'rechecked_on', 'decision', 'decided_by', 'decided_on', 'duplicate_of', 'created')
+GAP_ONLY = ('kind', 'recheck', 'rechecked_by', 'rechecked_on', 'decision', 'decided_by', 'decided_on', 'duplicate_of', 'created', 'topic')
 GAP_SECTIONS = ('Current behavior', 'Gap', 'Evidence', 'Recheck', 'Discussion', 'Decision')
 LAYERS = {'area': 'spec', 'note': 'spec', 'gap': 'gap', 'plan': 'gap', 'index': 'nav', 'run': 'nav'}
 UNCOUNTED = ' (uncommitted change, not counted)'  # suffix of a freshness warning that --ignore-dirty does not count
@@ -36,7 +37,7 @@ TABLE_RULE = re.compile(r'^ {0,3}\|?[ \t]*:?-+:?[ \t]*(\|[ \t]*:?-+:?[ \t]*)+\|?
 RULE_ROW = re.compile(r'^ {0,3}\|[ \t]*(BR-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d{2,4})[ \t]*\|')
 MD_REF = re.compile(r'^ {0,3}\[[^\]\n]+\]:\s*(<[^>]*>|\S+)', re.M)
 GAP_PAGE_ONLY = ('priority', 'confidence')
-ARRAYS = {'areas', 'sources', 'tags', 'aliases', 'task_ids'}
+ARRAYS = {'areas', 'sources', 'tags', 'aliases', 'task_ids', 'access'}
 STRINGS = {'id', 'title', 'type', 'status', 'updated', 'summary', 'verification', 'priority', 'confidence', 'gap', 'parent',
            *GAP_ONLY}
 REQUIRED = {'id', 'title', 'type', 'areas', 'sources', 'updated'}
@@ -215,6 +216,11 @@ def validate_meta(meta):
             raise ValueError(f"status must be one of {', '.join(sorted(allowed))}{hint}")
         if kind == 'note' and meta['status'] == 'current' and not meta['sources']:
             raise ValueError('current note requires sources')
+    if 'access' in meta:
+        if kind != 'note':
+            raise ValueError('access is only valid on note pages: it names who may use the feature the note describes')
+        if not meta['access'] or any(not x.strip() for x in meta['access']):
+            raise ValueError('access must name at least one role, or be left out when the code was not read for it')
     if 'parent' in meta and (kind != 'note' or not meta['parent'].strip()):
         raise ValueError('parent is only valid on note pages and names the feature note this one is a part of')
     if kind == 'plan':
@@ -255,6 +261,8 @@ def validate_gap(meta):
         check_date('decided_on', meta['decided_on'])
     if 'created' in meta:
         check_date('created', meta['created'])
+    if 'topic' in meta and meta['topic'] not in TOPICS:
+        raise ValueError(f'topic must be one of {", ".join(TOPICS)}')
     if meta['decision'] == 'duplicate':
         if not meta.get('duplicate_of', '').strip():
             raise ValueError("duplicate_of is required when decision is 'duplicate': give the id of the other gap")
@@ -674,6 +682,7 @@ def node_of(note):
         'kind': m.get('kind', ''), 'recheck': m.get('recheck', ''), 'recheckedBy': m.get('rechecked_by', ''),
         'recheckedOn': m.get('rechecked_on', ''), 'decision': m.get('decision', ''), 'decidedBy': m.get('decided_by', ''),
         'decidedOn': m.get('decided_on', ''), 'priority': m.get('priority', ''), 'confidence': m.get('confidence', ''),
+        'topic': m.get('topic', ''), 'access': m.get('access', []),
         'parent': m.get('parent', ''), 'duplicateOf': m.get('duplicate_of', ''), 'recheckOutdated': gap and (m['recheck'] == 'outdated' or recheck_marker(note)), 'state': note.get('state', ''), 'gap': m.get('gap', ''),
         'layer': LAYERS[m['type']]}
 

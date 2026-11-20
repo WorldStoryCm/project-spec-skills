@@ -34,6 +34,8 @@ pickup's state. A pickup that passes both is set to `cancelled` and returned.
 | BR-CANCEL-02 | In any other state the cancellation is refused with "Only requested pickups can be cancelled" and nothing is changed. |
 ```
 
+When the code restricts who may use a feature, the page says so as a rule, and its properties carry the roles (`access: ["admin"]`, `["signed-in"]`, `["public"]`), which the viewer shows beside the title as "Access: admin". A page without it has not had that read yet.
+
 A rule's number is its name. It stays the same when the rule's text changes, a new rule gets the next free number, and a removed rule's number is never used again, so a number quoted in a ticket, a test or a chat keeps pointing at one rule. `check` fails when a number appears twice in the vault.
 
 Things the code registers in one place and no single feature owns (background jobs, emails, routes, roles, plan limits) are listed in reference pages: one table with every item. A page cites the one to five files that decide its behavior. When one of them changes, the page is marked "Code changed since the last check" until someone re-reads it.

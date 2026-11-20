@@ -28,6 +28,7 @@ A gap must not have `status`; its progress is carried by `recheck` and `decision
 | `decided_on` | when `decision` is `accepted`, `rejected` or `deferred` | `YYYY-MM-DD` |
 | `duplicate_of` | when `decision` is `duplicate` | id of another existing gap (not itself) |
 | `created` | optional, gap pages only | `YYYY-MM-DD`: the day the gap was written. Set it when you create the gap and never change it. The viewer shows it on the gap and can list the newest gaps first; for a page without it, the viewer uses the day the page was first committed. |
+| `topic` | optional, gap pages only | what the gap is about, one of `security` (who may reach, see or change what; tokens and secrets), `data` (records lost, damaged or out of step with each other), `logic` (a business rule that is missing, unclear or contradicts another), `ui` (what a person sees: texts, states, the same thing looking or behaving differently in two places), `api` (what another system calls: unused, undocumented or inconsistent endpoints), `ops` (jobs, schedules, configuration, deployment). One value: the one a person looking for this gap would filter by. `kind` says what sort of doubt it is; `topic` says what it is about. The viewer filters the queue by it. |
 | `priority`, `confidence` | optional, gap and plan pages only | short strings, e.g. `"high"`. Use `high`, `medium` or `low` for `priority` (or `P0` to `P4`): the viewer lists the most urgent gap of each state first, can show one priority only, and can list the newest gaps first instead. |
 
 `decided_by` and `decided_on` are also allowed on `done` and `duplicate` but not required. With `outdated`, `rechecked_by` and `rechecked_on` stay in place as the record of the last recheck actually done. A fresh recheck replaces all three fields and adds a new dated entry to the `Recheck` section; keep the older entries.
@@ -82,7 +83,8 @@ Use `agent` as the name for entries you write yourself. Layout of options, objec
 
 | Field | Who |
 | --- | --- |
-| New gap: `kind`, `recheck: "not-checked"`, `decision: "open"`, `created` (today), optional `priority`/`confidence` | The agent that found it |
+| New gap: `kind`, `topic`, `recheck: "not-checked"`, `decision: "open"`, `created` (today), optional `priority`/`confidence` | The agent that found it |
+| `topic` on an older gap that has none | An agent, from the gap page alone; it is bookkeeping and no recheck |
 | `recheck`, `rechecked_by`, `rechecked_on`, `Recheck` text | Whoever actually performed the check; an agent writes `agent` only for a check it ran itself, with its commands and results. An agent may also set `recheck: "outdated"` when a cited source changed since the recorded recheck, keeping the other two fields |
 | `decision: accepted`, `rejected`, `deferred` with `decided_by`, `decided_on` | A person only. An agent writes it only when a person said so in the conversation, and records that person's name |
 | `decision: done` | An agent may set it after reading current code that closes the question; it cites where in `Decision` and records that reading as a recheck (see below). A person closing a gap as done records the decision in `decided_by`/`Decision`; their name goes in `rechecked_by` only if they read or ran the current code themselves, otherwise the recheck fields stay as they are |
@@ -119,6 +121,7 @@ id: "invoice-retry-limit"
 title: "Should failed invoice emails retry more than once?"
 type: "gap"
 kind: "product-plan"
+topic: "ops"
 areas: ["billing"]
 sources: ["src/billing/mailer.py"]
 recheck: "confirmed"

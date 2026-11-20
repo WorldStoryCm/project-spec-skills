@@ -4,6 +4,7 @@ title: "Should a delivery partner be able to cancel on a customer's behalf?"
 type: "gap"
 created: "2026-11-14"
 kind: "product-plan"
+topic: "logic"
 areas: ["access", "pickups"]
 sources: ["SPEC.md", "src/routes.py"]
 recheck: "confirmed"

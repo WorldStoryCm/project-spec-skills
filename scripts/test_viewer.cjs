@@ -365,6 +365,9 @@ const queue = {
   v.select('Priority').value = '';
   v.select('Priority').fire('change');
 
+  // no gap of this queue has a topic, so there is nothing to pick
+  assert.equal(v.select('Topic'), undefined);
+
   // a gap page: who rechecked and decided, in words
   v.btn(v.page(), 'Gap derived').click();
   const facts = () => findAll(v.page(), e => has(e, 'gap-facts'))[0].textContent;
@@ -387,6 +390,44 @@ const queue = {
   assert.equal(v.h1(), 'Plan A');
   assert.deepEqual(v.crumbs(), ['Sample vault', '/', 'Gaps', '/', 'Gap accepted', '/', 'Plan A']);
   assert.ok(findAll(v.page(), e => cls(e) === 'wiki' && e.textContent === 'Gap accepted')[0]);
+}
+
+// What a gap is about (its topic) is a filter of the queue; who may use a feature is shown under its title.
+{
+  const v = load({
+    title: 'Sample vault',
+    nodes: [
+      node({ id: 'areas/a', title: 'Area A', type: 'area', layer: 'spec', status: 'current', path: 'areas/a.md', areas: ['areas/a'] }),
+      node({ id: 'users', title: 'Users', type: 'note', layer: 'spec', status: 'current', path: 'notes/users.md', access: ['admin', 'owner'] }),
+      node({ id: 'profile', title: 'Profile', type: 'note', layer: 'spec', status: 'current', path: 'notes/profile.md' }),
+      gap('g-role', 'Role change', { topic: 'security', kind: 'conflict' }),
+      gap('g-empty', 'Empty list', { topic: 'ui' }),
+      gap('g-own', 'Own word', { topic: 'billing' }),
+      gap('g-plain', 'Plain gap', {}),
+    ],
+    edges: [{ source: 'areas/a', target: 'users' }, { source: 'areas/a', target: 'profile' }],
+  });
+  v.go('Gaps');
+  assert.deepEqual(findAll(findAll(v.page(), e => has(e, 'filters'))[0], e => e.tag === 'select').map(s => s.attrs['aria-label']), ['Area', 'Kind', 'Topic', 'Order']);
+  assert.deepEqual(findAll(v.select('Topic'), e => e.tag === 'option').map(o => [o.value, o.textContent]),
+    [['', 'All topics'], ['security', 'Security'], ['ui', 'UI'], ['billing', 'Billing'], ['none', 'No topic']],
+    'the topics the queue has, in the order the format lists them, a value of its own last');
+  assert.ok(v.rows().find(r => r.textContent.startsWith('Role change')).textContent.includes('Security · Conflict'), 'the topic leads the line under the title');
+  v.select('Topic').value = 'security';
+  v.select('Topic').fire('change');
+  assert.deepEqual(v.rowTitles(), ['Role change']);
+  assert.deepEqual(findAll(v.page(), e => has(e, 'tab')).map(text), ['Open1', 'Needs recheck1'], 'the counts follow the topic');
+  v.select('Topic').value = 'none';
+  v.select('Topic').fire('change');
+  assert.deepEqual(v.rowTitles(), ['Plain gap']);
+  v.select('Topic').value = '';
+  v.select('Topic').fire('change');
+  v.btn(v.page(), 'Role change').click();
+  assert.ok(findAll(v.page(), e => has(e, 'gap-facts'))[0].textContent.includes('TopicSecurity'));
+  v.open('Users');
+  assert.ok(findAll(v.page(), e => has(e, 'metarow'))[0].textContent.includes('Access: admin, owner'));
+  v.open('Profile');
+  assert.ok(!v.page().textContent.includes('Access:'), 'a page that does not say who may use it shows nothing');
 }
 
 // --- map: one frame per area -----------------------------------------------------
@@ -600,8 +641,14 @@ const queue = {
   // a spec page offers what fits a spec page
   v.open('Cancelling a pickup');
   v.q('#copy-ai').click();
-  assert.deepEqual(intents(), ['Change the behavior', 'Ask a question', 'Re-read against the code', 'Remove this page']);
+  assert.deepEqual(intents(), ['Change the behavior', 'Ask a question', 'Review one topic', 'Re-read against the code', 'Remove this page']);
   assert.ok(preview().includes('Page: knowledge/parcel/notes/cancel.md'));
+  // a review of one topic: security unless another is picked
+  v.pill(card(), 'Review one topic').click();
+  assert.ok(preview().startsWith('Use the project-knowledge skill in review mode: review what this page covers for security.'));
+  v.pill(card(), 'UI').click();
+  assert.ok(preview().startsWith('Use the project-knowledge skill in review mode: review what this page covers for its UI.'));
+  assert.ok(preview().includes('Write each doubt as its own gap with that topic, and do not decide any.'));
   assert.ok(preview().includes('Related pages:\n- knowledge/parcel/notes/owner.md (Owner check)'));
   v.pill(card(), 'Ask a question').click();
   type('copy-note', 'What happens to a packed pickup?');

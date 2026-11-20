@@ -552,6 +552,30 @@ class GapLayerTests(Fixture):
         self.note('notes/n.md', 'n', sources=['source.txt'], created='2026-01-05')
         self.assertIn('created', self.run_cli('check')[2])
 
+    def test_a_gap_has_a_topic_and_a_note_says_who_may_use_it(self):
+        gap = dict(sources=[], kind='product-gap', recheck='not-checked', decision='open', status=None, body=GAP_BODY)
+        self.note('gaps/g.md', 'g', 'gap', topic='security', **gap)
+        self.note('notes/n.md', 'n', sources=['source.txt'], access=['admin', 'owner'])
+        self.assertEqual(self.run_cli('check')[0], 0)
+        notes, edges, errors, warnings, _ = k.load_vault(self.repo.resolve(), self.vault.resolve(), freshness=False)
+        nodes = {n['id']: n for n in k.page_payload(self.repo.resolve(), self.vault.resolve(), notes, edges, warnings, sources=False)['nodes']}
+        self.assertEqual((nodes['g']['topic'], nodes['g']['access'], nodes['n']['topic'], nodes['n']['access']),
+                         ('security', [], '', ['admin', 'owner']))
+        # the list of topics is closed, so the queue does not grow five spellings of one thing
+        self.note('gaps/g.md', 'g', 'gap', topic='Security', **gap)
+        self.assertIn('topic must be one of security, data, logic, ui, api, ops', self.run_cli('check')[2])
+        self.note('gaps/g.md', 'g', 'gap', **gap)
+        self.assertEqual(self.run_cli('check')[0], 0, 'a gap without a topic is an older gap, not an error')
+        self.note('notes/n.md', 'n', sources=['source.txt'], topic='security')
+        self.assertIn('topic is only valid on gap pages', self.run_cli('check')[2])
+        for value, message in (([], 'access must name at least one role'), ([' '], 'access must name at least one role'),
+                               ('admin', 'access must be a string array')):
+            self.note('notes/n.md', 'n', sources=['source.txt'], access=value)
+            self.assertIn(message, self.run_cli('check')[2])
+        self.note('notes/n.md', 'n', sources=['source.txt'])
+        self.note('gaps/g.md', 'g', 'gap', access=['admin'], **gap)
+        self.assertIn('access is only valid on note pages', self.run_cli('check')[2])
+
     def test_history_and_pending_pages_come_from_git(self):
         k._history_cache.clear()
         repo, vault = self.repo.resolve(), self.vault.resolve()

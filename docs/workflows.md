@@ -130,6 +130,33 @@ If `check` fails on a vault written before the spec/gap split, follow the [migra
 
 Everything is manual and nothing is published: the package installs no schedule or hooks, writes the block for agents only when you run the command, and does not commit, push or synchronize other clones. Share the Markdown, reviewed state and chosen skill version through your normal Git workflow. Personal Obsidian settings and local scan reports should stay ignored.
 
+## Reviewing one topic
+
+The map writes down what the product does and raises the doubts it meets on the way. A review is a separate pass for the moment you want one topic looked at on purpose: the agent goes through every way into the product again with a fixed list of questions, so nothing is skipped because it looked fine.
+
+```text
+Use the project-knowledge skill in review mode: review the product for security.
+Go by the inventory file, one feature at a time, and ask every question of the
+review guide of every entry point. Read the code and run nothing. Write each doubt
+as its own gap with topic security, and tell me how many features you reviewed.
+```
+
+| Topic | What it asks |
+| --- | --- |
+| `security` | Who can reach each entry point and where the server checks it, whose record it is, which fields may be changed, what comes back, what is done with input, files, sign-in and recovery, secrets, webhooks, jobs, what is sent out, money. |
+| `api` | Endpoints nothing calls, clients calling what does not exist, two ways to do one thing, calls marked as outdated and still used, unchecked input, inconsistent names and errors, a written contract that disagrees with the code, calls out without a timeout. |
+| `ui` | Missing loading, empty, error and no-permission states, the same control built twice, one thing under two names, actions without a confirmation, a control shown to someone the server refuses, differences between clients. |
+
+The full lists are in [the review guide](../skills/project-knowledge/references/review.md). Name another topic ("data", "performance", "texts") and the agent proposes its questions before it starts.
+
+What comes out:
+
+- **Rules.** What the code answers plainly goes onto the feature's page as a numbered rule. A security review also fills in who may use each feature (`access`), which the viewer shows beside the title.
+- **Gaps.** Each doubt is one gap with its topic, in the same queue as the others. Filter the queue by topic to see only those.
+- **A run page** with the features reviewed and not reviewed, so a later session continues where this one stopped.
+
+A review opens every entry point again, so it takes about as long as the map of the features it covers. Run one topic at a time, and name an area or "what changed last week" to keep it short. It reads code: vulnerable or outdated packages, secrets in the Git history and server configuration are for tools (`npm audit`, `osv-scanner`, a secret scanner), and the report names what it did not cover. Security gaps describe weaknesses of a live product, so think before you publish the vault where people outside the team can read it.
+
 ## Gaps are decided by people
 
 A gap starts open. Anyone can re-check it (ask `project-knowledge` to recheck it) and the result is written into the gap with who did it and when. Then a person accepts, rejects or defers it, or the agent finds the code already closes it and marks it done. Only an accepted gap gets a plan. Each gap page has its own `Discussion` and `Decision` sections, and the viewer lists the queue by state. A recheck means the same thing for every kind of gap, proposals included: it asks only whether the page's description of current behavior still holds in the code ("confirmed (still holds)" or "not reproduced (no longer holds)"), never whether the proposal is a good idea. Details are in [gaps.md](../skills/project-knowledge/references/gaps.md).

@@ -50,14 +50,40 @@ Use the project-knowledge skill and continue the map from the inventory file.
 
 The agent writes only Markdown in that folder. Name any other folder in the prompt (`docs/spec`, `knowledge/shop`): the commands find the spec wherever it is, and `npx project-spec move --to DIR` moves it later without breaking its links. It does not change application code, commit or push. There is also a Claude Code plugin, a manual install and a way to pin one version for a team: see [Install and update](docs/install.md).
 
-### What to ask next
+### Three kinds of run
+
+**1. The first map** is the prompt above. It is the long one: from one to a few hours of agent time, more for a big product, and it can be split over sessions. Everything else builds on it.
+
+**2. After the code changes**, a small one. It corrects only the rules the change touched:
+
+```text
+Use project-knowledge to record this change in the spec.
+```
+
+```text
+Use project-knowledge to record what changed last week.
+```
+
+For everything since the last review, by everyone: `Use project-knowledge to sync the vault.` To have every agent do the first one by itself at the end of its task, see [Keep it current](#keep-it-current).
+
+**3. A review of one topic**, when you want that topic looked at on purpose. The agent goes through every way into the product again with a fixed list of questions. What the code answers becomes a rule on the feature's page; each doubt becomes a gap you can filter by topic:
+
+```text
+Use the project-knowledge skill in review mode: review the product for security.
+Go by the inventory file, one feature at a time, and ask every question of the
+review guide of every entry point. Read the code and run nothing. Write each doubt
+as its own gap with topic security, and tell me how many features you reviewed.
+```
+
+The same works with `its API` (endpoints nothing calls, two ways to do one thing, calls marked as outdated, a written contract that disagrees with the code) and `its UI` (missing loading, empty and error states, the same control built twice, one thing under two names). Name your own topic and the agent proposes its questions first. A review opens every entry point again, so it takes about as long as the map of the features it covers: run one topic at a time, and name an area (`review the billing area for security`) to keep it short. It reads code and is not a scanner: for vulnerable or outdated packages use `npm audit` or a similar tool.
+
+### What else to ask
 
 | When | Prompt |
 | --- | --- |
 | A page looks thin | `Use project-knowledge to explore <feature> until it is finished.` |
 | You want the gaps checked | `Use project-knowledge in gaps mode: recheck the high-priority gaps against the code.` |
-| You changed the code | `Use project-knowledge to record this change in the spec.` |
-| Others changed the code | `Use project-knowledge to record what changed last week.` or, for everything since the last review, `... to sync the vault.` |
+| Older gaps have no topic | `Use project-knowledge in gaps mode: give every gap a topic from its page.` |
 | A gap is accepted | `Use project-knowledge to plan the gap <name>. Plan only.` |
 | You have one question | `Use project-knowledge to investigate: <question>.` |
 | A document says how it should work | `Use project-knowledge to audit <document> against the code.` |
@@ -69,7 +95,7 @@ More in [Working with the skills](docs/workflows.md#example-prompts).
 A folder of plain Markdown in your repository (it also opens in Obsidian) with two layers that stay apart:
 
 - **The as-built spec.** How the code works now, taken only from the source. Each feature has one page: what it is for, how it works, its fields and its numbered rules. What people agreed in chats is not part of it.
-- **The gap queue.** The agent's questions about what is missing, doubtful or worth adding, one per page. People re-check each one and decide it. The agent never records a decision nobody made.
+- **The gap queue.** The agent's questions about what is missing, doubtful or worth adding, one per page, each with a topic (security, data, logic, UI, API, operations). People re-check each one and decide it. The agent never records a decision nobody made.
 
 A page looks like this:
 
@@ -110,7 +136,7 @@ One local page, read from the files on disk. Nothing is built or uploaded. It co
 
 ## The skill
 
-[project-knowledge](skills/project-knowledge/SKILL.md) writes and maintains the spec and the gap queue. It also audits written requirements against the code, answers one question, re-checks one gap, plans a gap you accepted and follows Git history. It never changes application code.
+[project-knowledge](skills/project-knowledge/SKILL.md) writes and maintains the spec and the gap queue. It also reviews the product for one topic, audits written requirements against the code, answers one question, re-checks one gap, plans a gap you accepted and follows Git history. It never changes application code.
 
 ## Keep it current
 
