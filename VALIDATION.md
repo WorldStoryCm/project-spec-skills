@@ -2,6 +2,12 @@
 
 > The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet. `spec-change` was never run on a real change and was removed in 0.11.0.
 
+## 2026-11-20: a change request that does not make the agent wait
+
+- Seen in real use of 0.14.0: the viewer's "Change the behavior" request opened with "Ask your questions first, then change the code". The person had written the whole change ("add limit same as on mobile"), and the agent still stopped and changed nothing until told again.
+- 0.14.1: the request is the opening line, then "Make this change:" with the person's words, then the step that records the change in the spec. Asked from a gap page, it also asks to close the gap as done once the change answers it. Viewer tests cover the text on a gap and on a feature page. `python3 scripts/verify.py` passed.
+- **NOT RUN:** no agent has been given the new request, so it is not observed that it now acts at once, or that it still asks when the words are unclear.
+
 ## 2026-11-20: the first reviews, three more lists, and where the spec stands
 
 - The first two security reviews were run by agents on real products with 0.13.0. One covered 90 features and 1,096 entry points and wrote 29 gaps (6 high, 10 medium, 13 low); the product's owner read the six high ones and said they look right, two of them matching what they know of the code. The other covered 82 features and left 141 open gaps with the topic. Neither count has been rechecked gap by gap, so how many are real is still not known, and the time and cost of the passes were not recorded.

@@ -705,7 +705,13 @@ const queue = {
   assert.ok(preview().includes('Keep in mind: Not before the partner launch.'));
   v.pill(card(), 'Change the behavior').click();
   type('copy-note', '');
-  assert.ok(preview().includes('What I want: [describe the change]'));
+  assert.ok(preview().startsWith('I want to change the behavior this page describes.\n\nMake this change: [describe the change]\n\nWhen the code is done, record the change in the spec'),
+    'the change comes first, as an order; nothing tells the agent to ask and wait');
+  assert.ok(!/question|go-ahead|Ask me/i.test(preview().split('\n\nGap:')[0]));
+  assert.ok(preview().includes('If the change answers this gap, close the gap as done there and name the rule that now says it.'), 'asked from a gap, the change closes it');
+  type('copy-note', 'add the limit the mobile app has');
+  assert.ok(preview().includes('Make this change: add the limit the mobile app has\n\nWhen the code is done'));
+  type('copy-note', '');
   check('The 1 spec page it refers to').checked = false;
   check('The 1 spec page it refers to').fire('change');
   assert.ok(!preview().includes('It refers to:'));
@@ -724,6 +730,7 @@ const queue = {
   v.q('#copy-ai').click();
   assert.deepEqual(intents(), ['Change the behavior', 'Ask a question', 'Review one topic', 'Re-read against the code', 'Remove this page']);
   assert.ok(preview().includes('Page: knowledge/parcel/notes/cancel.md'));
+  assert.ok(preview().includes('Make this change: ') && !preview().includes('close the gap'), 'a feature page has no gap to close');
   // a review of one topic: security unless another is picked
   v.pill(card(), 'Review one topic').click();
   assert.ok(preview().startsWith('Use the project-knowledge skill in review mode: review what this page covers for security.'));

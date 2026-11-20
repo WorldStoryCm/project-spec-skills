@@ -3637,11 +3637,14 @@
           },
           change: {
             label: "Change the behavior",
-            hint: "You want the product to work differently. The agent asks its questions first, changes the code, then corrects this page so it says what the code does now.",
+            hint: "You want the product to work differently. Say what should change: the agent changes the code, then corrects this page so it says what the code does now.",
             ask: "What should be different, and for whom",
+            // The change itself comes first, as an order. A request that opens with "ask your questions
+            // first" makes the agent stop and wait even when everything was said.
             text: (c) =>
-              "I want to change the behavior this page describes. Ask your questions first, then change the code and check it. When the code is done, record the change in the spec as the project-knowledge skill describes (Record a change): correct only the rules that changed, and keep their numbers." +
-              "\n\nWhat I want: " + (c.note || "[describe the change]"),
+              "I want to change the behavior this page describes.\n\nMake this change: " + (c.note || "[describe the change]") +
+              "\n\nWhen the code is done, record the change in the spec as the project-knowledge skill describes (Record a change): correct only the rules that changed, and keep their numbers." +
+              (c.node && isGap(c.node) ? " If the change answers this gap, close the gap as done there and name the rule that now says it." : ""),
           },
           review: {
             label: "Review one topic",
