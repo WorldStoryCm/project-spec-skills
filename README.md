@@ -1,14 +1,80 @@
 # Project Spec Skills
 
-**Turn a repository into a spec people can read: one page per feature, every business rule numbered.**
+**An agent reads your repository and writes two things: a spec of what the product does, and the questions it could not settle.**
 
-Agent skills for the moment after you built fast with AI and now need to know what the product really does. The agent reads the code you already have and writes down how it works. Every doubt it has about the product becomes a gap: one question on its own page, rechecked against the code and decided by a person. You read the result in a local viewer, question it, and change the product starting from it.
+For the moment after you built fast with AI and need to know what the product really does. The **spec** is plain Markdown in your repository: one page per feature, every business rule numbered, taken only from the code. Each doubt the agent has is a **gap**: one question on its own page, which a person rechecks and decides.
 
 This is an early project. It has been used on a few real repositories; [VALIDATION.md](VALIDATION.md) says what was checked and what was not.
 
 ![A gap in the viewer: one question about the product, with who rechecked it, who decided it, its plan and the features it is about](docs/images/viewer-gap-page.png)
 
-## Setup
+## What you get
+
+A folder in your repository, `project-spec/` unless you name another:
+
+```text
+project-spec/
+  areas/    one page per part of the product: a map of its features
+  notes/    one page per feature: what it is for, how it works, its numbered rules
+  gaps/     one page per question about the product
+  plans/    a plan for a gap a person accepted
+  runs/     what each pass read, and each review
+```
+
+It is plain Markdown and also opens in Obsidian. The two layers stay apart: a spec page says only what the code does, and a doubt is never written into it.
+
+### The spec: areas, features, rules
+
+- **An area** is a part of the product as a person would name it: "Orders and checkout", "Accounts and access". Its page is a map: what the area covers, and one line per feature.
+- **A feature** has one page, with the same sections every time: what it is for and who uses it, how it works, its fields, its business rules. A feature too big for one page has parts.
+- **A rule** is one numbered row with the real values: the limit, the message, who may do it.
+
+```markdown
+# Only requested pickups are currently cancellable
+
+A customer who no longer needs a pickup cancels it, and the service lets that
+happen only before anyone has started work on it.
+
+## Business rules
+
+| ID | Rule |
+| --- | --- |
+| BR-CANCEL-01 | A pickup can be cancelled only while its state is `requested`. |
+| BR-CANCEL-02 | In any other state the cancellation is refused with "Only requested pickups can be cancelled" and nothing is changed. |
+```
+
+A rule keeps its number for good, so a reviewer, a tester or a support person can say "BR-CANCEL-02 is wrong" instead of describing a screen. A page can also say who may use the feature (`access: ["admin"]`). When a file a page relies on changes, the page is marked for re-reading.
+
+### Gaps: the questions
+
+A gap is one question about the product that a person can check and decide: *"Should a customer be able to cancel their own packed pickup?"* The agent writes one when the code is missing something, when two places disagree, or when it cannot tell whether a behavior is meant. The page says what the code does today, asks the question, gives the evidence, and then keeps its own recheck, discussion and decision.
+
+| State | What it means | Who moves it on |
+| --- | --- | --- |
+| Needs recheck | The agent wrote it; nobody has confirmed that it still describes the code. | An agent or a person rechecks it. |
+| Needs decision | Rechecked. It waits for an answer. | A person: accept, reject or defer. |
+| Accepted | Someone decided it should be done. A plan can be written for it. | Whoever builds it; it closes when the code answers it. |
+| Deferred | Not now. | A person, later. |
+| History | Done, rejected or a duplicate. | Kept, with the reason. |
+
+The agent proposes and rechecks; only a person decides, and the agent never records a decision nobody made. A closed gap is not deleted: the spec says what the code does, and the gap is the one place that says why.
+
+Expect many. On the two products this was first used on, the map left more than 150 gaps each, so every gap has two labels to read the queue by:
+
+- **Its area**, the part of the product it is about.
+- **Its topic**, what kind of problem it is:
+
+| Topic | The gap is about |
+| --- | --- |
+| `security` | Who can reach, see or change what; tokens and secrets. |
+| `validation` | A field checked differently, or not at all, by the form, the server and the database. |
+| `data` | Records that can be lost, damaged or out of step with each other. |
+| `logic` | A business rule that is missing, unclear or contradicts another. |
+| `ui` | What a person sees: states, texts, the same thing looking different in two places. |
+| `api` | What another system calls: unused, undocumented or inconsistent endpoints. |
+| `ops` | Jobs, schedules, configuration, what happens when something fails. |
+
+## Start
 
 You need an agent that can read your repository (Claude Code or Codex), Python 3.10+, Git, and Node 18+ for the `npx` commands.
 
@@ -42,128 +108,87 @@ features are finished, in progress and not started.
 npx project-spec serve
 ```
 
-A big repository takes more than one session. To go on where the last one stopped:
+This first map is the long run: from one to a few hours of agent time, more for a big product. To go on where a session stopped: `Use the project-knowledge skill and continue the map from the inventory file.`
 
-```text
-Use the project-knowledge skill and continue the map from the inventory file.
-```
+The agent writes only Markdown in that folder. It does not change application code, commit or push. Other ways to install, and pinning one version for a team: [Install and update](docs/install.md).
 
-The agent writes only Markdown in that folder. Name any other folder in the prompt (`docs/spec`, `knowledge/shop`): the commands find the spec wherever it is, and `npx project-spec move --to DIR` moves it later without breaking its links. It does not change application code, commit or push. There is also a Claude Code plugin, a manual install and a way to pin one version for a team: see [Install and update](docs/install.md).
+## Commands
 
-### Three kinds of run
+### In the terminal
 
-**1. The first map** is the prompt above. It is the long one: from one to a few hours of agent time, more for a big product, and it can be split over sessions. Everything else builds on it.
+| Command | What it does |
+| --- | --- |
+| `npx project-spec serve` | Open the spec and the gap queue in the browser. |
+| `npx project-spec summary` | Where the spec stands: how much of the product is mapped, the gaps by state and topic, each review and when it last ran. |
+| `npx project-spec gaps --topic security` | List gaps, the most urgent first, each with its file. Also `--state`, `--priority`, `--area`. |
+| `npx project-spec check` | Find broken pages and the pages whose code changed since they were read. |
+| `npx project-spec coverage` | What the code has that no page mentions yet. |
+| `npx project-spec instructions --file AGENTS.md` | Ask every agent in the repository to keep the spec current ([below](#keep-it-current)). |
+| `npx project-spec build --out FILE` | The viewer as one file, to show on a server. |
+| `npx project-spec move --to DIR` | Move the spec to another folder without breaking its links. |
+| `npx project-spec status` / `update` | Where the skill is installed, and refresh those copies. |
 
-**2. After the code changes**, a small one. It corrects only the rules the change touched:
+### Ask your agent
 
-```text
-Use project-knowledge to record this change in the spec.
-```
+The skill has no commands of its own: you ask in words.
 
-```text
-Use project-knowledge to record what changed last week.
-```
+| When | Prompt |
+| --- | --- |
+| You want to know where things stand | `Use project-knowledge: what is the status of the spec?` |
+| You changed the code | `Use project-knowledge to record this change in the spec.` |
+| Others changed the code | `Use project-knowledge to record what changed last week.` |
+| You want one topic checked on purpose | `Use project-knowledge in review mode: review the product for security.` |
+| You want the gaps checked | `Use project-knowledge in gaps mode: recheck the high-priority gaps against the code.` |
+| A gap is accepted | `Use project-knowledge to plan the gap <name>. Plan only.` |
+| A page looks thin | `Use project-knowledge to explore <feature> until it is finished.` |
+| You have one question | `Use project-knowledge to investigate: <question>.` |
+| A document says how it should work | `Use project-knowledge to audit <document> against the code.` |
 
-For everything since the last review, by everyone: `Use project-knowledge to sync the vault.` To have every agent do the first one by itself at the end of its task, see [Keep it current](#keep-it-current).
+More prompts are in [Working with the skills](docs/workflows.md#example-prompts).
 
-**3. A review of one topic**, when you want that topic looked at on purpose. The agent goes through every way into the product again with a fixed list of questions. What the code answers becomes a rule on the feature's page; each doubt becomes a gap you can filter by topic:
+### Reviews
 
-```text
-Use the project-knowledge skill in review mode: review the product for security.
-Go by the inventory file, one feature at a time, and ask every question of the
-review guide of every entry point. Read the code and run nothing. Write each doubt
-as its own gap with topic security, and tell me how many features you reviewed.
-```
+The map raises the doubts it meets on the way. A review is a separate pass for one topic: the agent goes through every way into the product again with a fixed list of questions, so nothing is skipped because it looked fine. What the code answers becomes a rule on the feature's page; each doubt becomes a gap with that topic.
 
-The same prompt works for the other lists the skill has:
-
-| Review | What it looks for |
+| Ask for | What it looks for |
 | --- | --- |
 | `security` | Who can reach each entry point, whose record it is, which fields may be changed, what comes back, files, sign-in, secrets. |
-| `validation` | One field checked differently by the form, the server and the database; other ways in (an import, an admin screen) that skip the rules. |
+| `validation` | One field checked differently by the form, the server and the database; an import or an admin screen that skips the rules. |
 | `data` | States a record can get stuck in, what a delete leaves behind, writes with no transaction, two people saving at once. |
 | `its API` | Endpoints nothing calls, two ways to do one thing, calls marked as outdated, a written contract that disagrees with the code. |
 | `its UI` | Missing loading, empty and error states, the same control built twice, one thing under two names. |
 | `failure paths` | What happens when a job or another service fails: retries, half-done work, errors nobody sees. |
 
-Name your own topic and the agent proposes its questions first. A review opens every entry point again, so it takes about as long as the map of the features it covers: run one topic at a time, and name an area (`review the billing area for security`) to keep it short. It reads code and is not a scanner: for vulnerable or outdated packages use `npm audit` or a similar tool.
-
-The viewer's first page lists the map and every review with the day it was last run, and the reviews not run yet. An agent gives the same answer in the chat:
-
-```text
-Use project-knowledge: what is the status of the spec?
-```
-
-### What else to ask
-
-| When | Prompt |
-| --- | --- |
-| A page looks thin | `Use project-knowledge to explore <feature> until it is finished.` |
-| You want the gaps checked | `Use project-knowledge in gaps mode: recheck the high-priority gaps against the code.` |
-| Older gaps have no topic | `Use project-knowledge in gaps mode: give every gap a topic from its page.` |
-| A gap is accepted | `Use project-knowledge to plan the gap <name>. Plan only.` |
-| You have one question | `Use project-knowledge to investigate: <question>.` |
-| A document says how it should work | `Use project-knowledge to audit <document> against the code.` |
-
-More in [Working with the skills](docs/workflows.md#example-prompts).
-
-## What you get
-
-A folder of plain Markdown in your repository (it also opens in Obsidian) with two layers that stay apart:
-
-- **The as-built spec.** How the code works now, taken only from the source. Each feature has one page: what it is for, how it works, its fields and its numbered rules. What people agreed in chats is not part of it.
-- **The gap queue.** The agent's questions about what is missing, doubtful or worth adding, one per page, each with a topic (security, validation, data, logic, UI, API, operations). People re-check each one and decide it. The agent never records a decision nobody made.
-
-A page looks like this:
-
-```markdown
-# Only requested pickups are currently cancellable
-
-A customer who no longer needs a pickup cancels it, and the service lets that
-happen only before anyone has started work on it.
-
-## Business rules
-
-| ID | Rule |
-| --- | --- |
-| BR-CANCEL-01 | A pickup can be cancelled only while its state is `requested`. |
-| BR-CANCEL-02 | In any other state the cancellation is refused with "Only requested pickups can be cancelled" and nothing is changed. |
-```
-
-A rule keeps its number for good, so a reviewer, a tester or a support person can say "BR-CANCEL-02 is wrong" instead of describing a screen. When a file a page relies on changes, the page is marked for re-reading.
-
-## The viewer
-
-One local page, read from the files on disk. Nothing is built or uploaded. It comes with the npm package and is not copied into your project; the vault also opens in Obsidian, so the viewer is optional.
-
-1. **Read** a feature page: its purpose, its flow, its rules.
-2. **Find** anything with search, including a rule number.
-3. **Ask**: "Copy for AI" turns the page and your own words into a request for your agent.
-4. **See what moved**: the pages whose code changed since they were last checked.
-
-![A feature page in the viewer: what the feature is for, how it works, and its business rules as numbered rows](docs/images/viewer-page.png)
-
-| Search | Copy for AI |
-| --- | --- |
-| ![Search results grouped into features, gaps and files](docs/images/viewer-search.png) | ![The Copy for AI dialog with the exact text that will be copied](docs/images/viewer-copy.png) |
-| **Recent changes** | **Gap queue** |
-| ![The vault's Git history, one line per commit](docs/images/viewer-changes.png) | ![The gap queue filtered by state, kind and area, the most urgent first](docs/images/viewer-gaps.png) |
-
-[The viewer](docs/viewer.md) describes every screen, and how to show the spec on a development server for the rest of the team.
-
-## The skill
-
-[project-knowledge](skills/project-knowledge/SKILL.md) writes and maintains the spec and the gap queue. It also reviews the product for one topic, audits written requirements against the code, answers one question, re-checks one gap, plans a gap you accepted and follows Git history. It never changes application code.
+A review opens every entry point again, so it takes about as long as the map of the features it covers. Run one topic at a time, and name an area (`review the billing area for security`) to keep it short. It reads code and is not a scanner: for vulnerable or outdated packages use `npm audit` or a similar tool. `summary` and the viewer's first page show which reviews have run, when, and which have not.
 
 ## Keep it current
 
-A spec is only worth reading while it is true. The cheap way to keep it true is to let whoever changes the code correct the spec in the same task, as an edit the size of the change: a changed validation message is one row of one table, not a new review of the project.
+A spec is only worth reading while it is true. The cheap way is to let whoever changes the code correct the spec in the same task, as an edit the size of the change: a changed validation message is one row of one table, not a new review of the project.
 
 ```sh
 npx project-spec instructions --file AGENTS.md      # or CLAUDE.md, GEMINI.md, .cursor/rules/project-spec.mdc
 ```
 
-This writes a short block into the file your agent reads at the start of a session (Codex, Cursor, Claude Code, Gemini CLI, GitHub Copilot). It asks the agent to read a feature's page before changing it and to correct the changed rules afterwards. Run it again after an update and it replaces the block and leaves the rest of the file alone.
+This writes a short block into the file your agent reads at the start of a session (Codex, Cursor, Claude Code, Gemini CLI, GitHub Copilot). It asks the agent to read a feature's page before changing it and to correct the changed rules afterwards. For everything since the last review, by everyone: `Use project-knowledge to sync the vault.`
+
+## The viewer
+
+One local page, read from the files on disk. Nothing is built or uploaded, and it is not copied into your project. The spec also opens in Obsidian, so the viewer is optional.
+
+- **Read** a feature page: its purpose, its flow, its rules.
+- **Work the gaps**: the queue by state, with filters for area, topic, kind and priority and a field that finds a gap by its words.
+- **Ask**: "Copy for AI" turns a page and your own words into a request for your agent.
+- **See what was checked**: the first page shows how much is mapped and when each review last ran.
+
+![A feature page in the viewer: what the feature is for, how it works, and its business rules as numbered rows](docs/images/viewer-page.png)
+
+| Gap queue | Copy for AI |
+| --- | --- |
+| ![The gap queue with its states as tabs and filters for words, area, kind, topic and priority](docs/images/viewer-gaps.png) | ![The Copy for AI dialog with the exact text that will be copied](docs/images/viewer-copy.png) |
+| **Search** | **Recent changes** |
+| ![Search results grouped into features, gaps and files](docs/images/viewer-search.png) | ![The vault's Git history, one line per commit](docs/images/viewer-changes.png) |
+
+[The viewer](docs/viewer.md) describes every screen, and how to show the spec on a development server for the rest of the team.
 
 ## Upgrading
 
@@ -172,30 +197,16 @@ npx project-spec@latest update      # refresh every installed copy of the skill
 npx project-spec@latest check       # an older spec still passes; this lists anything to fix
 ```
 
-Your spec needs no conversion: every release since 0.7.0 only added optional things to it. Two releases changed what is installed. 0.11.0 removed the `spec-change` skill; `update` deletes its copies and keeps a backup, and a request that named it now names `project-knowledge`. 0.10.0 stopped copying the viewer into your project; open it with `npx project-spec serve`. [Upgrading from an earlier version](docs/install.md#upgrading-from-an-earlier-version) has the steps for each release.
-
-## Commands
-
-```sh
-npx project-spec serve                 # read the spec in the browser
-npx project-spec summary               # how much is mapped, the gaps by topic, which reviews ran and when
-npx project-spec gaps --topic security # list gaps by topic, state, priority or area
-npx project-spec coverage              # what the code has that no page mentions yet
-npx project-spec build --out FILE      # the viewer as one file, to show on a server
-npx project-spec instructions          # the block that asks agents to keep the spec current
-npx project-spec move --to DIR         # move the spec to another folder of the repository
-npx project-spec status                # where the skill is installed and whether it is current
-npx project-spec update                # refresh the installed copies
-```
+Your spec needs no conversion: every release since 0.7.0 only added optional things to it. [Upgrading from an earlier version](docs/install.md#upgrading-from-an-earlier-version) says what each release changed and what to do.
 
 ## Read more
 
 | Page | What is in it |
 | --- | --- |
 | [Install and update](docs/install.md) | npm, the Claude Code plugin, Codex, a manual copy, keeping copies current. |
+| [What the spec contains](docs/spec.md) | The sections of a feature page, big features and several apps, how deep the first map goes, the files in the vault. |
+| [Working with the skills](docs/workflows.md) | Example prompts, reviews, keeping the spec current, deciding gaps, two people updating the vault. |
 | [The viewer](docs/viewer.md) | Every screen, a short command to open it, and the spec on a server. |
-| [What the spec contains](docs/spec.md) | The sections of a feature page, big features and several apps, how deep the first map goes, the coverage report, the files in the vault. |
-| [Working with the skills](docs/workflows.md) | Example prompts, the example project, keeping the spec current, deciding gaps, two people updating the vault. |
 | [Parcel Desk](examples/parcel-desk/README.md) | A small fictional project with a ready-made vault to try the viewer on. |
 | [VALIDATION.md](VALIDATION.md) | What was actually checked for each release, and the limits. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Checks, skill boundaries and how releases are made. |
@@ -207,4 +218,4 @@ npx project-spec update                # refresh the installed copies
 - Nothing runs by itself: no schedule, no hooks, no commits or pushes. You share the Markdown through your normal Git workflow.
 - No MCP server, cloud service, paid API or Obsidian plugin is needed.
 
-The skills and examples are original work under the [MIT license](LICENSE). This is an independent project; Obsidian and the agent hosts are not its sponsors.
+The skill and the example are original work under the [MIT license](LICENSE). This is an independent project; Obsidian and the agent hosts are not its sponsors.
