@@ -217,6 +217,10 @@ try {
   assert.equal(run(['build', '--out', 'site/spec.html'], dry).out.trim(), `py ${script}/knowledge.py build --out site/spec.html --repo .`);
   assert.equal(run(['check', '--strict'], dry).out.trim(), `py ${script}/knowledge.py check --strict --repo .`);
   assert.equal(run(['move', '--to', 'project-spec'], dry).out.trim(), `py ${script}/knowledge.py move --to project-spec --repo .`);
+  assert.equal(run(['summary'], dry).out.trim(), `py ${script}/knowledge.py summary --repo .`);
+  assert.equal(run(['gaps', '--topic', 'security'], dry).out.trim(), `py ${script}/knowledge.py gaps --topic security --repo .`);
+  r = run(['summary'], { cwd: path.join(ROOT, 'examples/parcel-desk') });
+  assert.ok(r.code === 0 && r.out.includes('map: 1 of 1 features finished (100%)') && r.out.includes('security   last run 2026-11-16, 1 of 1 feature;'), r.out + r.err);
   assert.equal(run(['scan', '--write-status'], dry).out.trim(), `py ${script}/maintain.py scan --write-status --repo .`);
   assert.equal(run(['coverage', '--path', 'src/chat'], dry).out.trim(), `py ${script}/coverage.py --path src/chat --repo .`);
   r = run(['check'], { cwd: path.join(ROOT, 'examples/parcel-desk') });

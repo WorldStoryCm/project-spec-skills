@@ -430,6 +430,87 @@ const queue = {
   assert.ok(!v.page().textContent.includes('Access:'), 'a page that does not say who may use it shows nothing');
 }
 
+// The first page says what was checked: the map, each review with its last run, and the reviews not run yet.
+// The queue finds gaps by the words in them without replacing the field you type in.
+{
+  const run = (id, path, over) => node({ id, title: id, type: 'run', layer: 'nav', status: 'current', path, areas: [], ...over });
+  const v = load({
+    title: 'Sample vault',
+    map: { finished: 3, inProgress: 1, notStarted: 0 },
+    nodes: [
+      node({ id: 'areas/a', title: 'Area A', type: 'area', layer: 'spec', status: 'current', path: 'areas/a.md', areas: ['areas/a'] }),
+      node({ id: 'users', title: 'Users', type: 'note', layer: 'spec', status: 'current', path: 'notes/users.md' }),
+      run('sec-old', 'runs/2026-10-01-review-security.md', { updated: '2026-10-01', body: '- [x] Users\n' }),
+      run('sec-new', 'runs/2026-11-02-review-security.md', { updated: '2026-11-02', body: '## Features\n\n- [x] Users\n- [x] Orders\n' }),
+      run('val', 'runs/val.md', { review: 'validation', status: 'partial', updated: '2026-11-03', body: '- [x] Users\n- [ ] Orders\n' }),
+      run('texts', 'runs/2026-11-04-review-texts.md', { updated: '2026-11-04', body: 'No checklist.' }),
+      run('other', 'runs/2026-11-05-orders-review.md', { updated: '2026-11-05', body: '- [x] Orders\n' }),
+      gap('g-role', 'Role change', { topic: 'security', body: '# Role change\n\n## Gap\n\nA member saves the profile form.' }),
+      gap('g-closed', 'Closed leak', { topic: 'security', state: 'done', decision: 'done' }),
+      gap('g-job', 'Job retry', { topic: 'ops', body: '# Job retry\n\n## Gap\n\nThe digest job is not retried.' }),
+      gap('g-plain', 'Profile photo', {}),
+    ],
+    edges: [{ source: 'areas/a', target: 'users' }],
+  });
+  const block = () => findAll(v.page(), e => has(e, 'reviews'))[0];
+  const row = name => findAll(block(), e => has(e, 'row')).find(r => findAll(r, e => e.tag === 'b')[0].textContent === name);
+  assert.deepEqual(findAll(block(), e => has(e, 'row')).map(r => findAll(r, e => e.tag === 'b')[0].textContent),
+    ['Map', 'Security', 'Validation', 'Data', 'API', 'UI', 'Failure paths', 'Texts'], 'the map, the six reviews the skill has, then a topic of the person\'s own');
+  assert.ok(text(row('Map')).includes('3 of 4 features finished (75%)'));
+  assert.ok(text(row('Map')).includes('1 in progress'));
+  assert.ok(v.btn(row('Map'), 'Copy request to continue'), 'an unfinished map offers the request that continues it');
+  assert.ok(text(row('Security')).includes('Last run 2026-11-02'), 'the newest run of a topic');
+  assert.ok(text(row('Security')).includes('2 of 2 features'));
+  assert.ok(v.btn(row('Security'), '1 open gap'), 'closed gaps are not counted');
+  assert.ok(text(row('Validation')).includes('Started 2026-11-03'));
+  assert.ok(text(row('Validation')).includes('1 of 2 features, not finished'));
+  assert.ok(text(row('Data')).includes('Not run yet'));
+  assert.ok(v.btn(row('Failure paths'), '1 open gap'), 'the gaps of a failure review have the topic ops');
+  assert.ok(text(row('Texts')).includes('Last run 2026-11-04'), 'a run page named <date>-review-<topic> is a review; one that only ends in -review is not');
+  v.btn(row('Data'), 'Copy request').click();
+  assert.ok(v.copied.at(-1).startsWith('Use the project-knowledge skill in review mode: review the product for data. Go by the inventory file'));
+  v.btn(row('API'), 'Copy request').click();
+  assert.ok(v.copied.at(-1).includes('review the product for its API.'));
+  // the run page is one press away
+  v.btn(row('Security'), 'Last run 2026-11-02').click();
+  assert.equal(v.h1(), 'sec-new');
+  v.q('#back').click();
+  // and so are the gaps of the topic
+  v.btn(row('Security'), '1 open gap').click();
+  assert.equal(v.h1(), 'Gaps');
+  assert.equal(v.select('Topic').value, 'security');
+  assert.deepEqual(v.rowTitles(), ['Role change']);
+  v.select('Topic').value = '';
+  v.select('Topic').fire('change');
+  assert.equal(v.rowTitles().length, 3);
+
+  // words: every word must be in the gap's title, file or text
+  const words = () => findAll(v.page(), e => e.tag === 'input' && e.attrs['aria-label'] === 'Words')[0];
+  const field = words();
+  field.value = 'digest retried';
+  field.fire('input');
+  assert.deepEqual(v.rowTitles(), ['Job retry'], 'found by the words in its text');
+  assert.equal(words(), field, 'the field you type in is not replaced');
+  assert.deepEqual(findAll(v.page(), e => has(e, 'tab')).map(text), ['Open1', 'Needs recheck1'], 'the counts follow the words');
+  field.value = 'PROFILE';
+  field.fire('input');
+  assert.deepEqual(v.rowTitles(), ['Profile photo', 'Role change'], 'in the title of one and the text of the other, whatever the capitals');
+  field.value = 'nothing-like-this';
+  field.fire('input');
+  assert.ok(v.page().textContent.includes('No gaps match'));
+  v.btn(v.page(), 'Clear the filters').click();
+  assert.equal(v.rowTitles().length, 3);
+  assert.equal(words().value, '');
+}
+
+// A vault without an inventory file or any review still says what can be checked.
+{
+  const v = load({ title: 'Sample vault', nodes: [node({ id: 'users', title: 'Users', type: 'note', layer: 'spec', status: 'current', path: 'notes/users.md' })], edges: [] });
+  const rows = findAll(findAll(v.page(), e => has(e, 'reviews'))[0], e => has(e, 'row'));
+  assert.deepEqual(rows.map(r => findAll(r, e => e.tag === 'b')[0].textContent), ['Security', 'Validation', 'Data', 'API', 'UI', 'Failure paths']);
+  assert.ok(rows.every(r => text(r).includes('Not run yet')));
+}
+
 // --- map: one frame per area -----------------------------------------------------
 {
   const v = load({
@@ -648,7 +729,7 @@ const queue = {
   assert.ok(preview().startsWith('Use the project-knowledge skill in review mode: review what this page covers for security.'));
   v.pill(card(), 'UI').click();
   assert.ok(preview().startsWith('Use the project-knowledge skill in review mode: review what this page covers for its UI.'));
-  assert.ok(preview().includes('Write each doubt as its own gap with that topic, and do not decide any.'));
+  assert.ok(preview().includes('Write each doubt as its own gap with the topic the guide names, and do not decide any.'));
   assert.ok(preview().includes('Related pages:\n- knowledge/parcel/notes/owner.md (Owner check)'));
   v.pill(card(), 'Ask a question').click();
   type('copy-note', 'What happens to a packed pickup?');

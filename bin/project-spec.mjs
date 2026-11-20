@@ -18,7 +18,7 @@ const VIEWER_REL = 'assets/viewer.html';
 const PACKAGE = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const MARKER = '.project-spec.json'; // written into every copy: which version it is and what its files looked like
 const SKIP = new Set(['__pycache__', '.DS_Store', MARKER]);
-const KNOWLEDGE = new Set(['serve', 'build', 'check', 'snapshot', 'move']);
+const KNOWLEDGE = new Set(['serve', 'build', 'check', 'snapshot', 'move', 'summary', 'gaps']);
 const MAINTAIN = new Set(['scan', 'receipt', 'finish']);
 const COVERAGE = 'coverage'; // its own helper, which takes no command word
 // Skills earlier versions shipped; project-knowledge took over what they did. spec-change (changing the product from
@@ -35,6 +35,10 @@ Read the spec
       Open the viewer for the repository (default: the current folder).
   project-spec build --out FILE [--source-url URL] [--with-sources] [--allow-missing-sources]
       Write the viewer as one HTML file, to show the spec on a server.
+  project-spec summary
+      Where the spec stands: how much of the map is finished, the gaps by state and topic, each review and when it ran.
+  project-spec gaps [--state open|closed|all|STATE] [--topic T] [--priority P] [--area ID]
+      List gaps, the most urgent first, each with its file.
   project-spec check | snapshot [options]
       The knowledge helper; --repo defaults to the current folder.
   project-spec move --to DIR
@@ -46,7 +50,7 @@ Read the spec
 
 Keep the skills current
   project-spec status
-      Where copies of the skills are and whether they match this version.
+      Where copies of the skills are and whether they match this version (for the spec itself: summary).
   project-spec install [--claude] [--codex] [--dir DIR]... [--skills a,b] [--with-viewer | --no-viewer] [--force]
       Copy the skills into ~/.claude/skills, ~/.codex/skills or a folder you name.
       A copy holds the instructions and the helpers. --with-viewer adds the viewer page to it, for a

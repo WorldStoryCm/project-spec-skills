@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import tempfile
@@ -563,7 +564,7 @@ class GapLayerTests(Fixture):
                          ('security', [], '', ['admin', 'owner']))
         # the list of topics is closed, so the queue does not grow five spellings of one thing
         self.note('gaps/g.md', 'g', 'gap', topic='Security', **gap)
-        self.assertIn('topic must be one of security, data, logic, ui, api, ops', self.run_cli('check')[2])
+        self.assertIn('topic must be one of security, validation, data, logic, ui, api, ops', self.run_cli('check')[2])
         self.note('gaps/g.md', 'g', 'gap', **gap)
         self.assertEqual(self.run_cli('check')[0], 0, 'a gap without a topic is an older gap, not an error')
         self.note('notes/n.md', 'n', sources=['source.txt'], topic='security')
@@ -575,6 +576,59 @@ class GapLayerTests(Fixture):
         self.note('notes/n.md', 'n', sources=['source.txt'])
         self.note('gaps/g.md', 'g', 'gap', access=['admin'], **gap)
         self.assertIn('access is only valid on note pages', self.run_cli('check')[2])
+
+    def test_summary_and_gaps_say_where_the_spec_stands(self):
+        gap = dict(sources=[], kind='product-gap', recheck='not-checked', decision='open', status=None, body=GAP_BODY)
+        self.note('gaps/role.md', 'role', 'gap', topic='security', priority='high', **gap)
+        self.note('gaps/leak.md', 'leak', 'gap', topic='security', priority='low', **gap)
+        self.note('gaps/plain.md', 'plain', 'gap', **gap)
+        self.note('gaps/old.md', 'old', 'gap', topic='security', **(gap | {'decision': 'duplicate', 'duplicate_of': 'role'}))
+        (self.vault / '.knowledge').mkdir(exist_ok=True)
+        (self.vault / '.knowledge/inventory.md').write_text(
+            '# Inventory\n\n## Apps and packages\n\n## Chats: finished\n\n- [x] web /chats\n\n## Orders: in progress\n\n## Reviews: not started\n\n'
+            '## Search: Finished\n\n## Left out\n', encoding='utf-8')
+        # a review is a run page that says so, or one named <date>-review-<topic>.md; the newest of a topic counts
+        self.note('runs/2026-01-02-review-security.md', 'sec-old', 'run', areas=[], body='- [x] Chats\n- [x] Orders\n', updated='2026-01-02')
+        self.note('runs/sec.md', 'sec-new', 'run', areas=[], review='security', status='partial', body='## Features\n\n- [x] Chats\n- [ ] Orders\n- [ ] Search\n')
+        self.note('runs/2026-01-03-review-texts.md', 'texts', 'run', areas=[], body='No checklist.\n', updated='2026-01-03')
+        self.note('runs/2026-01-04-orders-review.md', 'orders', 'run', areas=[], body='- [x] Orders\n')
+        at = Path(os.path.relpath(self.vault.resolve(), self.repo.resolve())).as_posix() + '/'
+        status, out, err = self.run_cli('summary')
+        self.assertEqual((status, err), (0, ''), 'a report: no warnings, exit 0')
+        lines = out.splitlines()
+        self.assertIn('map: 2 of 4 features finished (50%), 1 in progress, 1 not started', lines)
+        self.assertIn('gaps: 3 open (needs recheck 3, needs decision 0, accepted 0, deferred 0), 1 closed', lines)
+        self.assertIn('open gaps by topic: security 2 (1 high), no topic 1', lines)
+        reviews = [line.strip() for line in lines[lines.index('reviews:') + 1:]]
+        self.assertEqual(reviews[0], 'security   started 2026-11-14, 1 of 3 features, not finished; ' + at + 'runs/sec.md; 2 open gaps with topic security')
+        self.assertEqual(reviews[1], 'validation not run; 0 open gaps with topic validation')
+        self.assertEqual(reviews[5], 'failures   not run; 0 open gaps with topic ops')
+        self.assertEqual(reviews[6], 'texts      last run 2026-01-03; ' + at + 'runs/2026-01-03-review-texts.md; 0 open gaps with topic texts',
+                         'a topic of the person\'s own is listed after the six; a page that only ends in -review is not a review')
+        self.assertEqual(len(reviews), 7)
+        # without an inventory file the map's progress is unknown, and said to be
+        (self.vault / '.knowledge/inventory.md').unlink()
+        self.assertIn('map: no inventory file', self.run_cli('summary')[1])
+        # gaps: the open ones by default, the most urgent first, each with its file
+        listed = self.run_cli('gaps')[1].splitlines()
+        self.assertEqual([line.split()[3] for line in listed[:-1]], [at + 'gaps/role.md', at + 'gaps/leak.md', at + 'gaps/plain.md'])
+        self.assertEqual(listed[-1], 'gaps: 3 listed')
+        self.assertEqual(self.run_cli('gaps', '--topic', 'security', '--priority', 'high')[1].splitlines()[-1], 'gaps: 1 listed')
+        self.assertIn(at + 'gaps/plain.md', self.run_cli('gaps', '--topic', 'none')[1])
+        self.assertEqual(self.run_cli('gaps', '--state', 'closed')[1].splitlines()[-1], 'gaps: 1 listed')
+        self.assertEqual(self.run_cli('gaps', '--state', 'all')[1].splitlines()[-1], 'gaps: 4 listed')
+        # a broken page is left out and counted, and the report still answers
+        self.note('gaps/bad.md', 'bad', 'gap', topic='Security', **gap)
+        status, out, _ = self.run_cli('summary')
+        self.assertEqual(status, 0)
+        self.assertEqual(out.splitlines()[-1], 'check: 1 errors on 1 pages, which are left out above; run check to see them')
+        self.note('gaps/bad.md', 'bad', 'gap', **gap)
+        # `review` belongs to run pages and is one lower-case word
+        self.note('notes/n.md', 'n', sources=['source.txt'], review='security')
+        self.assertIn('review is only valid on run pages', self.run_cli('check')[2])
+        self.note('notes/n.md', 'n', sources=['source.txt'])
+        self.note('runs/sec.md', 'sec-new', 'run', areas=[], review='Security review')
+        self.assertIn('review is only valid on run pages and names the topic', self.run_cli('check')[2])
 
     def test_history_and_pending_pages_come_from_git(self):
         k._history_cache.clear()

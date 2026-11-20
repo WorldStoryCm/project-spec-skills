@@ -2,6 +2,16 @@
 
 > The entries below record what was checked at the time, in the terms of that time. Since then the five skills were merged into two (`spec-audit` and `spec-investigation` into `project-knowledge`, `spec-plan` into `spec-change`), the generated `AS-BUILT.md`, `GAPS.md` and `graph.html` were replaced by the viewer, and the `build` command was removed. None of that has been evaluated with a fresh agent yet. `spec-change` was never run on a real change and was removed in 0.11.0.
 
+## 2026-11-20: the first reviews, three more lists, and where the spec stands
+
+- The first two security reviews were run by agents on real products with 0.13.0. One covered 90 features and 1,096 entry points and wrote 29 gaps (6 high, 10 medium, 13 low); the product's owner read the six high ones and said they look right, two of them matching what they know of the code. The other covered 82 features and left 141 open gaps with the topic. Neither count has been rechecked gap by gap, so how many are real is still not known, and the time and cost of the passes were not recorded.
+- What those runs showed and this change answers: the run page of one review linked to every feature, which `check` refuses for a run page, and one gap cited a file named `secrets.ts` as a source, which `check` refuses as a credential file. The review guide now says to write feature names as plain text and to name such a file in `Evidence`.
+- 0.14.0. Three more lists of questions: validation (the form, the server and the database on the same field, 10 questions), data (10) and failure paths (9). `validation` is a seventh topic for gaps.
+- A run page says which review it is (`review`, or its name `<date>-review-<topic>.md`). From that, the inventory file and the gaps, `summary` prints where the spec stands and `gaps` lists gaps by state, topic, priority and area; the skill has a `status` mode that relays them. The viewer's first page shows the same: the map with the share of features finished and one line per review. Tried on the example and on a real vault with 287 gaps, 3 of them failing `check`: the report still answered and said that three pages were left out.
+- The gap queue finds gaps by the words in them. On a real vault of 189 gaps, typing two words in headless Chrome left one gap, kept the focus in the field and updated the counts on the tabs.
+- `python3 scripts/verify.py` passed.
+- **NOT RUN:** no agent has run a validation, data or failure review, or been asked for the status. The `summary` report on a vault whose inventory headings are written differently from the format ("## Name: finished") counts nothing for the map; that was seen on no real vault but is possible.
+
 ## 2026-11-20: a topic on every gap, who may use a feature, and a review of one topic
 
 - 0.13.0. A gap has an optional `topic` from a closed list (`security`, `data`, `logic`, `ui`, `api`, `ops`); `check` refuses any other value, and a gap without one still passes. The queue has a Topic filter when at least one gap has a topic, and the topic leads the line under a gap's title. A feature page may state who may use it (`access`, a list of roles); the viewer shows it under the title. Helper and viewer tests cover both, and the queue and a page were opened in headless Chrome on the example.

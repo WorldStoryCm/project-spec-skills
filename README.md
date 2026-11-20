@@ -75,7 +75,24 @@ review guide of every entry point. Read the code and run nothing. Write each dou
 as its own gap with topic security, and tell me how many features you reviewed.
 ```
 
-The same works with `its API` (endpoints nothing calls, two ways to do one thing, calls marked as outdated, a written contract that disagrees with the code) and `its UI` (missing loading, empty and error states, the same control built twice, one thing under two names). Name your own topic and the agent proposes its questions first. A review opens every entry point again, so it takes about as long as the map of the features it covers: run one topic at a time, and name an area (`review the billing area for security`) to keep it short. It reads code and is not a scanner: for vulnerable or outdated packages use `npm audit` or a similar tool.
+The same prompt works for the other lists the skill has:
+
+| Review | What it looks for |
+| --- | --- |
+| `security` | Who can reach each entry point, whose record it is, which fields may be changed, what comes back, files, sign-in, secrets. |
+| `validation` | One field checked differently by the form, the server and the database; other ways in (an import, an admin screen) that skip the rules. |
+| `data` | States a record can get stuck in, what a delete leaves behind, writes with no transaction, two people saving at once. |
+| `its API` | Endpoints nothing calls, two ways to do one thing, calls marked as outdated, a written contract that disagrees with the code. |
+| `its UI` | Missing loading, empty and error states, the same control built twice, one thing under two names. |
+| `failure paths` | What happens when a job or another service fails: retries, half-done work, errors nobody sees. |
+
+Name your own topic and the agent proposes its questions first. A review opens every entry point again, so it takes about as long as the map of the features it covers: run one topic at a time, and name an area (`review the billing area for security`) to keep it short. It reads code and is not a scanner: for vulnerable or outdated packages use `npm audit` or a similar tool.
+
+The viewer's first page lists the map and every review with the day it was last run, and the reviews not run yet. An agent gives the same answer in the chat:
+
+```text
+Use project-knowledge: what is the status of the spec?
+```
 
 ### What else to ask
 
@@ -95,7 +112,7 @@ More in [Working with the skills](docs/workflows.md#example-prompts).
 A folder of plain Markdown in your repository (it also opens in Obsidian) with two layers that stay apart:
 
 - **The as-built spec.** How the code works now, taken only from the source. Each feature has one page: what it is for, how it works, its fields and its numbered rules. What people agreed in chats is not part of it.
-- **The gap queue.** The agent's questions about what is missing, doubtful or worth adding, one per page, each with a topic (security, data, logic, UI, API, operations). People re-check each one and decide it. The agent never records a decision nobody made.
+- **The gap queue.** The agent's questions about what is missing, doubtful or worth adding, one per page, each with a topic (security, validation, data, logic, UI, API, operations). People re-check each one and decide it. The agent never records a decision nobody made.
 
 A page looks like this:
 
@@ -161,6 +178,8 @@ Your spec needs no conversion: every release since 0.7.0 only added optional thi
 
 ```sh
 npx project-spec serve                 # read the spec in the browser
+npx project-spec summary               # how much is mapped, the gaps by topic, which reviews ran and when
+npx project-spec gaps --topic security # list gaps by topic, state, priority or area
 npx project-spec coverage              # what the code has that no page mentions yet
 npx project-spec build --out FILE      # the viewer as one file, to show on a server
 npx project-spec instructions          # the block that asks agents to keep the spec current

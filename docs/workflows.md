@@ -144,8 +144,11 @@ as its own gap with topic security, and tell me how many features you reviewed.
 | Topic | What it asks |
 | --- | --- |
 | `security` | Who can reach each entry point and where the server checks it, whose record it is, which fields may be changed, what comes back, what is done with input, files, sign-in and recovery, secrets, webhooks, jobs, what is sent out, money. |
+| `validation` | The same field in the form, on the server and in the database: a check only the form has, different limits, required in one place and optional in another, an import or an admin screen that skips the rules, a refusal that does not say which field. |
+| `data` | The states of each kind of record, what a delete leaves behind, several writes with no transaction, two people saving at once, rules kept only in code, copies of one fact, money and time zones. |
 | `api` | Endpoints nothing calls, clients calling what does not exist, two ways to do one thing, calls marked as outdated and still used, unchecked input, inconsistent names and errors, a written contract that disagrees with the code, calls out without a timeout. |
 | `ui` | Missing loading, empty, error and no-permission states, the same control built twice, one thing under two names, actions without a confirmation, a control shown to someone the server refuses, differences between clients. |
+| `failures` | What happens when another service is down or a job fails: timeouts, retries, where the work goes after the last attempt, errors that are dropped, a job that stops in the middle, a missing setting. |
 
 The full lists are in [the review guide](../skills/project-knowledge/references/review.md). Name another topic ("data", "performance", "texts") and the agent proposes its questions before it starts.
 
@@ -154,6 +157,29 @@ What comes out:
 - **Rules.** What the code answers plainly goes onto the feature's page as a numbered rule. A security review also fills in who may use each feature (`access`), which the viewer shows beside the title.
 - **Gaps.** Each doubt is one gap with its topic, in the same queue as the others. Filter the queue by topic to see only those.
 - **A run page** with the features reviewed and not reviewed, so a later session continues where this one stopped.
+
+### What was checked, and what was not
+
+The viewer's first page has a block for this: the map with the share of features finished, then one line per review with the day of its last run, how many features it covered and how many of its gaps are open, and "Not run yet" with the request to copy for the others. An agent answers the same in the chat, from the files:
+
+```text
+Use project-knowledge: what is the status of the spec?
+```
+
+It runs `npx project-spec summary`, which you can run yourself:
+
+```text
+spec: project-spec; 8 areas, 64 feature and reference pages, 57 gaps
+map: 31 of 40 features finished (78%), 1 in progress, 8 not started
+pages: 6 partial, 4 with code changed since the last check
+gaps: 49 open (needs recheck 30, needs decision 16, accepted 2, deferred 1), 8 closed
+open gaps by topic: security 12 (3 high), ui 5, logic 9 (1 high), no topic 23
+reviews:
+  security   last run 2026-11-20, 31 of 31 features; project-spec/runs/2026-11-20-review-security.md; 12 open gaps with topic security
+  validation not run; 0 open gaps with topic validation
+```
+
+`npx project-spec gaps --topic security --priority high` lists the gaps one filter leaves, the most urgent first, each with its file, so an agent can be asked for "the high security gaps" without opening the viewer.
 
 A review opens every entry point again, so it takes about as long as the map of the features it covers. Run one topic at a time, and name an area or "what changed last week" to keep it short. It reads code: vulnerable or outdated packages, secrets in the Git history and server configuration are for tools (`npm audit`, `osv-scanner`, a secret scanner), and the report names what it did not cover. Security gaps describe weaknesses of a live product, so think before you publish the vault where people outside the team can read it.
 

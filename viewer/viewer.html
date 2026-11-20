@@ -477,6 +477,38 @@
       .filters select {
         max-width: 220px;
       }
+      .filters input[type="search"] {
+        height: 34px;
+        width: 200px;
+        padding: 0 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: var(--paper);
+        font-size: 13px;
+      }
+      .filters input[type="search"]:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -1px;
+      }
+      .stack.compact > .stack.compact > .card {
+        max-width: 1100px;
+      }
+      .reviews .card {
+        margin-top: 14px;
+      }
+      .reviews .row {
+        flex-wrap: wrap;
+      }
+      .reviews .grow {
+        min-width: 260px;
+      }
+      .reviews .row > .rowlink {
+        font-size: 13.5px;
+        font-weight: 500;
+        text-decoration: underline;
+        text-decoration-color: var(--line-strong);
+        text-underline-offset: 3px;
+      }
       .filters .push {
         margin-left: auto;
       }
@@ -1862,7 +1894,33 @@
           "knowledge-gap": "Knowledge gap",
         };
         // What a gap is about. `kind` says what sort of doubt it is; the topic is what a reader filters by.
-        const topicLabels = { security: "Security", data: "Data", logic: "Logic", ui: "UI", api: "API", ops: "Operations" };
+        const topicLabels = {
+          security: "Security",
+          validation: "Validation",
+          data: "Data",
+          logic: "Logic",
+          ui: "UI",
+          api: "API",
+          ops: "Operations",
+        };
+        // The reviews the skill has a list of questions for: its word, its name, the topic its gaps get,
+        // what it looks for, and how the request names it.
+        const REVIEWS = [
+          ["security", "Security", "security", "Who can reach, see and change what.", "security"],
+          ["validation", "Validation", "validation", "A field checked differently by the form, the server and the database.", "validation"],
+          ["data", "Data", "data", "Records that can be lost, damaged or left half-written.", "data"],
+          ["api", "API", "api", "Endpoints nothing calls, two ways to do one thing, a contract that disagrees with the code.", "its API"],
+          ["ui", "UI", "ui", "Missing states, the same control built twice, one thing under two names.", "its UI"],
+          ["failures", "Failure paths", "ops", "What happens when a job or another service fails.", "failure paths"],
+        ];
+        const reviewPhrase = (key) => (REVIEWS.find((r) => r[0] === key) || [])[4] || key;
+        // A run page is a review of a topic when it says so (`review`), or is named <date>-review-<topic>.
+        const reviewOf = (n) => {
+          if (n.type !== "run") return "";
+          const named = /(?:^|\/)\d{4}-\d{2}-\d{2}-review-([a-z0-9-]+)\.md$/i.exec(str(n.path));
+          return (str(n.review).trim() || (named ? named[1] : "")).toLowerCase();
+        };
+        const runDay = (n) => str(n.updated) || (/(\d{4}-\d{2}-\d{2})/.exec(str(n.path)) || [])[1] || "";
         const topicOf = (n) => str(n.topic).trim().toLowerCase();
         const topicLabel = (t) => topicLabels[t] || (t ? t[0].toUpperCase() + t.slice(1) : "");
         // Who may use a feature, as its page states it: a list of the product's own role names.
@@ -2883,7 +2941,93 @@
             box.append(section);
           }
           if (!areas.length && !loose.length) box.append(el("p", "This spec has no pages yet.", "empty"));
+          else box.append(reviewsSection());
           view.append(box);
+        }
+        // What the skill can look at on purpose, one topic per pass, and when each pass was last made.
+        function reviewsSection() {
+          const section = el("section", null, "reviews"),
+            card = el("div", null, "card"),
+            last = new Map();
+          nodes.forEach((n) => {
+            const key = reviewOf(n);
+            if (key && (!last.has(key) || runDay(n) > runDay(last.get(key)))) last.set(key, n);
+          });
+          // The map itself comes first: how many features of the inventory are finished.
+          const map = data.map && typeof data.map === "object" ? data.map : null;
+          if (map) {
+            const done = +map.finished || 0,
+              total = done + (+map.inProgress || 0) + (+map.notStarted || 0),
+              row = el("div", null, "row"),
+              grow = el("div", null, "grow");
+            grow.append(el("b", "Map"), el("span", "What the product does, feature by feature. Everything else builds on it.", "muted small"));
+            row.append(grow);
+            if (total)
+              row.append(
+                el("span", done + " of " + plural(total, "feature") + " finished (" + Math.round((100 * done) / total) + "%)", done === total ? "badge ok" : "badge pending"),
+              );
+            const left = [+map.inProgress && map.inProgress + " in progress", +map.notStarted && map.notStarted + " not started"].filter(Boolean).join(", ");
+            if (left) row.append(el("span", left, "muted small"));
+            if (total && done < total) {
+              const more = button("Copy request to continue", "btn", () =>
+                copyText("Use the project-knowledge skill and continue the map from the inventory file.", "Copied. Paste it into your agent.", more, "Copied"),
+              );
+              row.append(more);
+            }
+            card.append(row);
+          }
+          const rows = [...REVIEWS];
+          [...last.keys()].sort().forEach((key) => {
+            if (!rows.some((r) => r[0] === key)) rows.push([key, topicLabel(key), key, "", key]);
+          });
+          rows.forEach(([key, label, topic, what, phrase]) => {
+            const row = el("div", null, "row"),
+              grow = el("div", null, "grow"),
+              run = last.get(key),
+              open = nodes.filter((g) => isGap(g) && topicOf(g) === topic && !isClosed(g)).length;
+            grow.append(el("b", label));
+            if (what) grow.append(el("span", what, "muted small"));
+            row.append(grow);
+            if (run) {
+              const ticked = (bodyOf(run).match(/^\s*[-*] \[[xX]\]/gm) || []).length,
+                unticked = (bodyOf(run).match(/^\s*[-*] \[ \]/gm) || []).length,
+                unfinished = unticked > 0 || run.status === "partial",
+                when = button((unfinished ? "Started " : "Last run ") + runDay(run), "rowlink", () => openNode(run));
+              when.title = "Open the page of this run";
+              row.append(when);
+              if (ticked + unticked)
+                row.append(el("span", ticked + " of " + plural(ticked + unticked, "feature") + (unfinished ? ", not finished" : ""), "muted small"));
+              else if (unfinished) row.append(el("span", "not finished", "muted small"));
+            } else row.append(el("span", "Not run yet", "muted small"));
+            if (open)
+              row.append(
+                button(plural(open, "open gap"), "btn", () => {
+                  gapTopic = topic;
+                  gapState = "open";
+                  gapArea = gapKind = gapPriority = gapWords = "";
+                  gapShown = GAP_PORTION;
+                  go({ name: "gaps", id: "" });
+                }),
+              );
+            const ask = button(run ? "Copy request to run again" : "Copy request", "btn", () =>
+              copyText(
+                "Use the project-knowledge skill in review mode: review the product for " + phrase +
+                  ". Go by the inventory file, one feature at a time, and ask every question of the review guide of every entry point. " +
+                  "Read the code and run nothing. Write each doubt as its own gap, and tell me how many features you reviewed.",
+                "Copied. Paste it into your agent.",
+                ask,
+                "Copied",
+              ),
+            );
+            row.append(ask);
+            card.append(row);
+          });
+          section.append(
+            el("h2", "What was checked", "h2"),
+            el("p", "The map, and the reviews the agent can run on purpose, one topic per pass. A review reads the code and writes each doubt as a gap.", "muted"),
+            card,
+          );
+          return section;
         }
 
         function rail(n) {
@@ -3071,6 +3215,7 @@
           gapArea = "",
           gapKind = "",
           gapTopic = "", // "" for all, "none" for gaps without one, otherwise the value
+          gapWords = "", // every word must be in the gap's title, summary, path or text
           gapPriority = ""; // "" for all, "none" for gaps without one, otherwise the value
         const selectOf = (label, options, value, pick) => {
           const s = el("select");
@@ -3086,50 +3231,40 @@
         };
         const areaOptions = () => [["", "All areas"], ...areas.map((a) => [a.id, a.title])];
         // The queue is a work list: one row of title and filters, then the gaps.
+        const gapText = new Map();
+        const textOfGap = (g) => {
+          if (!gapText.has(g.id)) gapText.set(g.id, [g.title, str(g.summary), repoPath(g), bodyOf(g)].join("\n").toLowerCase());
+          return gapText.get(g.id);
+        };
         function viewGaps(view) {
           const box = el("div", null, "stack compact"),
             head = el("div", null, "map-head"),
-            filters = el("div", null, "filters");
-          head.append(el("h1", "Gaps"));
-          head.title = "Questions about what is missing, unverified or could be added. Each one is rechecked and then decided by a person.";
-          box.append(head);
-          const pool = nodes.filter(
-              (n) =>
-                isGap(n) &&
-                inArea(n, gapArea) &&
-                (!gapKind || n.kind === gapKind) &&
-                (!gapTopic || (topicOf(n) || "none") === gapTopic) &&
-                (!gapPriority || (priorityOf(n) || "none") === gapPriority),
-            ),
+            filters = el("div", null, "filters"),
+            // The tabs and the list are redrawn on their own, so typing in the word field does not replace it.
+            above = el("div", null, "stack compact"),
+            below = el("div", null, "stack compact"),
             again = () => {
               gapShown = GAP_PORTION;
               show();
-            },
-            history = pool.filter(isClosed).length;
-          box.append(
-            tabs(
-              "State",
-              // The queue is the open work; what is closed is one step away, under History. A state with
-              // no gaps under the current filters is left out, unless it is the one selected.
-              [
-                ["open", "Open", pool.length - history],
-                ...OPEN_STATES.map((s) => [s, stateLabels[s], pool.filter((g) => stateOf(g) === s).length]),
-                ["history", "History", history],
-              ].filter(([s, , count]) => count || s === gapState || s === "open"),
-              gapState,
-              (s) => {
-                gapState = s;
-                again();
-              },
-            ),
-          );
-          box.append(filters);
-          if (stateHints[gapState]) box.append(el("p", stateHints[gapState], "muted small"));
+            };
+          head.append(el("h1", "Gaps"));
+          head.title = "Questions about what is missing, unverified or could be added. Each one is rechecked and then decided by a person.";
           const kinds = Object.keys(kindLabels);
           nodes.forEach((n) => {
             if (isGap(n) && str(n.kind) && !kinds.includes(n.kind)) kinds.push(n.kind);
           });
+          const words = el("input");
+          words.type = "search";
+          words.placeholder = "Find in gaps";
+          words.setAttribute("aria-label", "Words");
+          words.value = gapWords;
+          words.addEventListener("input", () => {
+            gapWords = words.value;
+            gapShown = GAP_PORTION;
+            paint();
+          });
           filters.append(
+            words,
             selectOf("Area", areaOptions(), gapArea, (v) => {
               gapArea = v;
               again();
@@ -3186,31 +3321,77 @@
           );
           order.className = "push";
           filters.append(order);
-          const shown = pool
-            .filter((g) => (gapState === "open" ? !isClosed(g) : gapState === "history" ? isClosed(g) : stateOf(g) === gapState))
-            .sort(gapSort === "newest" ? byAdded : gapState === "history" ? byClosed : byGapOrder);
-          if (shown.length) {
-            // A long queue comes in portions: the most urgent are in the first one, the rest one press away.
-            const card = el("section", null, "card"),
-              more = el("div", null, "more-row");
-            card.id = "gap-list";
-            const fill = () => {
-              const upto = Math.min(gapShown, shown.length);
-              card.replaceChildren(...shown.slice(0, upto).map(gapRow));
-              more.replaceChildren();
-              if (shown.length <= GAP_PORTION) return;
-              if (upto < shown.length)
-                more.append(
-                  button("Show " + Math.min(GAP_PORTION, shown.length - upto) + " more", "btn", () => {
-                    gapShown += GAP_PORTION;
-                    fill();
+          const anyFilter = () => gapArea || gapKind || gapTopic || gapPriority || gapWords.trim();
+          const paint = () => {
+            const asked = gapWords.toLowerCase().split(/\s+/).filter(Boolean),
+              pool = nodes.filter(
+                (n) =>
+                  isGap(n) &&
+                  inArea(n, gapArea) &&
+                  (!gapKind || n.kind === gapKind) &&
+                  (!gapTopic || (topicOf(n) || "none") === gapTopic) &&
+                  (!gapPriority || (priorityOf(n) || "none") === gapPriority) &&
+                  asked.every((w) => textOfGap(n).includes(w)),
+              ),
+              history = pool.filter(isClosed).length;
+            above.replaceChildren(
+              head,
+              tabs(
+                "State",
+                // The queue is the open work; what is closed is one step away, under History. A state with
+                // no gaps under the current filters is left out, unless it is the one selected.
+                [
+                  ["open", "Open", pool.length - history],
+                  ...OPEN_STATES.map((s) => [s, stateLabels[s], pool.filter((g) => stateOf(g) === s).length]),
+                  ["history", "History", history],
+                ].filter(([s, , count]) => count || s === gapState || s === "open"),
+                gapState,
+                (s) => {
+                  gapState = s;
+                  again();
+                },
+              ),
+            );
+            below.replaceChildren();
+            if (stateHints[gapState]) below.append(el("p", stateHints[gapState], "muted small"));
+            const shown = pool
+              .filter((g) => (gapState === "open" ? !isClosed(g) : gapState === "history" ? isClosed(g) : stateOf(g) === gapState))
+              .sort(gapSort === "newest" ? byAdded : gapState === "history" ? byClosed : byGapOrder);
+            if (shown.length) {
+              // A long queue comes in portions: the most urgent are in the first one, the rest one press away.
+              const card = el("section", null, "card"),
+                more = el("div", null, "more-row");
+              card.id = "gap-list";
+              const fill = () => {
+                const upto = Math.min(gapShown, shown.length);
+                card.replaceChildren(...shown.slice(0, upto).map(gapRow));
+                more.replaceChildren();
+                if (shown.length <= GAP_PORTION) return;
+                if (upto < shown.length)
+                  more.append(
+                    button("Show " + Math.min(GAP_PORTION, shown.length - upto) + " more", "btn", () => {
+                      gapShown += GAP_PORTION;
+                      fill();
+                    }),
+                  );
+                more.append(el("span", upto + " of " + shown.length, "muted small"));
+              };
+              fill();
+              below.append(card, more);
+            } else {
+              const none = el("p", gapState === "history" && !anyFilter() ? "Nothing is closed yet." : "No gaps match. Try other filters.", "empty");
+              below.append(none);
+              if (anyFilter())
+                below.append(
+                  button("Clear the filters", "btn", () => {
+                    gapArea = gapKind = gapTopic = gapPriority = gapWords = "";
+                    again();
                   }),
                 );
-              more.append(el("span", upto + " of " + shown.length, "muted small"));
-            };
-            fill();
-            box.append(card, more);
-          } else box.append(el("p", gapState === "history" ? "Nothing is closed yet." : "No gaps match. Try other filters.", "empty"));
+            }
+          };
+          paint();
+          box.append(above, filters, below);
           view.append(box);
         }
 
@@ -3466,11 +3647,11 @@
             label: "Review one topic",
             hint: "The agent goes through this page's code with a fixed list of questions about one topic. What the code answers becomes a rule on the page; each doubt becomes a gap. No code is changed.",
             ask: "Anything it should look at (optional)",
-            choices: ["topic", [["security", "Security"], ["api", "API"], ["ui", "UI"]]],
+            choices: ["topic", REVIEWS.map((r) => [r[0], r[1]])],
             text: (c) =>
               "Use the project-knowledge skill in review mode: review what this page covers for " +
-              ({ security: "security", api: "its API", ui: "its UI" }[c.topic] || c.topic) +
-              ". Follow the skill's review guide and its questions for this topic, read the code and run nothing. Write each doubt as its own gap with that topic, and do not decide any." +
+              reviewPhrase(c.topic) +
+              ". Follow the skill's review guide and its questions for this topic, read the code and run nothing. Write each doubt as its own gap with the topic the guide names, and do not decide any." +
               (c.note ? "\n\nLook at: " + c.note : ""),
           },
           question: {

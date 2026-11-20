@@ -19,7 +19,13 @@ TYPES = {'index', 'area', 'note', 'gap', 'plan', 'run'}
 SPEC_STATUSES = {'current', 'partial', 'stale', 'superseded'}
 NAV_STATUSES = SPEC_STATUSES | {'planned'}
 KINDS = ('product-gap', 'verification-gap', 'product-plan', 'conflict', 'knowledge-gap')
-TOPICS = ('security', 'data', 'logic', 'ui', 'api', 'ops')  # what a gap is about; one value, optional
+TOPICS = ('security', 'validation', 'data', 'logic', 'ui', 'api', 'ops')  # what a gap is about; one value, optional
+REVIEWS = ('security', 'validation', 'data', 'api', 'ui', 'failures')  # the reviews the skill has a list of questions for
+REVIEW_TOPICS = {'failures': 'ops'}  # the topic a review's gaps get, where it is not the review's own word
+REVIEW_FILE = re.compile(r'(?:^|/)\d{4}-\d{2}-\d{2}-review-([a-z0-9-]+)\.md$')
+TICK = re.compile(r'^[ \t]*[-*] \[([ xX])\]', re.M)
+INVENTORY_HEAD = re.compile(r'^##[ \t]+.+:[ \t]*(finished|in progress|not started)[ \t]*$', re.M | re.I)
+CLOSED = ('done', 'rejected', 'duplicate')
 RECHECKS = ('not-checked', 'confirmed', 'not-reproduced', 'outdated')
 DECISIONS = ('open', 'accepted', 'rejected', 'deferred', 'done', 'duplicate')
 DECIDED = ('accepted', 'rejected', 'deferred')
@@ -38,7 +44,7 @@ RULE_ROW = re.compile(r'^ {0,3}\|[ \t]*(BR-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d{2,4})[ \t
 MD_REF = re.compile(r'^ {0,3}\[[^\]\n]+\]:\s*(<[^>]*>|\S+)', re.M)
 GAP_PAGE_ONLY = ('priority', 'confidence')
 ARRAYS = {'areas', 'sources', 'tags', 'aliases', 'task_ids', 'access'}
-STRINGS = {'id', 'title', 'type', 'status', 'updated', 'summary', 'verification', 'priority', 'confidence', 'gap', 'parent',
+STRINGS = {'id', 'title', 'type', 'status', 'updated', 'summary', 'verification', 'priority', 'confidence', 'gap', 'parent', 'review',
            *GAP_ONLY}
 REQUIRED = {'id', 'title', 'type', 'areas', 'sources', 'updated'}
 LINK = re.compile(r'(!?)\[\[([^\[\]\n]+)\]\]')  # no brackets inside, so a run of '[[' cannot backtrack
@@ -221,6 +227,8 @@ def validate_meta(meta):
             raise ValueError('access is only valid on note pages: it names who may use the feature the note describes')
         if not meta['access'] or any(not x.strip() for x in meta['access']):
             raise ValueError('access must name at least one role, or be left out when the code was not read for it')
+    if 'review' in meta and (kind != 'run' or not re.fullmatch(r'[a-z0-9-]+', meta['review'])):
+        raise ValueError('review is only valid on run pages and names the topic that was reviewed, in lower case: "security"')
     if 'parent' in meta and (kind != 'note' or not meta['parent'].strip()):
         raise ValueError('parent is only valid on note pages and names the feature note this one is a part of')
     if kind == 'plan':
@@ -682,7 +690,7 @@ def node_of(note):
         'kind': m.get('kind', ''), 'recheck': m.get('recheck', ''), 'recheckedBy': m.get('rechecked_by', ''),
         'recheckedOn': m.get('rechecked_on', ''), 'decision': m.get('decision', ''), 'decidedBy': m.get('decided_by', ''),
         'decidedOn': m.get('decided_on', ''), 'priority': m.get('priority', ''), 'confidence': m.get('confidence', ''),
-        'topic': m.get('topic', ''), 'access': m.get('access', []),
+        'topic': m.get('topic', ''), 'access': m.get('access', []), 'review': m.get('review', ''),
         'parent': m.get('parent', ''), 'duplicateOf': m.get('duplicate_of', ''), 'recheckOutdated': gap and (m['recheck'] == 'outdated' or recheck_marker(note)), 'state': note.get('state', ''), 'gap': m.get('gap', ''),
         'layer': LAYERS[m['type']]}
 
@@ -1006,6 +1014,120 @@ def vault_pending(repo, vault):
     return sorted(pending, key=lambda p: p['path'])
 
 
+def map_state(vault):
+    """How far the map has got, from the inventory file: its features by state. None when the vault has no such file."""
+    try:
+        text = (vault / '.knowledge' / 'inventory.md').read_text(encoding='utf-8')
+    except OSError:
+        return None
+    states = [m.group(1).lower() for m in INVENTORY_HEAD.finditer(text)]
+    return {'finished': states.count('finished'), 'inProgress': states.count('in progress'), 'notStarted': states.count('not started')}
+
+
+def review_of(note):
+    """The topic a run page is a review of: its `review` property, else its name (<date>-review-<topic>.md), else ''."""
+    if note['meta']['type'] != 'run':
+        return ''
+    named = REVIEW_FILE.search(note['path'])
+    return (note['meta'].get('review', '').strip() or (named.group(1) if named else '')).lower()
+
+
+def open_gaps(notes):
+    return [n for n in notes if n['meta']['type'] == 'gap' and n['state'] not in CLOSED]
+
+
+def reviews_state(notes):
+    """One entry per review the skill knows and per review a run page names: its latest run and the open gaps of its topic."""
+    last = {}
+    for note in notes:
+        key = review_of(note)
+        if key and (key not in last or note['meta']['updated'] > last[key]['meta']['updated']):
+            last[key] = note
+    out = []
+    for key in [*REVIEWS, *sorted(set(last) - set(REVIEWS))]:
+        topic, run = REVIEW_TOPICS.get(key, key), last.get(key)
+        ticks = TICK.findall(run['body']) if run else []
+        done = sum(1 for t in ticks if t != ' ')
+        out.append({'review': key, 'topic': topic, 'run': run['path'] if run else '', 'on': run['meta']['updated'] if run else '',
+                    'done': done, 'of': len(ticks),
+                    'finished': bool(run) and done == len(ticks) and run['meta']['status'] != 'partial',
+                    'openGaps': sum(1 for g in open_gaps(notes) if g['meta'].get('topic') == topic)})
+    return out
+
+
+def priority_rank(meta):
+    value = meta.get('priority', '').strip().lower()
+    digit = re.fullmatch(r'p?([0-4])', value)
+    if not value:
+        return 6
+    return int(digit.group(1)) if digit else {'critical': 0, 'urgent': 0, 'highest': 0, 'high': 1, 'medium': 2, 'normal': 2, 'low': 3, 'lowest': 4}.get(value, 5)
+
+
+def summary_lines(repo, vault, notes, warnings):
+    """The state of a vault in a few lines, for an agent asked "what is the status of the spec"."""
+    def count(kind):
+        return sum(1 for n in notes if n['meta']['type'] == kind)
+
+    gaps = [n for n in notes if n['meta']['type'] == 'gap']
+    prefix = Path(os.path.relpath(vault, repo)).as_posix() + '/'
+    lines = [f"spec: {prefix[:-1]}; {count('area')} areas, {count('note')} feature and reference pages, {len(gaps)} gaps"]
+    state = map_state(vault)
+    if state is None:
+        lines.append('map: no inventory file, so how much of the product is mapped is not recorded')
+    else:
+        total = sum(state.values())
+        done = f" ({round(100 * state['finished'] / total)}%)" if total else ''
+        lines.append(f"map: {state['finished']} of {total} features finished{done}, {state['inProgress']} in progress, {state['notStarted']} not started")
+    partial = sum(1 for n in notes if n['meta']['type'] in ('note', 'area') and n['meta']['status'] == 'partial')
+    stale = sum(1 for n in notes if n['meta']['type'] in ('note', 'area') and n['stale'])
+    lines.append(f'pages: {partial} partial, {stale} with code changed since the last check')
+    by_state = {s: sum(1 for g in gaps if g['state'] == s) for s in STATE_ORDER}
+    closed = sum(by_state[s] for s in CLOSED)
+    lines.append(f"gaps: {len(gaps) - closed} open (needs recheck {by_state['needs-recheck']}, needs decision {by_state['needs-decision']}, "
+                 f"accepted {by_state['accepted']}, deferred {by_state['deferred']}), {closed} closed")
+    topics = []
+    for topic in [*TOPICS, '']:
+        mine = [g for g in open_gaps(notes) if g['meta'].get('topic', '') == topic]
+        if mine:
+            high = sum(1 for g in mine if priority_rank(g['meta']) <= 1)
+            topics.append(f"{topic or 'no topic'} {len(mine)}" + (f' ({high} high)' if high else ''))
+    if topics:
+        lines.append('open gaps by topic: ' + ', '.join(topics))
+    lines.append('reviews:')
+    for r in reviews_state(notes):
+        if not r['run']:
+            text = 'not run'
+        else:
+            text = ('last run ' if r['finished'] else 'started ') + r['on']
+            if r['of']:
+                text += f", {r['done']} of {r['of']} feature{'' if r['of'] == 1 else 's'}" + ('' if r['finished'] else ', not finished')
+            text += f"; {prefix}{r['run']}"
+        lines.append(f"  {r['review']:<11}{text}; {r['openGaps']} open gap{'' if r['openGaps'] == 1 else 's'} with topic {r['topic']}")
+    return lines
+
+
+def gap_lines(notes, state='open', topic='', priority='', area='', prefix=''):
+    """The gaps a filter leaves, the most urgent first: state, priority, topic, file, title."""
+    wanted = []
+    for g in (n for n in notes if n['meta']['type'] == 'gap'):
+        m = g['meta']
+        if state == 'open' and g['state'] in CLOSED or state == 'closed' and g['state'] not in CLOSED:
+            continue
+        if state not in ('open', 'closed', 'all') and g['state'] != state:
+            continue
+        if topic and (m.get('topic', '') or 'none') != topic:
+            continue
+        if priority and (m.get('priority', '').strip().lower() or 'none') != priority.lower():
+            continue
+        if area and area not in m['areas']:
+            continue
+        wanted.append(g)
+    wanted.sort(key=lambda g: (STATE_ORDER.index(g['state']), priority_rank(g['meta']), g['meta']['title']))
+    lines = [f"{g['state']:<15}{g['meta'].get('priority', '') or '-':<8}{g['meta'].get('topic', '') or '-':<11}{prefix}{g['path']}  {g['meta']['title']}"
+             for g in wanted]
+    return lines + [f'gaps: {len(wanted)} listed']
+
+
 def page_payload(repo, vault, notes, edges, warnings, sources=True):
     files = cited_files(repo, vault, notes)[0] if sources else {}
     graph, first = graph_of(notes, edges, warnings), added_dates(repo, vault)
@@ -1013,7 +1135,7 @@ def page_payload(repo, vault, notes, edges, warnings, sources=True):
         # When a gap appeared: the day its page says, else the day the page was first committed, else unknown (a new page).
         node['added'] = note['meta'].get('created', '') or first.get(note['path'], '') if note['meta']['type'] == 'gap' else ''
     return graph | {
-        'vaultPath': Path(os.path.relpath(vault, repo)).as_posix(), 'files': files,
+        'vaultPath': Path(os.path.relpath(vault, repo)).as_posix(), 'files': files, 'map': map_state(vault),
         'history': vault_history(repo, vault), 'pending': vault_pending(repo, vault)}
 
 
@@ -1084,7 +1206,7 @@ def make_server(repo, vault, port):
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['check', 'snapshot', 'serve', 'build', 'move'])
+    parser.add_argument('command', choices=['check', 'snapshot', 'serve', 'build', 'move', 'summary', 'gaps'])
     parser.add_argument('--repo', required=True, type=Path)
     parser.add_argument('--vault', type=Path, help='default: the single vault in the repository, a folder with 00-index.md')
     parser.add_argument('--strict', action='store_true', help='fail check when freshness warnings exist')
@@ -1092,6 +1214,10 @@ def main(argv=None):
     parser.add_argument('--open', action='store_true', help='serve: open the page in the default browser')
     parser.add_argument('--out', type=Path, help='build: the HTML file to write, outside the vault')
     parser.add_argument('--to', type=Path, metavar='DIR', help='move: the folder of the repository the vault moves to')
+    parser.add_argument('--state', default='open', help='gaps: open (default), closed, all, or one state such as needs-decision')
+    parser.add_argument('--topic', default='', help='gaps: one topic, or "none" for gaps without one')
+    parser.add_argument('--priority', default='', help='gaps: one priority, or "none" for gaps without one')
+    parser.add_argument('--area', default='', help='gaps: the id of one area')
     parser.add_argument('--viewer', type=Path, metavar='FILE',
                         help='serve, build: a page of your own instead of the viewer; it gets the data where it says __KNOWLEDGE_DATA__')
     parser.add_argument('--with-sources', action='store_true', help='build: include the text of the repository files the pages cite')
@@ -1124,6 +1250,10 @@ def main(argv=None):
     vault = args.vault.resolve() if args.vault else find_vault(repo)
     if not vault.is_dir():
         parser.error('repo and vault must be existing directories')
+    if args.command != 'gaps' and (args.state != 'open' or args.topic or args.priority or args.area):
+        parser.error('--state, --topic, --priority and --area are only for gaps')
+    if args.state not in ('open', 'closed', 'all', *STATE_ORDER):
+        parser.error('--state must be open, closed, all or one of ' + ', '.join(STATE_ORDER))
     if args.viewer and args.command not in ('serve', 'build'):
         parser.error('--viewer is only for serve and build')
     if (args.command == 'move') != bool(args.to):
@@ -1186,6 +1316,16 @@ def main(argv=None):
         missing = wanted - by_id.keys()
         if missing:
             errors.append('Unknown note IDs: ' + ', '.join(sorted(missing)))
+    if args.command in ('summary', 'gaps'):
+        # A report, not a check: it still answers when some pages are broken, and says that they are left out.
+        lines = (summary_lines(repo, vault, notes, warnings) if args.command == 'summary'
+                 else gap_lines(notes, args.state, args.topic, args.priority, args.area,
+                                Path(os.path.relpath(vault, repo)).as_posix() + '/'))
+        if errors:
+            pages = len({error_page(m) for m in errors if error_page(m)})
+            lines.append(f'check: {len(errors)} errors on {pages} pages, which are left out above; run check to see them')
+        print('\n'.join(lines))
+        return 0
     for message in errors:
         print('ERROR:', message, file=sys.stderr)
     for message in warnings:
